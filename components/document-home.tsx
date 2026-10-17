@@ -4,7 +4,7 @@ import { SearchTrigger } from '@/components/document-search';
 import { EditorLink } from '@/components/editor-link';
 import { StarCompanion } from '@/components/star-companion';
 
-/** 首页与原导览入口共用同一份文章，首页规模不随模块数量增长。 */
+/** 阅读入口与原导览地址共用同一份文章，独立项目首页保留原有版式。 */
 export function DocumentHome({
   title,
   description,

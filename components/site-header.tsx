@@ -36,7 +36,7 @@ export function SiteHeader() {
         </span>
       </Link>
       <nav className="main-nav" aria-label="主导航">
-        <Link href="/" className={path === '/' || path.startsWith('/read') ? 'active' : ''}>
+        <Link href="/read/start-here" className={path.startsWith('/read') ? 'active' : ''}>
           阅读文档
         </Link>
         <Link href="/graph" className={path.startsWith('/graph') ? 'active' : ''}>

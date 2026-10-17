@@ -52,7 +52,7 @@ export function ReadingNavigation({
     return {
       key: module.key,
       count: pages.length,
-      url: first.slug === 'start-here' ? '/' : first.url,
+      url: first.url,
     };
   });
   const navigation = (
@@ -68,13 +68,9 @@ export function ReadingNavigation({
   );
   return (
     <aside className="reading-sidebar" key={current.slug}>
-      <Link
-        href="/"
-        className="sidebar-home"
-        aria-current={current.slug === 'start-here' ? 'page' : undefined}
-      >
+      <Link href="/" className="sidebar-home">
         <House size={14} />
-        文档首页
+        回到首页
       </Link>
       <span className="sidebar-label">模块与功能</span>
       <div className="desktop-doc-menu">

@@ -61,7 +61,7 @@ export default async function ArticlePage({ params }: Props) {
       <ReadingNavigation modules={modules} current={current} />
       <article className="reading-article">
         <nav className="article-breadcrumb" aria-label="阅读位置">
-          <Link href="/">手册</Link>
+          <Link href="/read/start-here">手册</Link>
           <span>/</span>
           {module.overview && module.overview.slug !== slug ? (
             <Link href={module.overview.url}>{module.label}</Link>

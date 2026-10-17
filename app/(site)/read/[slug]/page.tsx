@@ -3,7 +3,16 @@ import { notFound } from 'next/navigation';
 import { ArrowLeft, ArrowRight, ArrowUpRight, Network, Pencil, Link2 } from 'lucide-react';
 import { source } from '@/lib/source';
 import { getCatalog } from '@/lib/catalog';
-import { articleSections, categories, getArticleSection } from '@/lib/types';
+import { categories } from '@/lib/types';
+import {
+  buildModuleNavigation,
+  getArticleLabel,
+  getArticleModule,
+  getReadingNeighbors,
+  getSectionAnchor,
+} from '@/lib/navigation';
+import { ReadingNavigation } from '@/components/reading-navigation';
+import { ModuleContents, ModuleDirectory } from '@/components/module-contents';
 import { getMDXComponents } from '@/components/mdx';
 import { isStaticExport } from '@/lib/site-config';
 
@@ -29,60 +38,48 @@ export default async function ArticlePage({ params }: Props) {
   const current = articles.find((article) => article.slug === slug);
   if (!current) notFound();
   const MDX = page.data.body;
-  const section = articleSections[getArticleSection(slug)];
-  const navigationGroups = Object.entries(articleSections)
-    .map(([key, group]) => ({
-      ...group,
-      key,
-      articles: articles.filter((article) => getArticleSection(article.slug) === key),
-    }))
-    .filter((group) => group.articles.length > 0);
+  const modules = buildModuleNavigation(articles);
+  const module = modules.find((group) => group.key === getArticleModule(slug))!;
+  const isModuleOverview =
+    module.overview?.slug === slug && !['manual', 'authoring'].includes(module.key);
+  const isDirectory = slug === 'start-here';
   const outgoing = articles.filter((article) => current.links.includes(article.slug));
   const incoming = articles.filter(
     (article) => article.slug !== slug && article.links.includes(slug),
   );
-  const currentIndex = articles.findIndex((article) => article.slug === slug);
-  const previous = articles[currentIndex - 1];
-  const next = articles[currentIndex + 1];
+  const { previous, next } = getReadingNeighbors(module, slug);
   return (
     <main id="main" className="reading-layout">
-      <aside className="reading-sidebar">
-        <Link href="/" className="sidebar-home">
-          <ArrowLeft size={14} />
-          回到首页
-        </Link>
-        <span className="sidebar-label">STARRY PROJECT</span>
-        {navigationGroups.map((group) => (
-          <div className="sidebar-group" key={group.key}>
-            <h2>
-              <i style={{ background: group.color }} />
-              {group.label}
-            </h2>
-            {group.articles.map((article) => (
-              <Link
-                key={article.slug}
-                href={article.url}
-                className={slug === article.slug ? 'selected' : ''}
-              >
-                {article.title.replace(/^(AstraAI|HaloDebug|Input) · /, '')}
-                {slug === article.slug && <span>↗</span>}
-              </Link>
-            ))}
-          </div>
-        ))}
-        <Link href="/graph" className="sidebar-graph">
-          <Network size={16} />
-          <span>在图谱里探索</span>
-          <ArrowUpRight size={14} />
-        </Link>
-      </aside>
+      <ReadingNavigation modules={modules} current={current} />
       <article className="reading-article">
-        <div className="article-breadcrumb">
-          手册 <span>/</span> {section.label} <span>/</span> <strong>{current.title}</strong>
-        </div>
+        <nav className="article-breadcrumb" aria-label="阅读位置">
+          <Link href="/read/start-here">手册</Link>
+          <span>/</span>
+          {module.overview && module.overview.slug !== slug ? (
+            <Link href={module.overview.url}>{module.label}</Link>
+          ) : (
+            <span className="breadcrumb-label">{module.label}</span>
+          )}
+          {(current.section ?? []).map((label, index, path) => (
+            <span className="breadcrumb-level" key={index}>
+              <span>/</span>
+              {module.overview ? (
+                <Link
+                  href={`${module.overview.url}#${encodeURIComponent(getSectionAnchor(path.slice(0, index + 1)))}`}
+                >
+                  {label}
+                </Link>
+              ) : (
+                label
+              )}
+            </span>
+          ))}
+          <span>/</span>
+          <strong aria-current="page">{getArticleLabel(current)}</strong>
+        </nav>
         <div className="article-eyebrow">
           <span className="eyebrow">{categories[current.category].english}</span>
-          <span className="pill">{section.label}</span>
+          <span className="pill">{module.label}</span>
         </div>
         <h1>{page.data.title}</h1>
         <p className="article-description">{page.data.description}</p>
@@ -95,6 +92,12 @@ export default async function ArticlePage({ params }: Props) {
             </a>
           )}
         </div>
+        {isDirectory && (
+          <ModuleDirectory
+            modules={modules.filter((group) => !['manual', 'authoring'].includes(group.key))}
+          />
+        )}
+        {isModuleOverview && <ModuleContents module={module} />}
         <div className="prose article-prose">
           <MDX components={getMDXComponents()} />
         </div>
@@ -124,6 +127,8 @@ export default async function ArticlePage({ params }: Props) {
       <aside className="reading-context">
         <div className="toc-block">
           <h2>本页内容</h2>
+          {isDirectory && <a href="#module-directory">按模块查阅</a>}
+          {isModuleOverview && <a href="#module-contents">子模块与功能</a>}
           {page.data.toc.map((item) => (
             <a
               key={item.url}

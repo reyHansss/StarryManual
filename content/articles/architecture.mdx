@@ -1,6 +1,6 @@
 ---
-title: Starry 技术架构
-description: 从基础框架、具体玩法、通用插件和资源组织理解 Starry，按职责定位项目中的系统。
+title: 工程分层与系统协作
+description: 了解 Framework、Gameplay 与通用插件的依赖方向，以及配置装配和运行状态的边界。
 category: architecture
 order: 2
 ---
@@ -8,6 +8,8 @@ order: 2
 ## 工程怎样分工
 
 Starry 以 Unreal Engine 5.8 为基础。运行时代码主要位于 `StarryGame` 模块，内部按 `Framework` 与 `Gameplay` 区分可复用基础能力和具体玩法；`StarryEditor` 承担项目编辑器扩展，插件保留各自的模块边界。
+
+这层划分帮助理解系统之间怎样接入。进入具体功能时，从 [AstraAI](/read/astraai-overview)、[HaloDebug](/read/halodebug-overview)或 [Input](/read/input-overview)的功能目录继续查阅其架构与用法。
 
 <Diagram
   title="具体玩法使用基础框架，通用能力保持独立"
@@ -18,21 +20,11 @@ Starry 以 Unreal Engine 5.8 为基础。运行时代码主要位于 `StarryGame
 
 `Framework` 提供角色、能力、输入、AI 接入、界面等基础能力，`Gameplay` 继承或组合这些能力实现项目玩法。基础框架不反向包含具体玩法的头文件。玩法型 GameFeature 可以使用项目框架，按自身功能归属组织，不与图中的通用插件混为一层。
 
-## 按职责定位系统
+## 模块与接入方各自负责什么
 
-下表中的 `Framework/` 与 `Gameplay/` 路径相对于 `Source/StarryGame`。这些是工程中的领域划分，详细使用章节会随整理进度补充。
+通用插件维护可复用的领域能力，项目接入代码把这些能力与角色、Controller 和具体玩法连接起来。例如 AstraAI 提供行为组合与选择，项目 AI 接入负责加载角色配置、初始化决策和感知、在退出时释放本次资源。
 
-| 领域          | 主要职责                                  | 代码位置                                                                                         |
-| ------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| 玩法装配      | 游戏规则入口、Experience 配置与功能激活   | `Framework/GameModes`、`Framework/Experience`、`Framework/GameFeatures`                          |
-| 角色与表现    | 玩家、AI 与其他角色，移动接入、动画和相机 | `Framework/Character`、`Framework/Animation`、`Framework/Camera`                                 |
-| 能力与战斗    | GAS 能力、战斗规则与项目战斗实现          | `Framework/AbilitySystem`、`Framework/Combat`、`Gameplay/Combat`                                 |
-| 物品与交互    | 背包、装备、交互与阵营领域                | `Framework/Inventory`、`Framework/Equipment`、`Framework/Interaction`、`Framework/Factions`      |
-| AI 与世界玩法 | AI 框架接入、生态运行与任务生命周期       | `Framework/AI`、`Gameplay/AI`、`Gameplay/Ecology`、`Gameplay/Missions`                           |
-| 玩家体验      | 输入、玩家状态、界面、设置与前端          | `Framework/Input`、`Framework/Player`、`Framework/UI`、`Framework/Settings`、`Gameplay/Frontend` |
-| 开发支持      | 调试入口、运行面板与编辑器扩展            | `Framework/Development`、`Source/StarryEditor`、`Plugins/Toolkit/HaloDebug`                      |
-
-通用插件按自身职责维护。例如 AstraAI 提供行为组合与选择能力，项目 AI 目录负责角色、感知、具体玩法及调试接入。HaloDebug 提供绘制与工具基础，项目窗口负责解释各领域的实际状态。
+HaloDebug 提供窗口与绘制基础，项目调试窗口读取各领域的真实状态；Input 的 Manager 负责输入配置与分派，Handler 调用实际的移动、技能或界面能力。这些功能各自在所属模块的文档中展开，依赖方向保持由使用方指向能力提供方。
 
 ## 配置、资源与运行状态
 
@@ -48,6 +40,6 @@ Experience 与 GameFeature 负责装配功能；角色、Controller、组件和�
 
 网络玩法遵循当前世界的 Authority，服务器能力不依赖 LocalPlayer、界面或本地玩家存档存在。本地输入与表现、权威规则和持久保存分别由相应系统负责。
 
-## 从当前章节深入
+## 继续阅读具体功能
 
-第一批详细章节从 [AstraAI 接入](/read/astraai-overview)、[Input 配置](/read/input-overview)和 [HaloDebug 使用](/read/halodebug-overview)展开。扩展具体动作可继续阅读 [Logic 生命周期](/read/astraai-logic)与 [Handler 分派](/read/input-handlers)。其余系统在上述项目结构中定位，后续按实际功能逐步补充文档。
+输入绑定的共享与释放见 Input 的[配置与绑定](/read/input-binding)，AI 动作的执行资源见 AstraAI 的[Logic 生命周期](/read/astraai-logic)，调试窗口怎样接入领域数据见 HaloDebug 的[窗口扩展与属性绘制](/read/halodebug-extension)。完整入口见[手册导览](/read/start-here)。

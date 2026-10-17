@@ -17,6 +17,7 @@ export async function getCatalog(): Promise<Article[]> {
         title: String(data.title),
         description: String(data.description ?? ''),
         category: data.category ?? 'guide',
+        section: data.section ?? [],
         order: Number(data.order ?? 10),
         url: `/read/${slug}`,
         links: [

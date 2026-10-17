@@ -29,7 +29,7 @@ export default async function HomePage() {
         <span>
           <i className="status-dot" /> STARRY / 项目文档
         </span>
-        <span>ARCHITECTURE · SYSTEMS · TOOLS</span>
+        <span>MODULES · FEATURES · GUIDES</span>
       </div>
       <section className="hero">
         <div className="hero-copy">
@@ -42,20 +42,20 @@ export default async function HomePage() {
             <span>项目文档</span>
           </h1>
           <p>
-            Starry 的技术架构、玩法系统与开发工具。
+            按模块与具体功能查阅 Starry。
             <br className="desktop-break" />
-            查阅功能配置、使用说明和扩展方法。
+            了解功能用法、技术架构与扩展方法。
           </p>
           <div className="hero-actions">
             <Link className="button primary" href="/read/start-here">
               开始阅读 <ArrowRight size={16} />
             </Link>
-            <Link href="/read/architecture" className="button quiet">
-              项目架构 <ArrowUpRight size={16} />
+            <Link href="/read/start-here#module-directory" className="button quiet">
+              按模块查阅 <ArrowUpRight size={16} />
             </Link>
           </div>
           <div className="hero-footnote">
-            <span>✦ 项目总览与功能使用</span>
+            <span>✦ 模块与功能说明</span>
             <i />
             随项目开发持续维护
           </div>
@@ -82,7 +82,7 @@ export default async function HomePage() {
       <section className="entry-section">
         <div className="section-heading">
           <h2>
-            近期整理的章节<span> / CHAPTERS</span>
+            已整理的模块<span> / MODULES</span>
           </h2>
           <span>按项目系统持续补充</span>
         </div>
@@ -134,13 +134,13 @@ export default async function HomePage() {
       <section className="reading-path">
         <div>
           <span className="eyebrow">PROJECT DOCUMENTATION</span>
-          <h2>按需要查阅项目文档</h2>
+          <h2>从模块进入具体功能</h2>
         </div>
         <div className="path-steps">
           {[
-            ['/read/start-here', '项目总览'],
-            ['/read/architecture', '技术架构'],
-            ['/graph', '知识图谱'],
+            ['/read/start-here#module-directory', '选择模块'],
+            ['/graph', '探索关联'],
+            ['/read/writing', '维护内容'],
           ].map(([href, label], index) => (
             <Link href={href} key={href}>
               <span>0{index + 1}</span>

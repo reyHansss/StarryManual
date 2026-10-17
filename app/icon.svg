@@ -1,1 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="20" fill="#eae5f4"/><path d="m32 11 5.5 15.5L53 32l-15.5 5.5L32 53l-5.5-15.5L11 32l15.5-5.5L32 11Z" fill="#7c7198" stroke="#7c7198" stroke-width="3" stroke-linejoin="round"/><circle cx="49" cy="15" r="3" fill="#956b88"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="brand-star" x1="8" y1="4" x2="58" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#79b8d2"/>
+      <stop offset="0.25" stop-color="#79b8d2"/>
+      <stop offset="0.6" stop-color="#ef9b9d"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="18" fill="#fff8f8"/>
+  <path d="M31 4l7 20 22 8-22 7-7 21-7-21L3 32l21-8L31 4Z" fill="url(#brand-star)"/>
+  <circle cx="52" cy="10" r="4" fill="url(#brand-star)"/>
+</svg>

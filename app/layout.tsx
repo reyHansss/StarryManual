@@ -6,7 +6,7 @@ import './motion.css';
 export const metadata: Metadata = {
   title: { default: 'Starry手册 · Starry 项目文档', template: '%s · Starry手册' },
   description:
-    '基于 Unreal Engine 5.8 的 Starry 游戏项目文档，记录技术架构、玩法系统与开发工具，提供功能配置、使用说明和扩展方法。',
+    '基于 Unreal Engine 5.8 的 Starry 游戏项目文档，按模块、子模块与具体功能组织使用说明、技术架构和扩展方法。',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

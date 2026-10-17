@@ -24,7 +24,7 @@ export default config({
         }),
         description: fields.text({ label: '简介', multiline: true }),
         category: fields.select({
-          label: '主题',
+          label: '文章类型',
           options: [
             { label: '使用指南', value: 'guide' },
             { label: '技术架构', value: 'architecture' },
@@ -32,6 +32,15 @@ export default config({
           ],
           defaultValue: 'guide',
         }),
+        section: fields.array(
+          fields.text({ label: '子模块或功能分区', validation: { isRequired: true } }),
+          {
+            label: '所属层级',
+            description:
+              '按从外到内的顺序填写，例如「行为执行」→「树后端」。模块总览留空；目录自动生成。',
+            itemLabel: (props) => props.value || '子模块或功能分区',
+          },
+        ),
         order: fields.integer({ label: '阅读顺序', defaultValue: 10 }),
         content: fields.mdx({
           label: '正文',

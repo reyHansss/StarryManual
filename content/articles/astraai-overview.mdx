@@ -1,15 +1,17 @@
 ---
-title: AstraAI · 上手与接入
-description: 从一份 Modifier Stack 开始，让 Starry 的 AI 控制器完成组合决策初始化。
+title: AstraAI · 模块总览与接入
+description: 从行为系统、执行系统与机会调度了解 AstraAI，再为角色配置第一套组合决策。
 category: guide
 order: 10
 ---
 
-## 先知道要配置什么
+## 模块职责与子模块协作
 
 AstraAI 把“现在知道什么”“可以做什么”“这次怎样执行”拆开。Objective 保存当前机会，Modifier Stack 组合可选行为，Behavior 给机会评分，Logic 执行被选中的动作。主决策组件是 Controller 上的 `UAstraAIComponent`。
 
 Starry 已通过 `AStarryAIController` 接入插件。日常配置从角色的 `AISetup` 出发，不需要再给同一个角色手动挂第二套选择器。
+
+行为系统负责配置组合、候选筛选与评分，行为执行负责一次动作的启动、结束和取消；机会与调度连接领域事实、外部命令和行为区域。上方功能目录按这些职责组织，具体功能页同时说明配置方法与运行机制。BT、StateTree 和 HTN 是 Logic 可使用的局部树后端，归在行为执行之下。
 
 <Diagram
   title="从角色配置到一次行为执行"

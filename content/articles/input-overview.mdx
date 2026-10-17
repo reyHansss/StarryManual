@@ -1,11 +1,13 @@
 ---
-title: Input · 配置与角色接入
-description: 用 Input Action、IMC、Setup 与 Handler 接入玩家输入，明确 Controller 和 Pawn 的职责。
+title: Input · 模块总览与接入
+description: 从配置绑定、动作处理、通道缓存与玩家改键了解 Input，再接入角色的输入配置。
 category: guide
 order: 40
 ---
 
 ## 输入经过哪几层
+
+Input 连接设备输入与项目能力。配置与绑定管理 Setup 的应用和释放，动作处理选择事件并调用移动、GAS 或 UI；输入缓存处理延迟执行窗口，玩家改键接入 GameSettings 与 Enhanced Input 的设置数据。各部分的使用步骤、机制和约束放在自己的功能页中。
 
 Input Action 定义输入值与触发规则，IMC 把设备按键映射到 Action，Setup 把 IMC 与 Handler 组织为一份配置。PlayerController 上的 `UStarryInputManagerComponent` 绑定动作事件，再分派到共享 Handler。
 

@@ -33,7 +33,8 @@ import type { Article } from '@/lib/types';
 import { articleModules, buildModuleNavigation } from '@/lib/navigation';
 import { GRAPH_MIN_ZOOM, GRAPH_MAX_ZOOM, getGraphNodeMetrics } from '@/lib/graph-appearance';
 import { useGraphMotion } from './use-graph-motion';
-import { GraphModulePicker, GraphSectionPicker } from './graph-scope-picker';
+import { GraphSectionPicker } from './graph-scope-picker';
+import { ModulePicker } from './module-picker';
 import {
   getGraphPositions,
   getGraphRelations,
@@ -205,7 +206,7 @@ function GraphCanvas({
   const [initialNodes] = useState(() => {
     const positions = getGraphPositions(articles, relations, layout, center);
     return articles.map((article, index): ArticleNode => {
-      // 首页保留紧凑卡片预览；完整图使用关系布局与可拖动的圆点节点。
+      // 紧凑视图使用卡片预览；完整图使用关系布局与可拖动的圆点节点。
       const angle = (index / Math.max(articles.length - 1, 1)) * Math.PI * 2 - Math.PI / 2;
       const previewPosition =
         index === 0
@@ -432,7 +433,8 @@ function GraphExplorer({
           </div>
           <div className="graph-toolbar">
             <div className="graph-scope-controls">
-              <GraphModulePicker
+              <ModulePicker
+                includeAll
                 modules={modules}
                 current={view.module}
                 onChange={(module) =>

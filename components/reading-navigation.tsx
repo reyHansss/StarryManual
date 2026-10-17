@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { ArrowLeft, ArrowUpRight, ChevronRight, ListTree, Network } from 'lucide-react';
+import { House, ArrowUpRight, ChevronRight, ListTree, Network } from 'lucide-react';
+import { ReadingModulePicker } from '@/components/module-picker';
 import {
   flattenNavigation,
   getArticleLabel,
@@ -44,35 +45,50 @@ export function ReadingNavigation({
   current: Article;
 }) {
   const active = current.module;
+  const module = modules.find((module) => module.key === active)!;
+  const choices = modules.map((module) => {
+    const pages = flattenNavigation(module.entries);
+    const first = module.overview ?? pages[0];
+    return {
+      key: module.key,
+      count: pages.length,
+      url: first.slug === 'start-here' ? '/' : first.url,
+    };
+  });
   const navigation = (
     <nav aria-label="模块与功能目录">
-      {modules.map((module) => (
-        <details className="sidebar-module" key={module.key} open={module.key === active}>
-          <summary>
-            <i style={{ background: module.color }} />
-            <span>{module.label}</span>
-            <ChevronRight size={14} aria-hidden="true" />
-          </summary>
-          <Entries entries={module.entries} current={current.slug} />
-        </details>
-      ))}
+      <span className="sidebar-module-title">{module.label}</span>
+      <Entries
+        entries={module.entries.filter(
+          (entry) => entry.kind !== 'article' || entry.article.slug !== 'start-here',
+        )}
+        current={current.slug}
+      />
     </nav>
   );
   return (
     <aside className="reading-sidebar" key={current.slug}>
-      <Link href="/" className="sidebar-home">
-        <ArrowLeft size={14} />
-        回到首页
+      <Link
+        href="/"
+        className="sidebar-home"
+        aria-current={current.slug === 'start-here' ? 'page' : undefined}
+      >
+        <House size={14} />
+        文档首页
       </Link>
       <span className="sidebar-label">模块与功能</span>
-      <div className="desktop-doc-menu">{navigation}</div>
+      <div className="desktop-doc-menu">
+        <ReadingModulePicker modules={choices} current={active} />
+        {navigation}
+      </div>
       <details className="mobile-doc-menu">
         <summary>
           <ListTree size={17} aria-hidden="true" />
           <span>文档目录</span>
-          <small>{modules.find((module) => module.key === active)?.label}</small>
+          <small>{module.label}</small>
           <ChevronRight size={15} aria-hidden="true" />
         </summary>
+        <ReadingModulePicker modules={choices} current={active} />
         {navigation}
       </details>
       <Link href="/graph" className="sidebar-graph">

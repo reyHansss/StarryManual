@@ -12,6 +12,8 @@ order: 99
 
 同一篇文章也可以直接在 `content/articles/` 编辑 MDX。网页编辑器与文件编辑没有两份内容，不自动 Git 提交或推送。
 
+文档首页与原导览入口共用 `content/articles/start-here.mdx`，修改这篇文章的标题、简介和正文即可更新首页。首页不维护模块清单；侧栏的模块选择菜单和当前模块功能树从共享登记与文章层级自动生成。
+
 GitHub Pages 提供静态阅读、搜索、图谱与蓝图工具；可视化编辑器在本地运行。也可以用 GitHub 文件编辑器修改 MDX，再由构建流程发布。带登录的在线可视化编辑仍需另行配置。
 
 ## 先写读者要完成的任务
@@ -64,4 +66,4 @@ GitHub Pages 提供静态阅读、搜索、图谱与蓝图工具；可视化编�
 
 发布构建使用 `pnpm build:pages --base-path /StarryManual`，再执行 `pnpm check:pages` 检查静态产物。是否推送发布按当前工作指令执行，本地保存与构建不会自动发布。
 
-阅读范围见[从这里开始](/read/start-here)。
+返回[文档首页](/read/start-here)。

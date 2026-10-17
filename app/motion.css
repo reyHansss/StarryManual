@@ -72,49 +72,13 @@
     transform var(--motion-state) var(--ease-out);
 }
 
-.entry-card {
-  transition:
-    transform var(--motion-state) var(--ease-out),
-    opacity var(--motion-enter) var(--ease-out),
-    border-color var(--motion-state) ease;
-}
-
-.entry-card :is(.card-link > svg, .entry-card-top > svg:last-child),
-.path-steps a > svg,
-.button > svg,
-.entry-icon,
-.entry-card:after {
+.button > svg {
   transition: transform var(--motion-state) var(--ease-out);
-}
-
-.entry-card:active:not(:focus-visible) {
-  transform: scale(0.99);
 }
 
 @media (hover: hover) and (pointer: fine) {
   .button:hover:not(:disabled):not(:active):not(:focus-visible) {
     transform: translateY(-1px);
-  }
-
-  .entry-card:hover:not(:active):not(:focus-visible) {
-    transform: translateY(-3px);
-  }
-
-  .entry-card:hover:not(:focus-visible) .card-link > svg,
-  .path-steps a:hover:not(:focus-visible) > svg {
-    transform: translateX(3px);
-  }
-
-  .entry-card:hover:not(:focus-visible) .entry-card-top > svg:last-child {
-    transform: translate(2px, -2px);
-  }
-
-  .entry-card:hover:not(:focus-visible) .entry-icon {
-    transform: translateY(-2px) rotate(4deg);
-  }
-
-  .entry-card:hover:not(:focus-visible):after {
-    transform: rotate(18deg) scale(1.12);
   }
 
   .button:hover:not(:focus-visible) > svg {
@@ -190,10 +154,6 @@
   transition: none;
 }
 
-.site-shell:has(:focus-visible) :is(.hero-copy > *, .hero-visual, .entry-card) {
-  transition: none;
-}
-
 /* 首页是偶尔访问的导览页；短间隔进场只用于这里，不延迟正文显示或交互。 */
 @media (prefers-reduced-motion: no-preference) {
   /* 欢迎场景最多播放十二秒；可见性由向导组件控制，正文不参与装饰动画。 */
@@ -240,53 +200,6 @@
     .star-companion
     :is(.companion-orbit, .companion-eyes, .companion-spark) {
     animation-play-state: paused;
-  }
-
-  .hero-copy > *,
-  .hero-visual {
-    transition:
-      opacity var(--motion-enter) var(--ease-out),
-      transform var(--motion-enter) var(--ease-out);
-  }
-
-  .hero-copy > :nth-child(2) {
-    transition-delay: 40ms;
-  }
-
-  .hero-copy > :nth-child(3) {
-    transition-delay: 80ms;
-  }
-
-  .hero-copy > :nth-child(4) {
-    transition-delay: 120ms;
-  }
-
-  .hero-copy > :nth-child(5) {
-    transition-delay: 160ms;
-  }
-
-  .hero-visual {
-    transition-delay: 80ms;
-  }
-
-  .entry-card:nth-child(2) {
-    transition-delay: 0ms, 40ms, 0ms;
-  }
-
-  .entry-card:nth-child(3) {
-    transition-delay: 0ms, 80ms, 0ms;
-  }
-
-  @starting-style {
-    .hero-copy > *,
-    .hero-visual {
-      opacity: 0;
-      transform: translateY(8px);
-    }
-
-    .entry-card {
-      opacity: 0;
-    }
   }
 }
 
@@ -335,6 +248,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .button:is(:hover, :active) {
+    transform: none;
+  }
+
   .graph-module-menu,
   .graph-section-menu {
     transition: opacity var(--motion-press) ease;
@@ -344,7 +261,6 @@
     transition: opacity var(--motion-press) ease;
   }
 
-  :is(.button, .entry-card):is(:hover, :active),
   :is(
     .icon-button,
     .text-button,
@@ -359,12 +275,7 @@
     .graph-display-toggle button,
     .presets button
   ):active,
-  .entry-card :is(.card-link > svg, .entry-card-top > svg:last-child),
-  .entry-icon,
-  .entry-card:hover:not(:focus-visible) .entry-icon,
-  .entry-card:hover:not(:focus-visible):after,
   .button:hover > svg,
-  .path-steps a > svg,
   .result-icon > svg {
     transform: none;
   }

@@ -1,84 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import * as Popover from '@radix-ui/react-popover';
 import * as Dropdown from '@radix-ui/react-dropdown-menu';
-import { ArrowLeft, Check, ChevronDown, ChevronRight, Layers3, Search } from 'lucide-react';
-import { articleModules, type ModuleKey, type NavigationEntry } from '@/lib/navigation';
-
-export function GraphModulePicker({
-  modules,
-  current,
-  onChange,
-}: {
-  modules: { key: ModuleKey; count: number }[];
-  current: ModuleKey | 'all';
-  onChange: (module: ModuleKey | 'all') => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
-  const label = current === 'all' ? '全部模块' : articleModules[current].shortLabel;
-  const matches = modules.filter(({ key }) =>
-    `${key} ${articleModules[key].label}`.toLowerCase().includes(query.trim().toLowerCase()),
-  );
-  function choose(module: ModuleKey | 'all') {
-    onChange(module);
-    setOpen(false);
-  }
-  return (
-    <Popover.Root
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (next) setQuery('');
-      }}
-    >
-      <Popover.Trigger asChild>
-        <button className="graph-picker-trigger" aria-label={`选择模块：${label}`}>
-          <Layers3 size={15} />
-          <span>{label}</span>
-          <ChevronDown size={14} />
-        </button>
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Content
-          className="graph-module-menu"
-          align="start"
-          sideOffset={8}
-          collisionPadding={12}
-          aria-label="选择模块"
-        >
-          <label className="graph-module-search">
-            <Search size={15} />
-            <input
-              aria-label="搜索模块"
-              placeholder="搜索模块名称…"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </label>
-          <div className="graph-module-list">
-            <button onClick={() => choose('all')} aria-pressed={current === 'all'}>
-              <Layers3 size={14} />
-              <span>全部模块</span>
-              <small>{modules.length} 个模块</small>
-              {current === 'all' && <Check size={14} />}
-            </button>
-            {matches.map(({ key, count }) => (
-              <button key={key} onClick={() => choose(key)} aria-pressed={current === key}>
-                <i style={{ background: articleModules[key].nodeColor }} />
-                <span>{articleModules[key].shortLabel}</span>
-                <small>{count} 篇</small>
-                {current === key && <Check size={14} />}
-              </button>
-            ))}
-            {!matches.length && <p className="graph-menu-empty">没有匹配的模块。</p>}
-          </div>
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
-  );
-}
+import { ArrowLeft, Check, ChevronDown, ChevronRight } from 'lucide-react';
+import { type NavigationEntry } from '@/lib/navigation';
 
 function SectionItems({
   entries,

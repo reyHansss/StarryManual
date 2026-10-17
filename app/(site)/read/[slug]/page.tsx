@@ -10,7 +10,8 @@ import {
   getSectionAnchor,
 } from '@/lib/navigation';
 import { ReadingNavigation } from '@/components/reading-navigation';
-import { ModuleContents, ModuleDirectory } from '@/components/module-contents';
+import { ModuleContents } from '@/components/module-contents';
+import { DocumentHome } from '@/components/document-home';
 import { getMDXComponents } from '@/components/mdx';
 import { EditorLink } from '@/components/editor-link';
 
@@ -40,7 +41,16 @@ export default async function ArticlePage({ params }: Props) {
   const module = modules.find((group) => group.key === current.module)!;
   const isModuleOverview =
     module.overview?.slug === slug && !['manual', 'authoring'].includes(module.key);
-  const isDirectory = slug === 'start-here';
+  if (slug === 'start-here') {
+    return (
+      <main id="main" className="reading-layout document-home-layout">
+        <ReadingNavigation modules={modules} current={current} />
+        <DocumentHome title={page.data.title} description={page.data.description ?? ''}>
+          <MDX components={getMDXComponents()} />
+        </DocumentHome>
+      </main>
+    );
+  }
   const outgoing = articles.filter((article) => current.links.includes(article.slug));
   const incoming = articles.filter(
     (article) => article.slug !== slug && article.links.includes(slug),
@@ -51,7 +61,7 @@ export default async function ArticlePage({ params }: Props) {
       <ReadingNavigation modules={modules} current={current} />
       <article className="reading-article">
         <nav className="article-breadcrumb" aria-label="阅读位置">
-          <Link href="/read/start-here">手册</Link>
+          <Link href="/">手册</Link>
           <span>/</span>
           {module.overview && module.overview.slug !== slug ? (
             <Link href={module.overview.url}>{module.label}</Link>
@@ -84,11 +94,6 @@ export default async function ArticlePage({ params }: Props) {
           <span>STARRY / MANUAL</span>
           <EditorLink slug={slug} />
         </div>
-        {isDirectory && (
-          <ModuleDirectory
-            modules={modules.filter((group) => !['manual', 'authoring'].includes(group.key))}
-          />
-        )}
         {isModuleOverview && <ModuleContents module={module} />}
         <div className="prose article-prose">
           <MDX components={getMDXComponents()} />
@@ -119,7 +124,6 @@ export default async function ArticlePage({ params }: Props) {
       <aside className="reading-context">
         <div className="toc-block">
           <h2>本页内容</h2>
-          {isDirectory && <a href="#module-directory">按模块查阅</a>}
           {isModuleOverview && <a href="#module-contents">子模块与功能</a>}
           {page.data.toc.map((item) => (
             <a

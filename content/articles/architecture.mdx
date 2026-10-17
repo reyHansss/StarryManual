@@ -27,6 +27,8 @@ HaloDebug 提供窗口与绘制基础，项目调试窗口读取各领域的真�
 
 [Async Message System](/read/asyncmessage-overview)承担 World 内的解耦事件通知，技能、背包和快捷栏在各自规则处理或复制回调后发布消息；使用方负责登记与撤销自己的监听。插件不代替网络同步，状态复制和显式 RPC 仍由所属领域处理。
 
+[AsyncMixin](/read/asyncmixin-overview)管理宿主的异步加载步骤与有序回调。项目的指示器画布用它加载控件类，再交给控件池创建或复用界面；资源加载由 AssetManager／StreamableManager 执行，业务对象的有效性和界面清理由画布负责。
+
 ## 配置、资源与运行状态
 
 `Content` 保存角色、场景、美术、UI、配置蓝图及数据资产；`Config` 保存项目和引擎设置。`Content/Core` 用于系统级、全局共享一份的配置；角色、PawnData、Experience 等配置放在 `Content/Blueprints` 对应领域，资源目录不与 C++ 目录机械对应。

@@ -1,0 +1,196 @@
+---
+title: AsyncMixin · 软引用加载与 C++ 用法
+description: 用组件加载软对象和控件类，保存加载结果，理解路径数组、同步回调、失败结果，以及重载与退出时的取消清理。
+section:
+  - 资源加载
+order: 61
+---
+
+## 选择加载入口
+
+宿主继承 `FAsyncMixin` 后，在成员函数中调用受保护的 `AsyncLoad` 和 `StartAsyncLoading`。这些操作在游戏线程执行。需要组合而不继承时，使用[成员形式的 FAsyncScope](/read/asyncmixin-scopes)，它公开同一组接口。
+
+| 输入                      | 回调选择                                     | 适用情况                               |
+| ------------------------- | -------------------------------------------- | -------------------------------------- |
+| `TSoftObjectPtr<T>`       | `T*`、无参数或 `FSimpleDelegate`             | 纹理、数据资产等对象资源               |
+| `TSoftClassPtr<T>`        | `TSubclassOf<T>`、无参数或 `FSimpleDelegate` | 控件类等类资源                         |
+| `FSoftObjectPath`         | `FSimpleDelegate`                            | 类型在使用方确定的单个路径             |
+| `TArray<FSoftObjectPath>` | 无参数或 `FSimpleDelegate`                   | 一组路径作为一个步骤，整组完成后再回调 |
+
+回调执行说明该步骤已经结束，不保证每个资源加载成功。类型化回调最终读取软引用的 `Get()`，必须处理 `nullptr` 或空类。空路径、失效引用、类型不符和没有进入打包产物的资产都应从资源配置排查。
+
+## 建立加载组件
+
+下面的 `UAsyncLoadExampleComponent` 是需要自己创建的文档示例，工程没有预置这个类型。它在开始游戏时加载一张图标和一个控件类，将结果保存给使用方；重新加载前清理旧结果，结束游戏时取消。本例只演示资源接入，具体界面如何创建和显示由业务负责。
+
+放入 `StarryGame` 时使用已有的 `Core`、`CoreUObject`、`Engine`、`UMG` 和 `AsyncMixin` 依赖。在 `AsyncLoadExampleComponent.h` 中声明：
+
+```cpp
+#pragma once
+
+#include "CoreMinimal.h"
+#include "AsyncMixin.h"
+#include "Components/ActorComponent.h"
+
+#include "AsyncLoadExampleComponent.generated.h"
+
+class UTexture2D;
+class UUserWidget;
+
+/** 加载本组件配置的预览资源，并在退出时撤销仍未完成的步骤。 */
+UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
+class STARRYGAME_API UAsyncLoadExampleComponent
+	: public UActorComponent, public FAsyncMixin
+{
+	GENERATED_BODY()
+
+public:
+	/** 替换当前加载批次；允许图标或控件类为空。 */
+	void ReloadResources();
+
+	/** 取消本组件的步骤并释放持有结果，不撤回使用方已经创建的界面。 */
+	void ClearResources();
+
+protected:
+	// UActorComponent interface
+	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	//~ End of UActorComponent interface
+
+	// FAsyncMixin interface
+	virtual void OnStartedLoading() override;
+	virtual void OnFinishedLoading() override;
+	//~ End of FAsyncMixin interface
+
+	/** 待加载图标；软引用本身不保证对象驻留。 */
+	UPROPERTY(EditAnywhere, Category="Preview")
+	TSoftObjectPtr<UTexture2D> IconAsset;
+
+	/** 待加载的控件类，不在本组件中实例化。 */
+	UPROPERTY(EditAnywhere, Category="Preview")
+	TSoftClassPtr<UUserWidget> WidgetAsset;
+
+	/** 接住加载结果，供界面读取并保持图标的 GC 引用。 */
+	UPROPERTY(Transient, BlueprintReadOnly, Category="Preview")
+	TObjectPtr<UTexture2D> LoadedIcon;
+
+	/** 保存已加载的类；为空表示未配置或未成功取得。 */
+	UPROPERTY(Transient, BlueprintReadOnly, Category="Preview")
+	TSubclassOf<UUserWidget> LoadedWidgetClass;
+
+	/** 表示当前批次是否尚未结束，不表示加载成功率。 */
+	UPROPERTY(Transient, BlueprintReadOnly, Category="Preview")
+	bool bLoadingResources = false;
+};
+```
+
+## 排入请求并保存结果
+
+在同名 `AsyncLoadExampleComponent.cpp` 中实现：
+
+```cpp
+#include "AsyncLoadExampleComponent.h"
+
+#include "Blueprint/UserWidget.h"
+#include "Engine/Texture2D.h"
+
+void UAsyncLoadExampleComponent::ReloadResources()
+{
+	ClearResources();
+
+	if (!IconAsset.IsNull())
+	{
+		AsyncLoad<UTexture2D>(IconAsset, [this](UTexture2D* Texture)
+		{
+			LoadedIcon = Texture;
+		});
+	}
+
+	if (!WidgetAsset.IsNull())
+	{
+		AsyncLoad<UUserWidget>(WidgetAsset, [this](TSubclassOf<UUserWidget> WidgetClass)
+		{
+			LoadedWidgetClass = WidgetClass;
+		});
+	}
+
+	StartAsyncLoading();
+}
+
+void UAsyncLoadExampleComponent::ClearResources()
+{
+	CancelAsyncLoading();
+	LoadedIcon = nullptr;
+	LoadedWidgetClass = nullptr;
+	bLoadingResources = false;
+}
+
+void UAsyncLoadExampleComponent::BeginPlay()
+{
+	Super::BeginPlay();
+	ReloadResources();
+}
+
+void UAsyncLoadExampleComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	ClearResources();
+	Super::EndPlay(EndPlayReason);
+}
+
+void UAsyncLoadExampleComponent::OnStartedLoading()
+{
+	bLoadingResources = true;
+}
+
+void UAsyncLoadExampleComponent::OnFinishedLoading()
+{
+	bLoadingResources = false;
+}
+```
+
+带类型参数的 lambda 使用 `AsyncLoad<UTexture2D>` / `AsyncLoad<UUserWidget>` 显式指定模板类型，便于匹配 `TFunction<void(T*)>` 或 `TFunction<void(TSubclassOf<T>)>` 重载。无参数 lambda 可以在回调中读取请求时捕获的软引用，项目画布采用的就是这种方式。
+
+`LoadedIcon` 和 `LoadedWidgetClass` 使用 `UPROPERTY` 接住结果。普通加载完成后，Mixin 会在不再需要时释放内部加载状态；只保存 `TSoftObjectPtr` 或 lambda 中的裸指针不能代替 GC 引用。使用方取结果创建界面前仍需判断是否为空。
+
+这个组件在 `EndPlay` 取消，`ClearResources` 也显式恢复状态。**取消不会调用 `OnFinishedLoading`**，因此只在完成钩子里关闭加载提示，会让主动退出的界面留下错误状态。Mixin 析构的自动清理是最终保障，不能替代业务退出清理。
+
+## 一组路径作为一个步骤
+
+例如需要两张纹理都结束加载后再刷新，在现有宿主成员函数中将路径组成数组：
+
+```cpp
+const TArray<FSoftObjectPath> Paths =
+{
+	PrimaryIcon.ToSoftObjectPath(),
+	SecondaryIcon.ToSoftObjectPath()
+};
+
+AsyncLoad(Paths, [this, PrimaryIcon = PrimaryIcon, SecondaryIcon = SecondaryIcon]()
+{
+	// 两个软引用都是调用方已有配置；在此接住结果并决定失败时的显示。
+	LoadedPrimaryIcon = PrimaryIcon.Get();
+	LoadedSecondaryIcon = SecondaryIcon.Get();
+});
+StartAsyncLoading();
+```
+
+这段代码需要宿主已有 `TSoftObjectPtr<UTexture2D>` 配置 `PrimaryIcon` / `SecondaryIcon`，以及 `UPROPERTY` 管理的 `LoadedPrimaryIcon` / `LoadedSecondaryIcon` 成员。lambda 用初始化捕获保存请求时的软引用，避免读取后来改动的配置。数组不会把结果作为参数传回；其中一个路径失败时，回调仍可能执行，各结果要分别检查。
+
+单个路径使用 `FSimpleDelegate`，例如 `AsyncLoad(Path, FSimpleDelegate::CreateWeakLambda(this, []() { /* 处理结果 */ }));`。弱委托检查的是所绑定的 UObject；捕获的其他对象仍需自己保证有效。
+
+## 启动、完成与取消的时机
+
+`AsyncLoad` 入队时就会向 StreamableManager 申请加载，`StartAsyncLoading()` 开始推进这组步骤和通知，**不会阻塞等待磁盘加载结束**。已经完成的前序步骤可以在 `StartAsyncLoading()` 返回前执行回调；空队列也会立即调用开始与完成钩子。需要使用的成员和界面状态应在调用前准备好。
+
+若省略显式启动，Mixin 会通过 CoreTicker 自动启动；不应依赖固定帧延迟。各资源的实际加载与回调顺序区别见[任务编排](/read/asyncmixin-scopes)。
+
+`CancelAsyncLoading()` 只作用于当前 Mixin 的整组任务。它解除完成绑定并释放自己持有的句柄，不回滚已执行回调，不代表停止其他使用者对同一资源的请求，也不保证立刻停止所有底层 I/O。已创建的控件、委托与业务状态要由宿主另外清理。
+
+## 配置与排查
+
+1. 创建示例组件并挂到自己的测试 Actor；在详细信息中指定真实图标和控件类。开始游戏后检查加载标记恢复、结果是否非空，再由自己的 UI 使用这些结果。
+2. 换到尚未加载的资源，快速退出 Actor 或再次调用 `ReloadResources`，确认旧批次不会在后续重新写入结果；已驻留资源也要检查同步完成的路径。
+3. 结果为空时先确认软路径、资源类型、重定向和打包配置；编辑器里已加载过的资源可能掩盖打包遗漏。需要主资产扫描与 Bundle 时继续读[资源驻留](/read/asyncmixin-preload)。
+4. 资源完成却不回调时，检查本作用域更早的步骤是否仍未完成；界面取消后仍显示旧内容时，检查那是不是已经执行的业务操作，以及是否忘记拆除旧界面。
+
+上面是读者创建样例后的检查步骤，本轮没有创建该组件、编译或运行 PIE。实现入口：`Plugins/EngineExtension/AsyncMixin/Source/Public/AsyncMixin.h` 的加载重载，以及同插件 `Source/Private/AsyncMixin.cpp` 的请求、启动和取消实现；实际项目用法见[指示器接入](/read/asyncmixin-overview)。

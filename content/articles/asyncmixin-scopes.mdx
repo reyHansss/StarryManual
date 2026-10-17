@@ -1,0 +1,155 @@
+---
+title: AsyncMixin · 回调顺序与独立作用域
+description: 理解并行加载与有序回调的区别，使用 FAsyncScope 分开取消任务，了解 AsyncEvent、开始完成通知和等待条件的当前边界。
+section:
+  - 任务编排
+order: 63
+---
+
+## 加载可以同时进行，回调按序推进
+
+连续排入 A、B 两个 `AsyncLoad` 时，两个加载请求都已交给 StreamableManager。Mixin 从队首推进步骤，遇到尚未完成的步骤就停下并等待；已完成的前序步骤立即执行回调，然后继续检查下一步。
+
+因此，A 完成而 B 仍在加载时，A 的回调可以先执行，不必等整批资源全部完成。若 B 先完成，它的回调则要等 A 处理完。将 A、B 放在同一个路径数组中，才表示“一组路径完成后执行同一个回调”，见[软引用加载](/read/asyncmixin-loading)。
+
+<Diagram
+  title="B 先加载完成，业务回调仍然先 A 后 B"
+  source={
+    'sequenceDiagram\n  participant Host as 业务宿主\n  participant Mixin as AsyncMixin\n  participant Stream as StreamableManager\n  Host->>Mixin: 排入 A\n  Mixin->>Stream: 请求 A\n  Host->>Mixin: 排入 B\n  Mixin->>Stream: 请求 B\n  Host->>Mixin: StartAsyncLoading\n  Stream-->>Stream: B 已完成，A 尚未完成\n  Note over Mixin,Stream: 队首 A 尚未完成，暂不执行 B 回调\n  Stream-->>Mixin: A 完成\n  Mixin-->>Host: A 的业务回调\n  Mixin-->>Host: B 的业务回调\n  Mixin-->>Host: OnFinishedLoading'
+  }
+/>
+
+这个顺序约束作用于**回调**。若 B 的请求必须等 A 回调拿到结果后才能确定，应在 A 回调中决定并排入 B；提前排入 B 不会把底层加载变为串行。回调可以追加新步骤，但要考虑已驻留资源导致的同步执行与重入，不在回调中直接销毁当前正在执行的宿主。
+
+## 用 AsyncEvent 插入普通步骤
+
+`AsyncEvent` 只添加一个有序回调，不加载资源，也不创建后台任务。它适合在前面若干加载步骤之后刷新列表、组合已取得的资源或发送本地完成通知。
+
+下面代码放在已有 `FAsyncMixin` 派生宿主的成员函数中，`FirstAsset` / `SecondAsset` 是它的软资源配置，`ApplyFirst` / `ApplySecond` / `RefreshPreview` 是自己实现的业务方法：
+
+```cpp
+AsyncLoad(FirstAsset, [this]()
+{
+	ApplyFirst();
+});
+
+AsyncLoad(SecondAsset, [this]()
+{
+	ApplySecond();
+});
+
+AsyncEvent([this]()
+{
+	RefreshPreview();
+});
+
+StartAsyncLoading();
+```
+
+执行顺序是 `ApplyFirst → ApplySecond → RefreshPreview`。事件只等待排在它前面的步骤；后面再追加的加载不属于它的前置条件。若前面的步骤已完成，`RefreshPreview` 可以在本次 `StartAsyncLoading()` 调用栈内执行，不能把 `AsyncEvent` 当作“延迟一帧”。
+
+业务回调应保持短小。需要 CPU 计算、后台线程或网络工作时，使用对应任务能力，完成后按其线程约定回到游戏线程；AsyncMixin 本身不把 lambda 转移到工作线程。
+
+## 按取消范围建立 FAsyncScope
+
+同一个 Mixin 中，慢步骤会挡住它后面的回调，`CancelAsyncLoading` 也会取消这一整组。如果图标切换和面板加载应该分别替换，就给宿主保存两个 `FAsyncScope` 成员。
+
+下面的 `FManualPreviewLoads` 是需要自己创建的原生 C++ 示例。它将两组请求分开：`LoadIcon` 只替换图标组，`LoadPanel` 只替换面板组，业务整体退出时调用 `CancelAll`。
+
+`ManualPreviewLoads.h`：
+
+```cpp
+#pragma once
+
+#include "CoreMinimal.h"
+#include "AsyncMixin.h"
+
+/** 为两个独立取消范围保存加载状态，操作和销毁都在游戏线程。 */
+class FManualPreviewLoads
+{
+public:
+	/** 替换图标请求，OnLoaded 读取资源后需交给实际使用者保活。 */
+	void LoadIcon(FSoftObjectPath Path, const FSimpleDelegate& OnLoaded);
+
+	/** 面板资源完成后执行 OnLoaded，再推进不绑定资源的 OnReady。 */
+	void LoadPanel(
+		FSoftObjectPath Path,
+		const FSimpleDelegate& OnLoaded,
+		const FSimpleDelegate& OnReady);
+
+	/** 业务退出时撤销两组尚未执行的步骤。 */
+	void CancelAll();
+
+private:
+	FAsyncScope IconScope;
+	FAsyncScope PanelScope;
+};
+```
+
+`ManualPreviewLoads.cpp`：
+
+```cpp
+#include "ManualPreviewLoads.h"
+
+void FManualPreviewLoads::LoadIcon(
+	FSoftObjectPath Path, const FSimpleDelegate& OnLoaded)
+{
+	IconScope.CancelAsyncLoading();
+	IconScope.AsyncLoad(Path, OnLoaded);
+	IconScope.StartAsyncLoading();
+}
+
+void FManualPreviewLoads::LoadPanel(
+	FSoftObjectPath Path,
+	const FSimpleDelegate& OnLoaded,
+	const FSimpleDelegate& OnReady)
+{
+	PanelScope.CancelAsyncLoading();
+	PanelScope.AsyncLoad(Path, OnLoaded);
+	PanelScope.AsyncEvent(OnReady);
+	PanelScope.StartAsyncLoading();
+}
+
+void FManualPreviewLoads::CancelAll()
+{
+	IconScope.CancelAsyncLoading();
+	PanelScope.CancelAsyncLoading();
+}
+```
+
+把此对象作为宿主成员保存，在业务退出时先 `CancelAll`，再拆除回调依赖的界面与数据。两个 Scope 之间不保证完成顺序，也不会因取消其中一个而撤销另一个；若两者本来有依赖，就应使用同一序列或显式建立依赖。
+
+这里传入的委托并不会自动保护它捕获的其他对象。UObject 使用方可选择 `FSimpleDelegate::CreateWeakLambda` 或 `CreateUObject`，其他对象按自己的所有权约定处理。结果保活和实际控件销毁仍由使用方负责，完整资源示例见[加载与清理](/read/asyncmixin-loading)。
+
+## 开始、完成与状态查询
+
+| 接口                         | 当前行为                               | 使用约束                                               |
+| ---------------------------- | -------------------------------------- | ------------------------------------------------------ |
+| `StartAsyncLoading()`        | 取消自动启动计时并推进已排入的步骤     | 已完成资源与空队列可同步通知；不等待未完成加载         |
+| `OnStartedLoading()`         | 本批次开始推进时通知派生宿主           | 适合打开加载状态；在同一调用栈内可能紧接着完成         |
+| `OnFinishedLoading()`        | 全部当前步骤推进结束时通知派生宿主     | 不代表每个资源成功；取消不会调用该钩子                 |
+| `IsAsyncLoadingInProgress()` | 查询当前步骤是否仍在加载或尚有后续步骤 | 不包含所有“等待回调”的情况，也不表示预加载句柄已经释放 |
+| `CancelAsyncLoading()`       | 撤销本作用域未执行步骤并安排清理       | 不调用完成钩子，不回滚已执行的业务副作用               |
+
+`IsAsyncLoadingInProgress()` 可能在最后一个资源已经加载、但其业务回调尚未执行时返回 false；单个纯事件步骤也可能如此。不要用它代替“这批业务结果已经应用”或“所有资源已释放”的标记；需要界面状态时，以自己的开始／完成／主动取消路径维护。
+
+取消后可以排入新批次，示例都先取消再排请求。没有显式启动时，CoreTicker 会自动推进，因此应在入队前完成依赖状态的准备，不把一个尚未调用 Start 的队列当作长期暂停的任务。
+
+## AsyncCondition 的机制与当前限制
+
+插件还定义了 `FAsyncCondition` 和 `AsyncCondition`：条件返回 `EAsyncConditionResult::TryAgain` 时继续等待，返回 `Complete` 时推进。它检查当前条件，并在需要等待时通过 CoreTicker 约每 `0.16` 秒重试；不是逐帧检查，实际间隔也取决于游戏线程的推进。
+
+条件可能在检查步骤和绑定完成委托时被多次求值，函数应只读取状态，避免在其中消耗资源、递增业务计数或执行不可重复的动作。它不自带超时、失败结果或网络等待协议；条件永不满足时，后续回调就会持续被挡住。
+
+**当前跨模块构造受限**：本机头文件的 `FAsyncCondition` 构造／析构没有 `ASYNCMIXIN_API` 导出标记；现有 `UnrealEditor-AsyncMixin.dll` 也未导出它们，仅导出了 Mixin 接收条件对象的入口。不能把在 `StarryGame` 中直接 `MakeShared<FAsyncCondition>` 当作当前已经可用并验证过的用法。若后续确需接入，应先处理模块导出并验证链接；本轮保持插件源码原样。
+
+当前项目源码没有查到该条件接口的实际使用，本页记录已有机制及模块边界，没有新增条件运行示例。条件对象可能被外部 `TSharedPtr` 保留；取消作用域只是释放自己的引用，外部保留者仍需管理它的寿命和所捕获的对象。
+
+## 排查回调停滞或过期结果
+
+- **后面的资源已加载却没回调**：检查同一作用域更早的资源或条件；按需拆分真正独立的任务链。
+- **切换目标后仍应用旧结果**：替换整个请求时先取消对应 Scope；共享队列不能整体取消时，像[指示器画布](/read/asyncmixin-overview)一样检查业务对象和当前归属。
+- **关闭界面后还有请求**：确认主动退出路径取消了持久成员中的作用域，没有只等 UObject 最终析构，也没有把其他加载系统的请求误认为此 Scope 管理。
+- **定位推进顺序**：启动参数可用 `-LogCmds="LogAsyncMixin Verbose"`，结合请求路径、状态地址和步骤编号查看日志。日志记录请求与推进，不会替你判断业务对象仍否有效。
+
+实现入口：插件 `AsyncMixin.cpp` 的 `TryCompleteAsyncLoading`、`CompleteAsyncLoading`、`FAsyncStep` 和 `FAsyncCondition`。本页按当前源码与现有 DLL 导出核对，没有进行 UE 编译、PIE 或多线程运行验收。

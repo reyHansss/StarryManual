@@ -12,7 +12,7 @@ Starry 是基于 Unreal Engine 5.8 开发的游戏项目。手册按模块组织
 
 例如，AstraAI 的“行为执行”下包含 Logic 生命周期与树后端；Input 的“动作处理”下包含 Handler 分派、输入值修饰与触发规则。可以直接进入对应功能，不必先按全站文章顺序阅读。
 
-当前已整理 [AstraAI](/read/astraai-overview)、[HaloDebug](/read/halodebug-overview)、[Input](/read/input-overview)和 [Async Message System](/read/asyncmessage-overview)。其他模块按实际功能持续补充，已有目录不代表项目全部能力。
+当前已整理 [AstraAI](/read/astraai-overview)、[HaloDebug](/read/halodebug-overview)、[Input](/read/input-overview)、[Async Message System](/read/asyncmessage-overview)和 [AsyncMixin](/read/asyncmixin-overview)。其他模块按实际功能持续补充，已有目录不代表项目全部能力。
 
 ## 查阅一项功能
 
@@ -24,6 +24,8 @@ Starry 是基于 Unreal Engine 5.8 开发的游戏项目。手册按模块组织
 4. 配置不生效时，进入同模块的[调试与排查](/read/input-troubleshooting)，沿实际输入链定位。
 
 需要观察技能失败、背包或快捷栏事件时，从 [Async Message System](/read/asyncmessage-overview)进入消息收发与项目接入；[蓝图示例](/read/asyncmessage-blueprints)把监听、载荷解包、发送和停止直接画在正文中。
+
+需要异步加载图标、控件类或主资产时，从 [AsyncMixin](/read/asyncmixin-overview)进入资源加载与任务编排；[软引用加载](/read/asyncmixin-loading)给出 C++ 组件示例，[独立作用域](/read/asyncmixin-scopes)说明多条任务怎样分别取消。
 
 模块内的上一页与下一页遵循当前模块的功能目录。跨模块的协作通过正文链接与关联栏继续阅读。
 

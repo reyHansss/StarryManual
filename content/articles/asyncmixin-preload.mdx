@@ -1,0 +1,119 @@
+---
+title: AsyncMixin · 主资产与资源驻留
+description: 按主资产 ID 和 Bundle 预加载资源，理解句柄保留、取消与 GC 引用的关系，以及 AssetManager 和打包配置的职责。
+section:
+  - 资源加载
+order: 62
+---
+
+## 什么时候使用预加载
+
+打开界面前预热一组图标、控件类或相关配置时，可以使用 `AsyncPreloadPrimaryAssetsAndBundles`。输入是主资产 ID 数组与 Bundle 名称数组，底层调用 `UAssetManager::PreloadPrimaryAssets`，并开启递归 Bundle 展开。
+
+与[普通软引用加载](/read/asyncmixin-loading)相比，这条路径会保留加载状态和句柄，使预加载结果在当前作用域仍需要它们时驻留。任务回调完成之后，资源保留仍然继续；调用 `CancelAsyncLoading()` 或销毁对应 Mixin／Scope 才释放它持有的预加载句柄。
+
+当前项目核对到的 `SActorCanvas` 使用普通 `AsyncLoad`。本页整理插件已有的预加载接口与引擎语义，不表示项目已经实现一套基于该接口的预热界面。
+
+## 先配置 AssetManager
+
+1. 在项目 AssetManager 设置中登记自己的主资产类型和扫描目录，确保资源返回有效、可找到的 `FPrimaryAssetId`。
+2. 在需要按包加载的软引用属性上声明 Bundle。例如自己创建的 `UPrimaryDataAsset` 中，可以用下面的属性把图标归入 `UI` 包。
+3. 调用时传入该资产的实际 ID 和已声明的包名，并确认主资产与引用资源的 Cook／打包规则。
+
+```cpp
+/** 本数据资产在 UI 预热阶段需要的图标。 */
+UPROPERTY(EditDefaultsOnly, Category="Preview", meta=(AssetBundles="UI"))
+TSoftObjectPtr<UTexture2D> Icon;
+```
+
+这里的 `UI` 是示例 Bundle 名称，需要在自己的资产上声明；给参数数组写一个名称不会自动生成资源包配置。主资产扫描、Bundle 数据和打包规则由 AssetManager 管理，AsyncMixin 不补齐这些配置。
+
+## 用独立作用域持有预热结果
+
+下面的 `FManualBundlePreload` 是原生 C++ 文档示例，需要自己创建。使用 `FPrimaryAssetId` 数组重载，输入来自已经登记的资产；不硬编码工程不存在的资产 ID。
+
+`ManualBundlePreload.h`：
+
+```cpp
+#pragma once
+
+#include "CoreMinimal.h"
+#include "AsyncMixin.h"
+#include "UObject/PrimaryAssetId.h"
+
+/** 在需要预热资源的期间持有加载作用域，所有操作与销毁均在游戏线程。 */
+class FManualBundlePreload
+{
+public:
+	/** 替换上一组预热请求；OnReady 表示步骤结束，资源仍须核对是否有效。 */
+	void Begin(
+		const TArray<FPrimaryAssetId>& AssetIds,
+		const TArray<FName>& BundleNames,
+		const FSimpleDelegate& OnReady);
+
+	/** 退出预热阶段，释放本作用域对资源的保留。 */
+	void Release();
+
+private:
+	/** 必须作为持久成员保存，不能在 Begin 内建立临时局部 Scope。 */
+	FAsyncScope Scope;
+};
+```
+
+`ManualBundlePreload.cpp`：
+
+```cpp
+#include "ManualBundlePreload.h"
+
+void FManualBundlePreload::Begin(
+	const TArray<FPrimaryAssetId>& AssetIds,
+	const TArray<FName>& BundleNames,
+	const FSimpleDelegate& OnReady)
+{
+	Scope.CancelAsyncLoading();
+	Scope.AsyncPreloadPrimaryAssetsAndBundles(AssetIds, BundleNames, OnReady);
+	Scope.StartAsyncLoading();
+}
+
+void FManualBundlePreload::Release()
+{
+	Scope.CancelAsyncLoading();
+}
+```
+
+界面或流程将此对象保存为成员，在需要预热时调用 `Begin`，不再需要时调用 `Release`。传入的 `OnReady` 如果访问其他 UObject，使用弱绑定或有效性检查；作用域只负责自己拥有的步骤，不自动管理委托捕获的所有对象。
+
+不要把 `FAsyncScope` 建成函数内的临时局部变量：函数返回就会析构并撤销跟踪，也无法在预热完成后继续持有资源。多条预热链应按[实际取消范围](/read/asyncmixin-scopes)划分成员。
+
+<Diagram
+  title="步骤完成后仍保留预加载资源"
+  source={
+    'stateDiagram-v2\n  [*] --> Waiting: 传入主资产 ID 与 Bundle\n  Waiting: 加载并等待步骤完成\n  Resident: 步骤结束，作用域继续持有句柄\n  Released: 释放本作用域的加载保留\n  Waiting --> Resident: 执行完成回调\n  Waiting --> Released: 取消或销毁\n  Resident --> Released: 取消或销毁\n  Released --> [*]'
+  }
+/>
+
+图中的“驻留”描述句柄保留阶段，不能由回调执行推导出所有请求都成功；无效 ID 或加载失败仍要检查实际结果。
+
+## 加载完成与资源释放的区别
+
+| 行为             | 普通 `AsyncLoad`                                     | 主资产 Bundle 预加载                                 |
+| ---------------- | ---------------------------------------------------- | ---------------------------------------------------- |
+| 完成回调         | 按步骤顺序执行                                       | 按步骤顺序执行                                       |
+| 全部步骤结束后   | 未混入 Bundle 预加载且没有新任务时，安排释放内部状态 | 保留内部状态和句柄                                   |
+| 后续继续使用资源 | 使用方建立强引用或交给已有资源管理者                 | 作用域先持有预加载句柄；实际使用者仍管理自身对象寿命 |
+| 取消或析构       | 撤销未执行步骤并释放自己持有的句柄                   | 同时释放本作用域的预加载保留                         |
+
+同一作用域只要走过非空主资产数组的预加载路径，保留策略就作用于这份加载状态；它不是逐资源可选的策略。需要让两类任务有不同寿命时，使用不同 `FAsyncScope`。头文件中的可配置 retention policy 仍是注释里的设想，当前没有这个开关。
+
+释放句柄表示本作用域不再保留资源，并不等于资源立刻卸载。已创建控件、其他 `UPROPERTY`、别的活动句柄或 AssetManager 的正式加载状态都可能继续引用它们；真正回收还取决于其他引用与 GC。
+
+引擎的预加载也不会自动成为 AssetManager 的正式加载状态。不能仅调用 `UnloadPrimaryAsset` 就推断本 Scope 的预加载保留已经释放；结束本次预热应释放对应作用域，正式资产加载有自己的配对规则。
+
+## 常见问题
+
+- **编辑器正常，打包后为空**：先核对主资产扫描、实际 `GetPrimaryAssetId()`、Bundle 数据和 Cook 规则，再检查路径与资源类型。
+- **完成回调发生，但资源不齐**：完成是步骤终止，读取所需资源分别判断；空 ID 数组同样可以形成立即完成的步骤。
+- **关闭预热后内存没马上下降**：检查使用中的控件、强引用与其他加载句柄；释放 Scope 不会强制卸载共享资源或立即触发 GC。
+- **资源一直被本批次保留**：确认在业务退出时调用 `Release`，而不是只检查 `IsAsyncLoadingInProgress()`；加载已结束时该查询可以为 false，句柄仍然存在。
+
+实现入口：插件 `AsyncMixin.cpp` 中的 `AsyncPreloadPrimaryAssetsAndBundles` 与 `CompleteAsyncLoading`，引擎 `Engine/Source/Runtime/Engine/Classes/Engine/AssetManager.h` 中的 `PreloadPrimaryAssets`。本例按接口与句柄语义核对，未创建资产、编译或进行打包运行验收。

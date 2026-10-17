@@ -58,12 +58,7 @@ export function ReadingNavigation({
   const navigation = (
     <nav aria-label="模块与功能目录">
       <span className="sidebar-module-title">{module.label}</span>
-      <Entries
-        entries={module.entries.filter(
-          (entry) => entry.kind !== 'article' || entry.article.slug !== 'start-here',
-        )}
-        current={current.slug}
-      />
+      <Entries entries={module.entries} current={current.slug} />
     </nav>
   );
   return (

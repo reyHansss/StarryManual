@@ -179,7 +179,7 @@ export function KnowledgeGraph({
               proOptions={{ hideAttribution: false }}
               aria-label="文章关系图谱"
             >
-              <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#bed4e8" />
+              <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#cbd2cf" />
               {!compact && <Controls showInteractive={false} />}
             </ReactFlow>
           ) : (

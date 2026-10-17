@@ -30,6 +30,7 @@ import {
   X,
 } from 'lucide-react';
 import { categories, type Article } from '@/lib/types';
+import { useGraphMotion } from './use-graph-motion';
 import {
   getGraphPositions,
   getGraphRelations,
@@ -191,7 +192,8 @@ function GraphCanvas({
       };
     });
   });
-  const [nodes, , onNodesChange] = useNodesState<ArticleNode>(initialNodes);
+  const [nodes, setNodes, onNodesChange] = useNodesState<ArticleNode>(initialNodes);
+  const updateMotion = useGraphMotion(initialNodes, relations, layout, compact, setNodes);
   // 选择状态独立于位置，单击节点或更新详情不会抹掉读者的拖动结果。
   const displayNodes = nodes.map((node) => ({
     ...node,
@@ -215,7 +217,10 @@ function GraphCanvas({
     <ReactFlow
       nodes={displayNodes}
       edges={edges}
-      onNodesChange={onNodesChange}
+      onNodesChange={(changes) => {
+        onNodesChange(changes);
+        updateMotion(changes);
+      }}
       nodeTypes={nodeTypes}
       fitView
       fitViewOptions={{ padding: compact ? 0.25 : 0.18, maxZoom: 1.3 }}
@@ -235,7 +240,7 @@ function GraphCanvas({
       aria-label="文章关系图谱"
     >
       <FitGraphView compact={compact} />
-      <Background variant={BackgroundVariant.Dots} gap={26} size={1} color="#cbd2cf" />
+      <Background variant={BackgroundVariant.Dots} gap={26} size={1} color="var(--graph-grid)" />
       {!compact && <Controls showInteractive={false} />}
     </ReactFlow>
   );
@@ -469,7 +474,7 @@ function GraphExplorer({
             <small>
               单击选择 · <Network size={11} /> 进入局部图 · 箭头阅读
               <br />
-              拖动节点或空白 · 滚轮缩放
+              左键牵引节点 · 空白平移 · 滚轮缩放
               <br />
               触屏可单指拖动、双指缩放
             </small>

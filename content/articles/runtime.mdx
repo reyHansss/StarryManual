@@ -15,6 +15,13 @@ order: 3
 
 完成表示这次执行得到了结果。它可能是成功，也可能是规则允许的失败。结果只属于本次执行，随后需要清理它占用的资源。
 
+<Diagram
+  title="一次执行的结束路径"
+  source={
+    'stateDiagram-v2\n  [*] --> Ready\n  state "就绪" as Ready\n  state "执行中" as Running\n  state "产生结果" as Finished\n  state "取消等待" as Cancelled\n  state "清理资源" as Cleanup\n  Ready --> Running: 开始\n  Running --> Finished: 正常结束\n  Running --> Cancelled: 主动取消 / 对象退出\n  Finished --> Cleanup\n  Cancelled --> Cleanup\n  Cleanup --> [*]'
+  }
+/>
+
 ## 取消与清理
 
 取消让尚未完成的工作停止，清理则解除已经建立的关系。例如取消等待、解除事件订阅，或者释放由本次执行拥有的资源。

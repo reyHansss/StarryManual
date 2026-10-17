@@ -17,6 +17,13 @@ order: 4
 
 例如在 220 ms 按下攻击键，需要等到 400 ms，等待时间为 180 ms。280 ms 的缓冲可以保留这次输入，80 ms 的缓冲则会提前过期。窗口开启后到来的输入会立即执行。
 
+<Diagram
+  title="提前输入如何等待执行窗口"
+  source={
+    'sequenceDiagram\n  participant Player as 玩家\n  participant Buffer as 输入缓冲\n  participant Action as 动作窗口\n  Player->>Buffer: 220 ms：按下攻击\n  Note over Buffer: 有效期 280 ms\n  Action->>Buffer: 400 ms：窗口开启\n  Buffer->>Buffer: 已等待 180 ms，仍有效\n  Buffer->>Action: 消费输入，开始动作\n  Buffer-->>Player: 本次输入已处理'
+  }
+/>
+
 ## 参数怎样影响体验
 
 - 增大缓冲有效期，更多提前输入可以被保留。

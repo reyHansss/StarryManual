@@ -81,7 +81,7 @@
   }
 }
 
-/* 选中时只强调边界与关联，不移动节点，也不把阅读关系表现为持续的数据流。 */
+/* 选中只强调边界与关联；物理牵引由图谱按需处理，不给节点 transform 叠加 CSS 迟滞。 */
 .atlas-node {
   transition:
     border-color var(--motion-state) ease,
@@ -93,7 +93,7 @@
   position: absolute;
   inset: -5px;
   border: 5px solid var(--selection-halo);
-  border-radius: 17px;
+  border-radius: 23px;
   pointer-events: none;
   opacity: 0;
   transition: opacity var(--motion-state) var(--ease-out);

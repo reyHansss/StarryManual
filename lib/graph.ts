@@ -74,7 +74,7 @@ export function getGraphPositions(
   });
   const bySlug = new Map(points.map((point, index) => [point.slug, index]));
   const spacing = 235;
-  // 有限次排斥与连线吸引完成静态排布，页面不持续运行物理动画。
+  // 有限次排斥与连线吸引生成初始排布，交互期间再由画布唤醒实时牵引。
   for (let step = 0; step < 180; step++) {
     const movement = points.map((point) => ({ x: -point.x * 0.08, y: -point.y * 0.08 }));
     for (let a = 0; a < points.length; a++) {

@@ -38,6 +38,17 @@ export default config({
             Note: wrapper({ label: '说明卡片', schema: { title: fields.text({ label: '标题' }) } }),
             InputBufferDemo: block({ label: '输入缓冲交互实验', schema: {} }),
             BlueprintDemo: block({ label: '蓝图节点查看器', schema: {} }),
+            Diagram: block({
+              label: '自动排版图表',
+              schema: {
+                title: fields.text({ label: '图表标题' }),
+                source: fields.text({
+                  label: 'Mermaid 图表文本',
+                  description: '填写节点关系、步骤、时序或状态；布局与配色由手册统一处理。',
+                  multiline: true,
+                }),
+              },
+            }),
           },
         }),
       },

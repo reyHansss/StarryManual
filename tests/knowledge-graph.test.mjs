@@ -12,6 +12,31 @@ import {
 } from '../lib/graph.ts';
 import { createGraphMotion } from '../lib/graph-motion.ts';
 import { articleModules } from '../lib/navigation.ts';
+import { GRAPH_MIN_ZOOM, GRAPH_MAX_ZOOM, getGraphNodeMetrics } from '../lib/graph-appearance.ts';
+
+test('连接数拉开圆点大小，超过六条继续增长，极大枢纽保持有界', () => {
+  for (const module of [false, true]) {
+    const size = (degree) => getGraphNodeMetrics(degree, 1, module).diameter;
+    assert.ok(size(6) / size(1) > 1.5, '常见连接数之间应有明显尺寸差异');
+    for (const degree of [0, 1, 2, 6, 12]) assert.ok(size(degree + 1) > size(degree));
+    assert.ok(size(1_000_000) <= 96, '极大连接数不会无限占据画布');
+  }
+  assert.ok(getGraphNodeMetrics(11, 1).diameter / getGraphNodeMetrics(3, 1).diameter > 1.7);
+});
+
+test('扩展缩放远近范围，屏幕圆点尺寸缓于画布且保持连续', () => {
+  assert.ok(GRAPH_MIN_ZOOM < 0.2);
+  assert.ok(GRAPH_MAX_ZOOM > 2);
+  const screenSize = (zoom) => getGraphNodeMetrics(8, zoom).visualDiameter * zoom;
+  const normal = screenSize(1);
+  assert.ok(screenSize(GRAPH_MIN_ZOOM) > normal * GRAPH_MIN_ZOOM);
+  assert.ok(screenSize(GRAPH_MAX_ZOOM) < normal * GRAPH_MAX_ZOOM);
+  assert.ok(screenSize(GRAPH_MIN_ZOOM) < normal);
+  assert.ok(screenSize(GRAPH_MAX_ZOOM) > normal);
+  for (const zoom of [GRAPH_MIN_ZOOM, 0.22, 0.36, 1, 2, GRAPH_MAX_ZOOM]) {
+    assert.ok(Math.abs(screenSize(zoom) - screenSize(zoom + 0.0001)) < 0.02);
+  }
+});
 
 const article = (slug, links, module = 'input', section = []) => ({
   slug,

@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import type { Article } from '@/lib/types';
 import { articleModules, buildModuleNavigation } from '@/lib/navigation';
+import { GRAPH_MIN_ZOOM, GRAPH_MAX_ZOOM, getGraphNodeMetrics } from '@/lib/graph-appearance';
 import { useGraphMotion } from './use-graph-motion';
 import { GraphModulePicker, GraphSectionPicker } from './graph-scope-picker';
 import {
@@ -62,7 +63,8 @@ function ArticlePoint({ data }: NodeProps<ArticleNode>) {
   const module = articleModules[data.article.module];
   const isModule = data.article.kind === 'module';
   const zoom = useStore((state) => state.transform[2]);
-  // 远景只保留节点与连线；缩放直接驱动透明度，不改变节点尺寸或布局。
+  const metrics = getGraphNodeMetrics(data.degree, zoom, isModule);
+  // 远景只保留节点与连线；标签透明度与圆点补偿都不改变布局锚点。
   const labelOpacity = Math.max(0, Math.min(1, (zoom - 0.22) / 0.14));
   if (data.compact) {
     return (
@@ -108,52 +110,59 @@ function ArticlePoint({ data }: NodeProps<ArticleNode>) {
         {
           '--node-color': module.nodeColor,
           '--node-ink': module.color,
-          '--node-size': `${(isModule ? 26 : 16) + Math.min(data.degree, 6) * 2}px`,
-          '--graph-label-size': `${Math.min(data.focused ? 42 : 30, Math.max(15, 13 / zoom))}px`,
+          '--node-size': `${metrics.diameter}px`,
+          '--node-visual-size': `${metrics.visualDiameter}px`,
+          '--graph-point-scale': metrics.scale,
+          '--graph-inverse-zoom': 1 / zoom,
+          '--graph-label-size': `${(data.focused ? 15 : 13) / zoom}px`,
         } as React.CSSProperties
       }
     >
       <Handle type="target" position={Position.Left} />
-      <span className="node-point" aria-hidden="true">
+      <span className="node-point" aria-hidden="true" title={`${data.degree} 条连接`}>
         <i />
       </span>
-      <button
-        className="dot-title nodrag nopan"
-        style={{ opacity: labelOpacity, visibility: labelOpacity === 0 ? 'hidden' : 'visible' }}
-        aria-label={`选择${data.article.title}`}
-        aria-pressed={data.focused}
-        onClick={() => data.select(data.article.slug)}
-      >
-        {data.article.title}
-        {data.article.kind === 'module' && (
-          <span className="graph-module-count">{data.article.articleCount} 篇文档</span>
-        )}
-      </button>
-      {data.focused && (
-        <div className="dot-actions nodrag nopan">
-          <button
-            onClick={(event) => {
-              event.stopPropagation();
-              data.explore(data.article.slug);
-            }}
-            aria-label={
-              isModule ? `进入${data.article.title}模块图谱` : `进入${data.article.title}的局部图谱`
-            }
-            title={isModule ? '进入模块图谱' : '进入局部图谱'}
-          >
-            <Network size={14} />
-          </button>
-          {data.article.url && (
-            <Link
-              href={data.article.url}
-              aria-label={`打开${data.article.title}`}
-              title={isModule ? '阅读模块说明' : '阅读文章'}
-            >
-              <ArrowRight size={14} />
-            </Link>
+      <div className="dot-content">
+        <button
+          className="dot-title nodrag nopan"
+          style={{ opacity: labelOpacity, visibility: labelOpacity === 0 ? 'hidden' : 'visible' }}
+          aria-label={`选择${data.article.title}`}
+          aria-pressed={data.focused}
+          onClick={() => data.select(data.article.slug)}
+        >
+          {data.article.title}
+          {data.article.kind === 'module' && (
+            <span className="graph-module-count">{data.article.articleCount} 篇文档</span>
           )}
-        </div>
-      )}
+        </button>
+        {data.focused && (
+          <div className="dot-actions nodrag nopan">
+            <button
+              onClick={(event) => {
+                event.stopPropagation();
+                data.explore(data.article.slug);
+              }}
+              aria-label={
+                isModule
+                  ? `进入${data.article.title}模块图谱`
+                  : `进入${data.article.title}的局部图谱`
+              }
+              title={isModule ? '进入模块图谱' : '进入局部图谱'}
+            >
+              <Network size={14} />
+            </button>
+            {data.article.url && (
+              <Link
+                href={data.article.url}
+                aria-label={`打开${data.article.title}`}
+                title={isModule ? '阅读模块说明' : '阅读文章'}
+              >
+                <ArrowRight size={14} />
+              </Link>
+            )}
+          </div>
+        )}
+      </div>
       <Handle type="source" position={Position.Right} />
     </div>
   );
@@ -253,8 +262,8 @@ function GraphCanvas({
       nodeTypes={nodeTypes}
       fitView
       fitViewOptions={{ padding: compact ? 0.25 : 0.18, maxZoom: 1.3 }}
-      minZoom={0.2}
-      maxZoom={2}
+      minZoom={GRAPH_MIN_ZOOM}
+      maxZoom={GRAPH_MAX_ZOOM}
       nodesDraggable={!compact}
       nodesConnectable={false}
       onNodeClick={(_, node) => select(node.id)}
@@ -511,7 +520,7 @@ function GraphExplorer({
                   background: current ? articleModules[current.module].nodeColor : 'var(--accent)',
                 }}
               />
-              颜色表示所属模块
+              {compact ? '颜色表示所属模块' : '颜色表示模块 · 大小表示连接数'}
             </span>
           </div>
           {compact ? (

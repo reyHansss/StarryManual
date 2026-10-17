@@ -2701,12 +2701,12 @@ p {
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   align-items: center;
   gap: clamp(16px, 1.6vw, 32px);
-  min-height: clamp(500px, 65vh, 690px);
+  min-height: 0;
   padding: 20px 0 24px;
 }
 .hero-copy {
   min-width: 0;
-  padding: 16px 0 16px clamp(0px, 2.2vw, 40px);
+  padding: 16px 0 16px clamp(20px, 4.2vw, 72px);
 }
 .edition-label {
   display: inline-flex;
@@ -2791,10 +2791,11 @@ p {
   width: 100%;
   max-width: 720px;
   justify-self: start;
+  padding-left: clamp(24px, 3.2vw, 56px);
 }
 .particle-portrait {
   position: relative;
-  height: clamp(360px, 38vw, 620px);
+  height: clamp(260px, min(38vw, calc(100svh - 320px)), 620px);
 }
 .particle-portrait > canvas {
   position: absolute;
@@ -2872,6 +2873,101 @@ p {
     font-size: 13px;
   }
 }
+/* 使用浏览器内容区的高度排版，较矮的桌面窗口不再由图片与标题撑出一屏。 */
+@media (min-width: 761px) and (max-height: 760px) {
+  .home-main {
+    padding-top: 12px;
+  }
+  .hero {
+    padding: 10px 0;
+  }
+  .hero-copy {
+    padding-block: 4px;
+  }
+  .hero h1 {
+    margin: 16px 0 18px;
+    font-size: clamp(36px, min(4.8vw, 8svh), 60px);
+  }
+  .hero-title {
+    margin-top: 12px;
+  }
+  .hero-actions {
+    margin-top: 22px;
+  }
+  .hero-actions .button {
+    min-height: 46px;
+    padding: 12px 18px;
+    font-size: 13px;
+  }
+  .particle-portrait {
+    height: clamp(260px, min(38vw, calc(100svh - 256px)), 520px);
+  }
+  .home-main .site-recommendations {
+    padding-block: 10px 18px;
+  }
+  .graph-page {
+    padding-block: 18px;
+  }
+  .graph-page .page-heading {
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .graph-page .page-heading .eyebrow {
+    padding: 4px 9px;
+    font-size: 10px;
+  }
+  .graph-page .page-heading h1 {
+    margin: 8px 0;
+    font-size: clamp(24px, 2.2vw, 30px);
+    line-height: 1.25;
+  }
+  .graph-page .page-heading p {
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .graph-page .graph-navigation {
+    padding-block: 9px;
+  }
+  .graph-page .graph-toolbar {
+    padding-block: 10px;
+  }
+  .graph-page .graph-body {
+    min-height: 0;
+    height: clamp(280px, calc(100svh - 330px), 500px);
+  }
+  .graph-page .knowledge-graph:not(.compact) .graph-canvas {
+    min-height: 0;
+    height: 100%;
+  }
+  .graph-page .graph-inspector {
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+  }
+}
+@media (min-width: 761px) and (max-height: 580px) {
+  .hero h1 {
+    margin: 10px 0;
+    font-size: clamp(32px, 7.2svh, 44px);
+  }
+  .hero-title {
+    margin-top: 8px;
+  }
+  .hero-copy > p {
+    font-size: 13px;
+    line-height: 1.85;
+  }
+  .hero-actions {
+    margin-top: 14px;
+  }
+  .hero-actions .button {
+    min-height: 42px;
+    padding: 10px 16px;
+  }
+  .home-main .site-recommendations {
+    padding-bottom: 16px;
+  }
+}
 @media (max-width: 760px) {
   .home-main {
     padding-top: 18px;
@@ -2884,6 +2980,9 @@ p {
   }
   .hero-copy {
     padding: 0;
+  }
+  .hero-visual {
+    padding-left: 0;
   }
   .edition-label {
     font-size: 10px;

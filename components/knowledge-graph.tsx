@@ -343,6 +343,12 @@ function GraphExplorer({
               {(['all', 'guide', 'architecture', 'reference'] as const).map((category) => (
                 <button
                   key={category}
+                  style={
+                    {
+                      '--tab-color':
+                        category === 'all' ? 'var(--accent)' : categories[category].color,
+                    } as React.CSSProperties
+                  }
                   onClick={() => navigate?.({ category, center: null, query: '' })}
                   className={!view.center && view.category === category ? 'selected' : ''}
                   aria-pressed={!view.center && view.category === category}
@@ -433,7 +439,11 @@ function GraphExplorer({
           )}
         </div>
         {!compact && current && (
-          <aside className="graph-inspector" aria-label="节点详情">
+          <aside
+            className="graph-inspector"
+            aria-label="节点详情"
+            style={{ '--node-color': categories[current.category].color } as React.CSSProperties}
+          >
             <div className="eyebrow">{view.center ? 'LOCAL EXPLORER' : 'EXPLORE A PAGE'}</div>
             <div className="inspector-summary" key={current.slug}>
               <span className="pill" style={{ color: categories[current.category].color }}>
@@ -482,7 +492,11 @@ function GraphExplorer({
         )}
       </div>
       {compact && current && (
-        <Link className="graph-selected-link" href={current.url}>
+        <Link
+          className="graph-selected-link"
+          href={current.url}
+          style={{ '--node-color': categories[current.category].color } as React.CSSProperties}
+        >
           <span>
             <i className="status-dot" /> 正在探索 <strong>{current.title}</strong>
           </span>

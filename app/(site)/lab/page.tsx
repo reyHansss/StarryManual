@@ -5,7 +5,7 @@ import { InputBufferDemo } from '@/components/input-buffer-demo';
 export const metadata = { title: '交互实验' };
 export default function LabPage() {
   return (
-    <main id="main" className="feature-page">
+    <main id="main" className="feature-page lab-page">
       <div className="page-heading">
         <div>
           <span className="eyebrow">THE INTERACTIVE LAB</span>

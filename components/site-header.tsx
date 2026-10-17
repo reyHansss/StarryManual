@@ -112,7 +112,16 @@ export function SiteHeader({ articles }: { articles: Article[] }) {
           {results.length ? (
             results.map((article) => (
               <Link href={article.url} key={article.slug} onClick={() => dialog.current?.close()}>
-                <span className="category-label">{categories[article.category].label}</span>
+                <span
+                  className="category-label"
+                  style={
+                    {
+                      '--category-color': categories[article.category].color,
+                    } as React.CSSProperties
+                  }
+                >
+                  {categories[article.category].label}
+                </span>
                 <strong>{article.title}</strong>
                 <span>{article.description}</span>
                 <ArrowRight size={16} />

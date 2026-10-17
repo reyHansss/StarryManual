@@ -3,6 +3,7 @@
   --motion-press: 120ms;
   --motion-state: 160ms;
   --motion-enter: 240ms;
+  --motion-welcome: 6s;
 }
 
 /* 操作反馈由共享控件提供，正文和笔记不需要单独配置动效。 */
@@ -43,7 +44,15 @@
 }
 
 .main-nav a {
-  transition: color var(--motion-press) ease;
+  transition:
+    color var(--motion-press) ease,
+    background-color var(--motion-state) ease;
+}
+
+.main-nav a:after {
+  transition:
+    opacity var(--motion-state) ease,
+    transform var(--motion-state) var(--ease-out);
 }
 
 .entry-card {
@@ -54,7 +63,10 @@
 }
 
 .entry-card :is(.card-link > svg, .entry-card-top > svg:last-child),
-.path-steps a > svg {
+.path-steps a > svg,
+.button > svg,
+.entry-icon,
+.entry-card:after {
   transition: transform var(--motion-state) var(--ease-out);
 }
 
@@ -68,7 +80,7 @@
   }
 
   .entry-card:hover:not(:active):not(:focus-visible) {
-    transform: translateY(-2px);
+    transform: translateY(-3px);
   }
 
   .entry-card:hover:not(:focus-visible) .card-link > svg,
@@ -78,6 +90,23 @@
 
   .entry-card:hover:not(:focus-visible) .entry-card-top > svg:last-child {
     transform: translate(2px, -2px);
+  }
+
+  .entry-card:hover:not(:focus-visible) .entry-icon {
+    transform: translateY(-2px) rotate(4deg);
+  }
+
+  .entry-card:hover:not(:focus-visible):after {
+    transform: rotate(18deg) scale(1.12);
+  }
+
+  .button:hover:not(:focus-visible) > svg {
+    transform: translateX(3px);
+  }
+
+  .main-nav a:hover:after {
+    opacity: 1;
+    transform: scaleX(1);
   }
 }
 
@@ -183,6 +212,52 @@
 
 /* 首页是偶尔访问的导览页；短间隔进场只用于这里，不延迟正文显示或交互。 */
 @media (prefers-reduced-motion: no-preference) {
+  /* 欢迎场景最多播放十二秒；可见性由向导组件控制，正文不参与装饰动画。 */
+  .star-companion {
+    animation: companion-float var(--motion-welcome) ease-in-out 2;
+  }
+
+  .companion-orbit {
+    transform-origin: 88px 89px;
+    animation: companion-orbit var(--motion-welcome) ease-in-out 2;
+  }
+
+  .companion-eyes {
+    transform-origin: 81px 86px;
+    animation: companion-blink 4.8s ease-in-out 2;
+  }
+
+  .companion-spark {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: companion-twinkle 2.8s ease-in-out 4;
+  }
+
+  .companion-spark-pink {
+    animation-delay: 400ms;
+  }
+
+  .companion-spark-lines {
+    animation-delay: 800ms;
+  }
+
+  .star-companion,
+  .star-companion :is(.companion-orbit, .companion-eyes, .companion-spark) {
+    animation-play-state: paused;
+  }
+
+  .star-companion[data-motion='running'],
+  .star-companion[data-motion='running'] :is(.companion-orbit, .companion-eyes, .companion-spark) {
+    animation-play-state: running;
+  }
+
+  .site-shell:has(:focus-visible) .star-companion,
+  .site-shell:has(:focus-visible)
+    .star-companion
+    :is(.companion-orbit, .companion-eyes, .companion-spark) {
+    animation-play-state: paused;
+  }
+
   .hero-copy > *,
   .hero-visual {
     transition:
@@ -231,7 +306,56 @@
   }
 }
 
+@keyframes companion-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0);
+  }
+  50% {
+    transform: translateY(-6px) rotate(-3deg);
+  }
+}
+
+@keyframes companion-orbit {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  50% {
+    transform: rotate(8deg);
+  }
+}
+
+@keyframes companion-blink {
+  0%,
+  42%,
+  48%,
+  100% {
+    transform: scaleY(1);
+  }
+  45% {
+    transform: scaleY(0.12);
+  }
+}
+
+@keyframes companion-twinkle {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+  }
+  50% {
+    opacity: 0.65;
+    transform: scale(0.82) rotate(12deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .main-nav a:after {
+    transform: none;
+    transition: opacity var(--motion-press) ease;
+  }
+
   :is(.button, .entry-card):is(:hover, :active),
   :is(
     .icon-button,
@@ -247,6 +371,10 @@
     .presets button
   ):active,
   .entry-card :is(.card-link > svg, .entry-card-top > svg:last-child),
+  .entry-icon,
+  .entry-card:hover:not(:focus-visible) .entry-icon,
+  .entry-card:hover:not(:focus-visible):after,
+  .button:hover > svg,
   .path-steps a > svg,
   .result-icon > svg {
     transform: none;

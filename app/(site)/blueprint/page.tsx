@@ -5,7 +5,7 @@ import { BlueprintDemo } from '@/components/blueprint-demo';
 export const metadata = { title: '蓝图节点' };
 export default function BlueprintPage() {
   return (
-    <main id="main" className="feature-page">
+    <main id="main" className="feature-page blueprint-page">
       <div className="page-heading">
         <div>
           <span className="eyebrow">BLUEPRINT, IN THE BROWSER</span>

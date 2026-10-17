@@ -76,7 +76,7 @@ export default async function HomePage() {
         <div className="entry-grid">
           <Link href="/read/architecture" className="entry-card">
             <div className="entry-card-top">
-              <span className="entry-icon blue">
+              <span className="entry-icon">
                 <BookOpen size={20} />
               </span>
               <span>01 / UNDERSTAND</span>
@@ -90,7 +90,7 @@ export default async function HomePage() {
           </Link>
           <Link href="/lab" className="entry-card">
             <div className="entry-card-top">
-              <span className="entry-icon lime">
+              <span className="entry-icon">
                 <MousePointer2 size={20} />
               </span>
               <span>02 / EXPERIMENT</span>
@@ -104,7 +104,7 @@ export default async function HomePage() {
           </Link>
           <Link href="/blueprint" className="entry-card">
             <div className="entry-card-top">
-              <span className="entry-icon purple">
+              <span className="entry-icon">
                 <Workflow size={20} />
               </span>
               <span>03 / INSPECT</span>

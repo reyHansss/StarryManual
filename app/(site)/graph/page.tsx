@@ -4,7 +4,7 @@ import { KnowledgeGraph } from '@/components/knowledge-graph';
 export const metadata = { title: '知识图谱' };
 export default async function GraphPage() {
   return (
-    <main id="main" className="wide-page">
+    <main id="main" className="wide-page graph-page">
       <div className="page-heading">
         <div>
           <span className="eyebrow">THE KNOWLEDGE MAP</span>

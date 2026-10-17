@@ -3,7 +3,7 @@ title: Async Message · 项目消息与排查
 description: 查阅 Starry 已接入的消息标签、载荷和触发点，区分本地通知、状态复制与 RPC 转发，并沿真实链路排查。
 section:
   - 项目接入
-order: 53
+order: 54
 ---
 
 ## 当前有哪些消息入口
@@ -68,7 +68,7 @@ order: 53
 | 服务器能收到、客户端没有    | 本地入队不复制；逐段检查领域状态复制或显式 RPC、接收端 World 的重新入队与监听                                        |
 | Listen Server 主机缺提示    | 现有消息 RPC 接收体只处理 `NM_Client`；确认主机本地领域通知，而不是假定广播会再执行一份本地入队                      |
 
-蓝图完整接线见[收发与解绑](/read/asyncmessage-blueprints)，线程、路由和载荷寿命见[标签、时机与生命周期](/read/asyncmessage-routing)。必要时用 HaloDebug 的[日志与工具入口](/read/halodebug-overview)观察项目状态，消息本身的调试设置仍在本模块说明。
+蓝图核心接线见[蓝图收发与解绑](/read/asyncmessage-blueprints)，原生代码见 [C++ 收发与解绑](/read/asyncmessage-cpp)，线程、路由和载荷寿命见[标签、时机与生命周期](/read/asyncmessage-routing)。必要时用 HaloDebug 的[日志与工具入口](/read/halodebug-overview)观察项目状态，消息本身的调试设置仍在本模块说明。
 
 ## 追查消息从哪里发出
 

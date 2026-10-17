@@ -3,7 +3,7 @@ title: Async Message · 标签、时机与生命周期
 description: 理解消息的标签层级、World 和 Endpoint 路由、游戏线程派发、载荷快照与 C++ 监听清理。
 section:
   - 消息路由
-order: 52
+order: 53
 ---
 
 ## 标签决定监听哪些事件
@@ -58,35 +58,7 @@ C++ 回调的 `GetPayloadView()` 和结构体指针属于当前消息，不跨�
 
 组件或界面负责保存监听句柄，并在功能退出、`EndPlay` 或自身明确的停止入口解绑。消息系统的弱对象绑定避免强行延长监听对象寿命，但“对象仍活着、功能已经关闭”仍需主动停止。
 
-下面是**示例组件的接入片段**，`UMyMessageComponent`、成员和回调需要自己定义；它不是项目新增类型。使用公开头文件 `AsyncMessageWorldSubsystem.h`、`AsyncGameplayMessageSystem.h`、`AsyncMessage.h` 与 `AsyncMessageHandle.h`。
-
-```cpp
-// 由组件保存原消息系统与句柄，退出时配对解绑。
-TWeakPtr<FAsyncGameplayMessageSystem> BoundSystem;
-FAsyncMessageHandle DamageHandle;
-
-// 启动入口：只登记一次，重复打开先停止旧监听。
-if (const auto System =
-    UAsyncMessageWorldSubsystem::GetSharedMessageSystem<FAsyncGameplayMessageSystem>(GetWorld()))
-{
-    BoundSystem = System;
-    DamageHandle = System->BindListener(
-        FAsyncMessageId(FGameplayTag::RequestGameplayTag(TEXT("Starry.Damage.Message"))),
-        MakeWeakObjectPtr(this),
-        &UMyMessageComponent::HandleDamage,
-        FAsyncMessageBindingOptions(TG_PostUpdateWork));
-}
-
-// 停止入口：弱引用指向登记时的系统，切换世界后不从新世界解绑旧句柄。
-if (const auto System = BoundSystem.Pin())
-{
-    System->UnbindListener(DamageHandle);
-}
-DamageHandle = FAsyncMessageHandle::Invalid;
-BoundSystem.Reset();
-```
-
-`HandleDamage(const FAsyncMessage& Message)` 中使用 `Message.GetPayloadView().GetPtr<const FStarryVerbMessage>()`，只有类型正确才读取，再按 `Target` 筛选自己的对象。这个载荷位于项目 `Framework/Messages/StarryVerbMessage.h`。
+[C++ 收发与解绑](/read/asyncmessage-cpp)提供组件声明和完整的监听、解包、发送、停止函数：登记时保存原系统的弱引用与句柄，退出时向原系统解绑，再清空记录；回调检查载荷类型与 `Target`。实际用法集中在消息收发分区，这里只说明所有权与并发边界。
 
 解绑请求在队列预处理时移除监听，不是跨线程等待屏障，不会撤回已在运行的回调。通常的游戏线程监听在使用方退出时配对停止即可；显式选择后台线程的使用方还要按自己的任务模型协调回调和销毁，不能把保存句柄当作已经解决并发。
 

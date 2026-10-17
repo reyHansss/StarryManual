@@ -55,6 +55,8 @@ type ArticleNode = Node<{
 function ArticlePoint({ data }: NodeProps<ArticleNode>) {
   const category = categories[data.article.category];
   const zoom = useStore((state) => state.transform[2]);
+  // 远景只保留节点与连线；缩放直接驱动透明度，不改变节点尺寸或布局。
+  const labelOpacity = Math.max(0, Math.min(1, (zoom - 0.22) / 0.14));
   if (data.compact) {
     return (
       <div
@@ -108,6 +110,7 @@ function ArticlePoint({ data }: NodeProps<ArticleNode>) {
       </span>
       <button
         className="dot-title nodrag nopan"
+        style={{ opacity: labelOpacity, visibility: labelOpacity === 0 ? 'hidden' : 'visible' }}
         aria-label={`选择${data.article.title}`}
         aria-pressed={data.focused}
         onClick={() => data.select(data.article.slug)}

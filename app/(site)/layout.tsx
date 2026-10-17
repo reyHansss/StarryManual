@@ -16,10 +16,10 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
           STARRY MANUAL <span>© 2026</span>
         </span>
         <span>
-          <i className="status-dot" /> 项目架构 · 配置使用 · 扩展与排查
+          <i className="status-dot" /> Starry 项目文档 · 架构与功能使用
         </span>
         <Link href="/read/writing">
-          如何维护这座知识地图 <span>↗</span>
+          文档维护说明 <span>↗</span>
         </Link>
       </footer>
     </div>

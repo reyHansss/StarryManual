@@ -27,37 +27,37 @@ export default async function HomePage() {
     <main id="main" className="home-main">
       <div className="home-kicker">
         <span>
-          <i className="status-dot" /> STARRY / 你的探索手册
+          <i className="status-dot" /> STARRY / 项目文档
         </span>
-        <span>READ. CONNECT. EXPERIMENT.</span>
+        <span>ARCHITECTURE · SYSTEMS · TOOLS</span>
       </div>
       <section className="hero">
         <div className="hero-copy">
           <span className="edition-label">
-            <Sparkles size={15} /> 今天，也发现一点新东西
+            <Sparkles size={15} /> UNREAL ENGINE 5.8
           </span>
           <h1>
-            读懂系统，
+            Starry
             <br />
-            点亮<span>每个灵感。</span>
+            <span>项目文档</span>
           </h1>
           <p>
-            从 AI 决策、玩家输入到调试观察，
+            Starry 的技术架构、玩法系统与开发工具。
             <br className="desktop-break" />
-            沿着真实配置与运行机制，找到动手的路径。
+            查阅功能配置、使用说明和扩展方法。
           </p>
           <div className="hero-actions">
             <Link className="button primary" href="/read/start-here">
               开始阅读 <ArrowRight size={16} />
             </Link>
-            <Link href="/graph" className="button quiet">
-              探索知识图谱 <ArrowUpRight size={16} />
+            <Link href="/read/architecture" className="button quiet">
+              项目架构 <ArrowUpRight size={16} />
             </Link>
           </div>
           <div className="hero-footnote">
-            <span>✦ 为好奇心而写</span>
+            <span>✦ 项目总览与功能使用</span>
             <i />
-            让架构可见，让使用直观
+            随项目开发持续维护
           </div>
         </div>
         <div className="hero-visual">
@@ -66,7 +66,7 @@ export default async function HomePage() {
           </div>
           <div className="visual-heading">
             <span className="eyebrow">
-              <Orbit size={17} /> 知识星图 <span>CONNECT THE DOTS</span>
+              <Orbit size={17} /> 文档关系 <span>DOCUMENT MAP</span>
             </span>
             <span className="visual-coordinate">✦ LIVE MAP</span>
           </div>
@@ -82,9 +82,9 @@ export default async function HomePage() {
       <section className="entry-section">
         <div className="section-heading">
           <h2>
-            从一个模块开始<span> / EXPLORE</span>
+            近期整理的章节<span> / CHAPTERS</span>
           </h2>
-          <span>AstraAI · HaloDebug · Input</span>
+          <span>按项目系统持续补充</span>
         </div>
         <div className="entry-grid">
           <Link href="/read/astraai-overview" className="entry-card">
@@ -95,7 +95,7 @@ export default async function HomePage() {
               <span>01 / ASTRA AI</span>
               <ArrowUpRight size={18} />
             </div>
-            <h3>理解 AI 的每次选择</h3>
+            <h3>AstraAI · AI 决策</h3>
             <p>从行为组合到机会、评分与执行，配置可扩展的 NPC 决策。</p>
             <span className="card-link">
               进入 AstraAI <ArrowRight size={14} />
@@ -109,7 +109,7 @@ export default async function HomePage() {
               <span>02 / HALO DEBUG</span>
               <ArrowUpRight size={18} />
             </div>
-            <h3>看见系统正在发生什么</h3>
+            <h3>HaloDebug · 调试工具</h3>
             <p>打开场景、日志、AI 与输入工具，沿真实状态定位问题。</p>
             <span className="card-link">
               进入 HaloDebug <ArrowRight size={14} />
@@ -123,7 +123,7 @@ export default async function HomePage() {
               <span>03 / PLAYER INPUT</span>
               <ArrowUpRight size={18} />
             </div>
-            <h3>让每次操作准确抵达</h3>
+            <h3>Input · 玩家输入</h3>
             <p>接好 Action、配置与 Handler，再处理缓存、改键和玩家偏好。</p>
             <span className="card-link">
               进入 Input <ArrowRight size={14} />
@@ -133,16 +133,16 @@ export default async function HomePage() {
       </section>
       <section className="reading-path">
         <div>
-          <span className="eyebrow">YOUR FIRST ROUTE</span>
-          <h2>第一次来？沿这条路线出发。</h2>
+          <span className="eyebrow">PROJECT DOCUMENTATION</span>
+          <h2>按需要查阅项目文档</h2>
         </div>
         <div className="path-steps">
           {[
-            ['start-here', '认识手册'],
-            ['architecture', '理解模块协作'],
-            ['halodebug-overview', '打开调试工具'],
-          ].map(([slug, label], index) => (
-            <Link href={`/read/${slug}`} key={slug}>
+            ['/read/start-here', '项目总览'],
+            ['/read/architecture', '技术架构'],
+            ['/graph', '知识图谱'],
+          ].map(([href, label], index) => (
+            <Link href={href} key={href}>
               <span>0{index + 1}</span>
               {label}
               <ArrowRight size={15} />

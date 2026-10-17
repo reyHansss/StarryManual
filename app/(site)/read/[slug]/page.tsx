@@ -30,6 +30,13 @@ export default async function ArticlePage({ params }: Props) {
   if (!current) notFound();
   const MDX = page.data.body;
   const section = articleSections[getArticleSection(slug)];
+  const navigationGroups = Object.entries(articleSections)
+    .map(([key, group]) => ({
+      ...group,
+      key,
+      articles: articles.filter((article) => getArticleSection(article.slug) === key),
+    }))
+    .filter((group) => group.articles.length > 0);
   const outgoing = articles.filter((article) => current.links.includes(article.slug));
   const incoming = articles.filter(
     (article) => article.slug !== slug && article.links.includes(slug),
@@ -44,25 +51,23 @@ export default async function ArticlePage({ params }: Props) {
           <ArrowLeft size={14} />
           回到首页
         </Link>
-        <span className="sidebar-label">THE FIELD MANUAL</span>
-        {Object.entries(articleSections).map(([key, group]) => (
-          <div className="sidebar-group" key={key}>
+        <span className="sidebar-label">STARRY PROJECT</span>
+        {navigationGroups.map((group) => (
+          <div className="sidebar-group" key={group.key}>
             <h2>
               <i style={{ background: group.color }} />
               {group.label}
             </h2>
-            {articles
-              .filter((article) => getArticleSection(article.slug) === key)
-              .map((article) => (
-                <Link
-                  key={article.slug}
-                  href={article.url}
-                  className={slug === article.slug ? 'selected' : ''}
-                >
-                  {article.title.replace(/^(AstraAI|HaloDebug|Input) · /, '')}
-                  {slug === article.slug && <span>↗</span>}
-                </Link>
-              ))}
+            {group.articles.map((article) => (
+              <Link
+                key={article.slug}
+                href={article.url}
+                className={slug === article.slug ? 'selected' : ''}
+              >
+                {article.title.replace(/^(AstraAI|HaloDebug|Input) · /, '')}
+                {slug === article.slug && <span>↗</span>}
+              </Link>
+            ))}
           </div>
         ))}
         <Link href="/graph" className="sidebar-graph">

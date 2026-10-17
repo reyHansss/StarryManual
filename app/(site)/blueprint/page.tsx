@@ -2,15 +2,15 @@ import Link from 'next/link';
 import { ArrowRight, Workflow } from 'lucide-react';
 import { BlueprintViewer } from '@/components/blueprint-viewer';
 
-export const metadata = { title: '蓝图节点' };
+export const metadata = { title: '蓝图节点预览' };
 export default function BlueprintPage() {
   return (
     <main id="main" className="feature-page blueprint-page">
       <div className="page-heading">
         <div>
-          <span className="eyebrow">BLUEPRINT, IN THE BROWSER</span>
-          <h1>熟悉的节点，新的阅读方式。</h1>
-          <p>把蓝图放进说明里。放大连线，查看参数，沿着执行路径理解。</p>
+          <span className="eyebrow">AUTHORING PREVIEW</span>
+          <h1>蓝图节点预览</h1>
+          <p>编写蓝图用法说明前，在这里检查节点文本。正式节点图随文章保存并在正文中展示。</p>
         </div>
         <span className="pill">
           <Workflow size={13} /> UE 节点查看
@@ -32,7 +32,7 @@ export default function BlueprintPage() {
             .uasset。其他图表类型与 UE 5.8 的复杂节点还需逐类验证。
           </p>
           <Link href="/read/blueprint-nodes">
-            阅读节点展示指南 <ArrowRight size={16} />
+            在文章中嵌入节点图 <ArrowRight size={16} />
           </Link>
         </div>
       </div>

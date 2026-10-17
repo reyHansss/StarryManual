@@ -1,45 +1,53 @@
 ---
-title: 三个模块怎样协作
-description: 把玩家输入、AI 决策与调试观察放在同一张图里，明确配置、运行状态与领域能力的归属。
+title: Starry 技术架构
+description: 从基础框架、具体玩法、通用插件和资源组织理解 Starry，按职责定位项目中的系统。
 category: architecture
 order: 2
 ---
 
-## 两个动作入口，一个观察工具
+## 工程怎样分工
 
-玩家从设备输入到达 Input Handler，AI 从当前机会选择 Behavior／Logic。两条路径最终使用项目已有的移动、技能、交互等领域能力。HaloDebug 负责观察与显式调试操作，不拥有这些领域的正式玩法规则。
+Starry 以 Unreal Engine 5.8 为基础。运行时代码主要位于 `StarryGame` 模块，内部按 `Framework` 与 `Gameplay` 区分可复用基础能力和具体玩法；`StarryEditor` 承担项目编辑器扩展，插件保留各自的模块边界。
 
 <Diagram
-  title="输入与决策调用能力，调试读取实际状态"
+  title="具体玩法使用基础框架，通用能力保持独立"
   source={
-    'flowchart TB\n  Player(玩家设备) --> Input(InputManager / Handler)\n  Facts(领域事实) --> Objective(Objective / Generator)\n  Objective --> AI(AstraAI Behavior / Logic)\n  Input --> Domain(Mover / GAS / 项目交互)\n  AI --> Domain\n  Domain --> State(真实运行状态与事件)\n  State --> Debug(HaloDebug 项目窗口)\n  State --> Facts\n  Config(共享配置资产) --> Input\n  Config --> AI'
+    'flowchart TD\n  Gameplay(Gameplay 具体玩法) --> Framework(Framework 基础框架)\n  Gameplay --> Plugins(通用插件)\n  Framework --> Plugins\n  Framework --> Engine(Unreal Engine 5.8)\n  Plugins --> Engine\n  Gameplay --> Engine'
   }
 />
 
-这张图中的箭头描述数据与调用方向；文章图谱中的连线则描述阅读关系，两者用途不同。
+`Framework` 提供角色、能力、输入、AI 接入、界面等基础能力，`Gameplay` 继承或组合这些能力实现项目玩法。基础框架不反向包含具体玩法的头文件。玩法型 GameFeature 可以使用项目框架，按自身功能归属组织，不与图中的通用插件混为一层。
 
-## 配置和状态分别由谁拥有
+## 按职责定位系统
 
-| 对象      | 共享内容                                        | 独立内容                                                         |
-| --------- | ----------------------------------------------- | ---------------------------------------------------------------- |
-| AstraAI   | Modifier、Group、Behavior 与默认原生 Logic 配置 | 每 NPC 的应用、机会、冷却、执行数据；需要时创建的活动 Logic 实例 |
-| Input     | Setup、Action、IMC 与 Handler 配置              | 每 Controller 的绑定关系、通道缓存；领域自己的动作状态           |
-| HaloDebug | 公共绘制、控件与窗口类型                        | 当前世界的窗口实例、选择、调试会话与采集数据                     |
+下表中的 `Framework/` 与 `Gameplay/` 路径相对于 `Source/StarryGame`。这些是工程中的领域划分，详细使用章节会随整理进度补充。
 
-“资产可内嵌编辑”不等于“每个角色都会复制”。Input Handler 是共享对象，不能保存玩家运行状态；AstraAI Generator 则按每 NPC 复制，负责自己的订阅。应按类型职责判断所有权，不按一个统一口号处理。
+| 领域          | 主要职责                                  | 代码位置                                                                                         |
+| ------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| 玩法装配      | 游戏规则入口、Experience 配置与功能激活   | `Framework/GameModes`、`Framework/Experience`、`Framework/GameFeatures`                          |
+| 角色与表现    | 玩家、AI 与其他角色，移动接入、动画和相机 | `Framework/Character`、`Framework/Animation`、`Framework/Camera`                                 |
+| 能力与战斗    | GAS 能力、战斗规则与项目战斗实现          | `Framework/AbilitySystem`、`Framework/Combat`、`Gameplay/Combat`                                 |
+| 物品与交互    | 背包、装备、交互与阵营领域                | `Framework/Inventory`、`Framework/Equipment`、`Framework/Interaction`、`Framework/Factions`      |
+| AI 与世界玩法 | AI 框架接入、生态运行与任务生命周期       | `Framework/AI`、`Gameplay/AI`、`Gameplay/Ecology`、`Gameplay/Missions`                           |
+| 玩家体验      | 输入、玩家状态、界面、设置与前端          | `Framework/Input`、`Framework/Player`、`Framework/UI`、`Framework/Settings`、`Gameplay/Frontend` |
+| 开发支持      | 调试入口、运行面板与编辑器扩展            | `Framework/Development`、`Source/StarryEditor`、`Plugins/Toolkit/HaloDebug`                      |
 
-## 开始操作前，先完成接入
+通用插件按自身职责维护。例如 AstraAI 提供行为组合与选择能力，项目 AI 目录负责角色、感知、具体玩法及调试接入。HaloDebug 提供绘制与工具基础，项目窗口负责解释各领域的实际状态。
 
-AI Setup 通过 Provider 交给 Controller，异步加载后进入 Ready 再启动组合决策。InputManager 等本地玩家和 InputComponent 就绪，再应用配置。调试窗口读取实际已建立的状态，不应替代这些初始化步骤。
+## 配置、资源与运行状态
 
-发现“手动补值或延迟一下就好了”时，先追踪入口、就绪通知与上下游调用。能够绕开症状，不等于已经找到了原实现缺陷。
+`Content` 保存角色、场景、美术、UI、配置蓝图及数据资产；`Config` 保存项目和引擎设置。`Content/Core` 用于系统级、全局共享一份的配置；角色、PawnData、Experience 等配置放在 `Content/Blueprints` 对应领域，资源目录不与 C++ 目录机械对应。
 
-## 结束一次执行，要释放自己拥有的资源
+配置描述能力与规则，运行状态由实际宿主拥有。共享资产是否会实例化，应以类型的真实生命周期为准。例如 Input Handler 是共享配置，不能保存某个玩家的运行状态；AstraAI 的执行数据属于各自 NPC，蓝图 Logic 在实际执行时创建实例。
 
-AstraAI Logic 负责本次任务的取消与清理；Input 配置退出解除它的使用关系并清缓存，具体技能或移动按所属领域结束；HaloDebug 窗口 Shutdown 解除自己的订阅。
+## 系统怎样协作
 
-异步回调使用原执行身份或领域自己的请求身份。不要让一次旧任务的完成，结束一个后来启动的新任务。
+Experience 与 GameFeature 负责装配功能；角色、Controller、组件和各领域系统在自己的生命周期中接入。玩家输入经 Handler 调用移动、技能或交互，AI 经选中的 Logic 使用相应领域能力，具体玩法继续拥有规则、状态和资源。
 
-## 按当前任务继续
+结束或切换时，各使用方撤销自己的绑定、订阅和任务，领域系统处理自身状态与资源。异步回调使用原请求或执行身份，避免旧任务的结果影响后来的执行。
 
-配置 NPC 从 [AstraAI 上手](/read/astraai-overview)开始；添加玩家输入从 [Input 配置](/read/input-overview)开始；观察状态从 [HaloDebug 入门](/read/halodebug-overview)开始。需要扩展动作时分别阅读 [Logic 生命周期](/read/astraai-logic)和 [Handler 分派](/read/input-handlers)。
+网络玩法遵循当前世界的 Authority，服务器能力不依赖 LocalPlayer、界面或本地玩家存档存在。本地输入与表现、权威规则和持久保存分别由相应系统负责。
+
+## 从当前章节深入
+
+第一批详细章节从 [AstraAI 接入](/read/astraai-overview)、[Input 配置](/read/input-overview)和 [HaloDebug 使用](/read/halodebug-overview)展开。扩展具体动作可继续阅读 [Logic 生命周期](/read/astraai-logic)与 [Handler 分派](/read/input-handlers)。其余系统在上述项目结构中定位，后续按实际功能逐步补充文档。

@@ -73,7 +73,7 @@
   </head>
   <body>
     <div id="playground"></div>
-    <div id="message">从 UE 复制一组节点，点击上方「粘贴节点」查看。</div>
+    <div id="message">尚未提供节点文本。</div>
     <script src="../vendor/blueprintue/render.js"></script>
     <script type="module">
       import { attachBlueprintNavigation } from './navigation.js';
@@ -83,30 +83,42 @@
       let currentText;
       const playground = document.getElementById('playground');
       const message = document.getElementById('message');
-      function render(text) {
+      function clear() {
+        detachNavigation?.();
+        detachNavigation = undefined;
+        renderer?.stop();
+        renderer = undefined;
+        currentText = undefined;
+        playground.replaceChildren();
+        message.textContent = '尚未提供节点文本。';
+        message.hidden = false;
+      }
+      function render(text, force = false) {
+        // 正文水合与 iframe 加载都会发送文本，同一组节点只初始化一次。
+        if (!force && renderer && currentText === text) return;
+        clear();
         try {
           if (typeof text !== 'string' || text.length > 200000)
             throw new Error('节点文本超过 200,000 字符限制。');
-          detachNavigation?.();
-          detachNavigation = undefined;
-          if (renderer) renderer.stop();
-          playground.replaceChildren();
-          renderer = new window.blueprintUE.render.Main(text, playground, {
+          if (!text.trim()) return;
+          const activeRenderer = new window.blueprintUE.render.Main(text, playground, {
             height: window.innerHeight + 'px',
           });
-          renderer.start(function (success) {
+          renderer = activeRenderer;
+          currentText = text;
+          activeRenderer.start(function (success) {
+            if (renderer !== activeRenderer) return;
             if (!success || !playground.querySelector('.node')) {
               message.textContent = '没有找到可显示的节点，请尝试完整的普通蓝图节点文本。';
               message.hidden = false;
               return;
             }
-            detachNavigation = attachBlueprintNavigation(renderer, playground);
-            currentText = text;
+            detachNavigation = attachBlueprintNavigation(activeRenderer, playground);
             message.hidden = true;
           });
         } catch (error) {
           message.textContent =
-            '这段文本暂时无法显示。请从 UE 复制完整的一组普通蓝图节点后重新粘贴。';
+            '这段节点文本暂时无法显示，可展开下方原始文本核对，或从 UE 重新复制完整节点。';
           message.hidden = false;
         }
       }
@@ -123,7 +135,7 @@
       window.addEventListener('resize', () => {
         clearTimeout(resize);
         resize = setTimeout(() => {
-          if (currentText) render(currentText);
+          if (currentText) render(currentText, true);
         }, 150);
       });
     </script>

@@ -64,7 +64,6 @@ export function SiteHeader({ articles }: { articles: Article[] }) {
           {[
             ['/read', '阅读文档'],
             ['/graph', '知识图谱'],
-            ['/blueprint', '蓝图节点'],
           ].map(([href, label]) => (
             <Link
               key={href}

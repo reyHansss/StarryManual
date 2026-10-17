@@ -8,30 +8,42 @@ import {
   createPortraitScene,
   type ParticlePointer,
   type ParticleScene,
-} from '@/lib/home-particles';
+} from '@/lib/particles';
 
-const HomeMotionContext = createContext({ enabled: true, toggle: () => {} });
+const SiteMotionContext = createContext({ enabled: true, toggle: () => {} });
 const portraitSource = assetUrl('/images/home-portrait.png');
 
-/** 暂停开关同时控制首页主体与背景，离开首页后不挂载任何粒子画布或监听。 */
-export function HomeMotion({ children }: { children: React.ReactNode }) {
+/** 共用开关随站点布局保留，切换文章或图谱时继续沿用用户的动效选择。 */
+export function SiteMotion({ children }: { children: React.ReactNode }) {
   const [enabled, setEnabled] = useState(true);
   return (
-    <HomeMotionContext.Provider value={{ enabled, toggle: () => setEnabled((value) => !value) }}>
+    <SiteMotionContext.Provider value={{ enabled, toggle: () => setEnabled((value) => !value) }}>
       {children}
-    </HomeMotionContext.Provider>
+    </SiteMotionContext.Provider>
   );
+}
+
+export function useSiteMotion() {
+  return useContext(SiteMotionContext);
 }
 
 function useParticleCanvas(kind: 'portrait' | 'background') {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { enabled } = useContext(HomeMotionContext);
+  const { enabled } = useSiteMotion();
+  const enabledRef = useRef(enabled);
+  const refresh = useRef<() => void>(() => {});
+
+  useEffect(() => {
+    enabledRef.current = enabled;
+    refresh.current();
+  }, [enabled]);
 
   useEffect(() => {
     const canvas = canvasRef.current!;
     const context = canvas.getContext('2d');
     if (!context) return;
-    const scope = canvas.closest(kind === 'portrait' ? '.particle-portrait' : '.home-main')!;
+    const scope =
+      kind === 'portrait' ? canvas.closest('.particle-portrait')! : document.documentElement;
     const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
     const pointer: ParticlePointer = { x: 0, y: 0, active: false, speed: 0 };
     let scene: ParticleScene | undefined;
@@ -42,7 +54,7 @@ function useParticleCanvas(kind: 'portrait' | 'background') {
     let elapsed = 0;
     let pointerTime = 0;
     let touchTimer: ReturnType<typeof setTimeout> | undefined;
-    const animated = () => enabled && !preference.matches;
+    const animated = () => enabledRef.current && !preference.matches;
     const allowed = () => visible && !document.hidden;
 
     function draw(now: number) {
@@ -58,9 +70,9 @@ function useParticleCanvas(kind: 'portrait' | 'background') {
       const delta = Math.min(milliseconds / 1000, 1 / 30);
       elapsed += delta;
       pointer.speed *= Math.exp(-delta * 7);
-      scene.draw(elapsed, delta, pointer, animated());
-      canvas.dataset.motion = animated() ? 'running' : 'paused';
-      if (animated()) frame = requestAnimationFrame(draw);
+      const moving = scene.draw(elapsed, delta, pointer, animated());
+      canvas.dataset.motion = animated() ? (moving ? 'running' : 'idle') : 'paused';
+      if (animated() && moving) frame = requestAnimationFrame(draw);
     }
 
     function sync() {
@@ -70,6 +82,7 @@ function useParticleCanvas(kind: 'portrait' | 'background') {
       if (allowed() && scene) frame = requestAnimationFrame(draw);
       else canvas.dataset.motion = 'suspended';
     }
+    refresh.current = sync;
 
     function resize() {
       const { width, height } = canvas.getBoundingClientRect();
@@ -89,13 +102,18 @@ function useParticleCanvas(kind: 'portrait' | 'background') {
       const y = input.clientY - rect.top;
       const now = performance.now();
       const seconds = Math.max((now - pointerTime) / 1000, 0.016);
-      pointer.speed = pointer.active
-        ? Math.min(1000, Math.hypot(x - pointer.x, y - pointer.y) / seconds)
-        : 0;
+      pointer.speed =
+        input.pointerType === 'touch'
+          ? 600
+          : pointer.active
+            ? Math.min(2400, Math.hypot(x - pointer.x, y - pointer.y) / seconds)
+            : 0;
       pointer.x = x;
       pointer.y = y;
       pointer.active = true;
       pointerTime = now;
+      // 背景静止后不占用 RAF，新的指针输入才唤醒。捕获阶段可接收图谱拖动中的输入。
+      if (!frame && animated()) sync();
       // 触摸只在点按时短暂拨动，不阻止页面滚动，也不要求悬停或右键。
       if (input.pointerType === 'touch') {
         clearTimeout(touchTimer);
@@ -115,8 +133,8 @@ function useParticleCanvas(kind: 'portrait' | 'background') {
     const sizeObserver = new ResizeObserver(resize);
     visibility.observe(canvas);
     sizeObserver.observe(canvas);
-    scope.addEventListener('pointermove', move, { passive: true });
-    scope.addEventListener('pointerdown', move, { passive: true });
+    scope.addEventListener('pointermove', move, { passive: true, capture: true });
+    scope.addEventListener('pointerdown', move, { passive: true, capture: true });
     scope.addEventListener('pointerleave', leave);
     scope.addEventListener('pointercancel', leave);
     window.addEventListener('blur', leave);
@@ -141,50 +159,56 @@ function useParticleCanvas(kind: 'portrait' | 'background') {
 
     return () => {
       disposed = true;
+      refresh.current = () => {};
       cancelAnimationFrame(frame);
       clearTimeout(touchTimer);
       visibility.disconnect();
       sizeObserver.disconnect();
-      scope.removeEventListener('pointermove', move);
-      scope.removeEventListener('pointerdown', move);
+      scope.removeEventListener('pointermove', move, true);
+      scope.removeEventListener('pointerdown', move, true);
       scope.removeEventListener('pointerleave', leave);
       scope.removeEventListener('pointercancel', leave);
       window.removeEventListener('blur', leave);
       document.removeEventListener('visibilitychange', sync);
       preference.removeEventListener('change', sync);
     };
-  }, [kind, enabled]);
+  }, [kind]);
 
   return canvasRef;
 }
 
-export function HomeParticleBackground() {
+export function SiteParticleBackground() {
   const canvas = useParticleCanvas('background');
-  return <canvas ref={canvas} className="home-particle-background" aria-hidden="true" />;
+  return <canvas ref={canvas} className="site-particle-background" aria-hidden="true" />;
+}
+
+export function ParticleMotionToggle() {
+  const { enabled, toggle } = useSiteMotion();
+  const label = enabled ? '暂停页面动效' : '开启页面动效';
+  return (
+    <button
+      type="button"
+      className="particle-motion-toggle"
+      onClick={toggle}
+      aria-pressed={!enabled}
+      aria-label={label}
+      title={label}
+    >
+      {enabled ? <Pause size={15} aria-hidden="true" /> : <Play size={15} aria-hidden="true" />}
+    </button>
+  );
 }
 
 export function ParticlePortrait() {
   const canvas = useParticleCanvas('portrait');
-  const { enabled, toggle } = useContext(HomeMotionContext);
   return (
     <>
       <div className="particle-portrait">
         <img src={portraitSource} alt="白发角色插画，使用彩色粒子呈现" width={1024} height={1024} />
         <canvas ref={canvas} aria-hidden="true" />
-        <span className="portrait-corner portrait-corner-top" aria-hidden="true" />
-        <span className="portrait-corner portrait-corner-bottom" aria-hidden="true" />
       </div>
       <div className="hero-particle-footer">
         <span>移动鼠标或轻触，拨动星屑</span>
-        <button
-          type="button"
-          className="particle-motion-toggle"
-          onClick={toggle}
-          aria-pressed={!enabled}
-        >
-          {enabled ? <Pause size={12} aria-hidden="true" /> : <Play size={12} aria-hidden="true" />}
-          {enabled ? '暂停动效' : '开启动效'}
-        </button>
       </div>
     </>
   );

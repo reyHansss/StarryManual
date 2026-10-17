@@ -166,12 +166,12 @@
   }
 
   .companion-orbit {
-    transform-origin: 88px 89px;
+    transform-origin: 100px 110px;
     animation: companion-orbit var(--motion-welcome) ease-in-out 2;
   }
 
   .companion-eyes {
-    transform-origin: 81px 86px;
+    transform-origin: 100px 94px;
     animation: companion-blink 4.8s ease-in-out 2;
   }
 
@@ -189,20 +189,26 @@
     animation-delay: 800ms;
   }
 
+  .companion-wave {
+    transform-origin: 65px 148px;
+    animation: companion-wave 2.4s ease-in-out 4;
+  }
+
   .star-companion,
-  .star-companion :is(.companion-orbit, .companion-eyes, .companion-spark) {
+  .star-companion :is(.companion-orbit, .companion-eyes, .companion-spark, .companion-wave) {
     animation-play-state: paused;
   }
 
   .star-companion[data-motion='running'],
-  .star-companion[data-motion='running'] :is(.companion-orbit, .companion-eyes, .companion-spark) {
+  .star-companion[data-motion='running']
+    :is(.companion-orbit, .companion-eyes, .companion-spark, .companion-wave) {
     animation-play-state: running;
   }
 
   .site-shell:has(:focus-visible) .star-companion,
   .site-shell:has(:focus-visible)
     .star-companion
-    :is(.companion-orbit, .companion-eyes, .companion-spark) {
+    :is(.companion-orbit, .companion-eyes, .companion-spark, .companion-wave) {
     animation-play-state: paused;
   }
 
@@ -271,6 +277,20 @@
   }
   45% {
     transform: scaleY(0.12);
+  }
+}
+
+@keyframes companion-wave {
+  0%,
+  50%,
+  100% {
+    transform: rotate(0);
+  }
+  25% {
+    transform: rotate(-9deg);
+  }
+  75% {
+    transform: rotate(5deg);
   }
 }
 

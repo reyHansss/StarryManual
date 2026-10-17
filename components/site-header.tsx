@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useId } from 'react';
 import { EditorLink } from '@/components/editor-link';
 import { SearchTrigger } from '@/components/document-search';
+import { ParticleMotionToggle } from '@/components/particle-effects';
 
 export function StarMark() {
   const gradient = `brand-star-${useId().replace(/[^a-zA-Z0-9-]/g, '')}`;
@@ -46,6 +47,7 @@ export function SiteHeader() {
       <div className="header-actions">
         <SearchTrigger />
         <EditorLink className="editor-link" />
+        <ParticleMotionToggle />
       </div>
     </header>
   );

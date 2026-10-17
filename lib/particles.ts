@@ -1,9 +1,10 @@
-/** 首页两层画布共用视口与指针输入；所有坐标和速度均以 CSS 像素计。 */
+/** 全站背景与首页肖像复用指针输入；所有坐标和速度均以 CSS 像素计。 */
 export type ParticlePointer = { x: number; y: number; active: boolean; speed: number };
 
 export type ParticleScene = {
   resize: (width: number, height: number) => void;
-  draw: (time: number, delta: number, pointer: ParticlePointer, animated: boolean) => void;
+  /** 返回是否还需要后续帧；静止的装饰背景不持续刷新。 */
+  draw: (time: number, delta: number, pointer: ParticlePointer, animated: boolean) => boolean;
 };
 
 type PortraitPoint = {
@@ -84,10 +85,11 @@ export async function createPortraitScene(
     },
     draw(time, delta, pointer, animated) {
       context.clearRect(0, 0, width, height);
-      const radius = Math.min(115, size * 0.27);
+      const speed = animated && pointer.active ? pointer.speed : 0;
+      const radius = Math.min(size * 0.48, size * 0.08 + speed * 0.1);
       const damping = Math.exp(-10 * delta);
       const dot = Math.max(0.9, (size / resolution) * 0.74);
-      // 入场偏移只持续约一秒，后续只保留轻微呼吸与局部排斥，不周期性打散整张图。
+      // 入场聚拢后保持静止；速度决定扰动半径，鼠标停住时仅有回位，不持续排斥。
       const entrance = animated ? Math.exp(-time * 5.5) * size * 0.25 : 0;
       for (const [color, points] of groups) {
         context.fillStyle = color;
@@ -98,17 +100,17 @@ export async function createPortraitScene(
           if (animated) {
             let forceX = 0;
             let forceY = 0;
-            if (pointer.active) {
+            if (speed > 25) {
               const dx = point.x - pointer.x;
               const dy = point.y - pointer.y;
               const distance = Math.hypot(dx, dy);
               if (distance < radius) {
-                const force = (1 - distance / radius) ** 2 * (3800 + pointer.speed * 3);
+                const force = (1 - distance / radius) ** 2 * Math.min(9000, speed * 6);
                 forceX = (distance > 0.1 ? dx / distance : Math.cos(point.phase)) * force;
                 forceY = (distance > 0.1 ? dy / distance : Math.sin(point.phase)) * force;
               }
             }
-            // 有界时间步与阻尼弹簧保证切回页面后不会跳跃，鼠标停留时仍持续作用。
+            // 有界时间步与阻尼弹簧保证切回页面后不会跳跃，移动停止后平滑归位。
             point.vx = (point.vx + ((anchorX - point.x) * 82 + forceX) * delta) * damping;
             point.vy = (point.vy + ((anchorY - point.y) * 82 + forceY) * delta) * damping;
             point.x += point.vx * delta;
@@ -116,26 +118,69 @@ export async function createPortraitScene(
           } else {
             point.x = anchorX;
             point.y = anchorY;
+            point.vx = 0;
+            point.vy = 0;
           }
-          const shimmer = animated ? Math.sin(time * 1.2 + point.phase) * 0.12 : 0;
-          const x = point.x + Math.cos(point.phase) * entrance + shimmer;
-          const y = point.y + Math.sin(point.phase) * entrance + shimmer;
+          const x = point.x + Math.cos(point.phase) * entrance;
+          const y = point.y + Math.sin(point.phase) * entrance;
           context.rect(x - dot / 2, y - dot / 2, dot, dot);
         }
         context.fill();
       }
+      return animated;
     },
   };
 }
 
-/** 参考鼠标局部显现的符号点阵，保留浅色底；停留时显现，离开后平滑淡出。 */
+/** 鼠标附近的符号各自随机变换；加粗数字与有轮廓的几何形状在白底上保持清楚。 */
 export function createBackgroundScene(context: CanvasRenderingContext2D): ParticleScene {
   let width = 0;
   let height = 0;
   let reveal = 0;
   let focusX = 0;
   let focusY = 0;
-  const palette = ['#c76e82', '#70a9c4', '#c79a68', '#77ae9b'];
+  const palette = ['#be697e', '#679fb9', '#b98a56', '#68a58f'];
+  const random = (seed: number) => {
+    const value = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
+    return value - Math.floor(value);
+  };
+
+  function symbol(kind: number, x: number, y: number, scale: number, alpha: number) {
+    context.globalAlpha = alpha;
+    const radius = 4.5 * scale;
+    context.lineWidth = 1.8;
+    context.lineJoin = 'round';
+    switch (kind) {
+      case 0:
+      case 1:
+        context.fillText(String(kind), x, y);
+        break;
+      case 2:
+        context.beginPath();
+        context.moveTo(x, y - radius);
+        context.lineTo(x + radius, y + radius * 0.8);
+        context.lineTo(x - radius, y + radius * 0.8);
+        context.closePath();
+        context.stroke();
+        break;
+      case 3:
+        context.strokeRect(x - radius * 0.7, y - radius * 0.7, radius * 1.4, radius * 1.4);
+        break;
+      case 4:
+        context.beginPath();
+        context.moveTo(x, y - radius);
+        context.lineTo(x + radius * 0.75, y);
+        context.lineTo(x, y + radius);
+        context.lineTo(x - radius * 0.75, y);
+        context.closePath();
+        context.fill();
+        break;
+      default:
+        context.beginPath();
+        context.arc(x, y, radius * 0.7, 0, Math.PI * 2);
+        context.fill();
+    }
+  }
   return {
     resize(nextWidth, nextHeight) {
       width = nextWidth;
@@ -160,7 +205,7 @@ export function createBackgroundScene(context: CanvasRenderingContext2D): Partic
         context.fillRect(focusX - radius, focusY - radius, radius * 2, radius * 2);
       }
       const spacing = width < 600 ? 38 : 46;
-      context.font = '11px ui-monospace, monospace';
+      context.font = '800 16px "Cascadia Code", Consolas, ui-monospace, monospace';
       context.textAlign = 'center';
       context.textBaseline = 'middle';
       for (let row = 0, y = 20; y < height; row++, y += spacing) {
@@ -169,43 +214,30 @@ export function createBackgroundScene(context: CanvasRenderingContext2D): Partic
           const distance = Math.hypot(x - focusX, y - focusY);
           const influence = Math.max(0, 1 - distance / radius) ** 1.3 * reveal;
           const idle = seed % 7 === 0 ? 0.12 : 0.035;
-          const alpha = idle + influence * 0.68;
-          context.globalAlpha = alpha;
+          const alpha = idle + influence * 0.86;
           context.fillStyle = palette[seed % palette.length];
           context.strokeStyle = context.fillStyle;
           if (influence < 0.045) {
+            context.globalAlpha = idle;
             context.fillRect(x, y, 1.3, 1.3);
             continue;
           }
-          const scale = 0.6 + influence * 0.8;
+          const scale = 0.7 + influence * 0.7;
           const float = animated ? Math.sin(time * 1.3 + seed) * influence * 3 : 0;
           const dy = y + float;
-          switch (seed % 5) {
-            case 0:
-            case 1:
-              context.fillText(String(seed % 2), x, dy);
-              break;
-            case 2:
-              context.beginPath();
-              context.arc(x, dy, 3 * scale, 0, Math.PI * 2);
-              context.fill();
-              break;
-            case 3:
-              context.lineWidth = 1;
-              context.strokeRect(x - 2.5 * scale, dy - 2.5 * scale, 5 * scale, 5 * scale);
-              break;
-            default:
-              context.beginPath();
-              context.moveTo(x, dy - 4 * scale);
-              context.lineTo(x + 3 * scale, dy);
-              context.lineTo(x, dy + 4 * scale);
-              context.lineTo(x - 3 * scale, dy);
-              context.closePath();
-              context.fill();
-          }
+          // 每个格点采用不同周期与相位，停留时也会变换；交叉淡化避免整片闪烁。
+          const cycle = time / (1.5 + random(seed) * 1.8) + random(seed + 31) * 10;
+          const step = Math.floor(cycle);
+          const progress = Math.min(1, (cycle - step) / 0.16);
+          const blend = progress * progress * (3 - 2 * progress);
+          const previous = Math.floor(random(seed + (step - 1) * 97) * 6);
+          const next = Math.floor(random(seed + step * 97) * 6);
+          if (blend < 1) symbol(previous, x, dy, scale, alpha * (1 - blend));
+          symbol(next, x, dy, scale, alpha * blend);
         }
       }
       context.globalAlpha = 1;
+      return animated && (active || reveal > 0.01);
     },
   };
 }

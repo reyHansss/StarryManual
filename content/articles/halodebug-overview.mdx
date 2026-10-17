@@ -1,13 +1,13 @@
 ---
 title: HaloDebug · 模块总览与使用
-description: 了解调试窗口、输入工具、远程连接与绘制扩展的分工，再进入对应功能操作。
+description: 了解通用调试工具的操作、远程连接与窗口扩展，再由各模块的排查说明定位具体问题。
 category: guide
 order: 30
 ---
 
 ## 模块职责与功能入口
 
-HaloDebug 提供调试窗口与菜单、ImGui 输入、属性检查和场景绘制基础；Starry 在此之上注册项目工具。日常观察先使用已有窗口，输入注入、远程桌面和自定义窗口分别进入上方对应功能。
+HaloDebug 提供调试窗口与菜单、ImGui 输入、属性检查和场景绘制基础；Starry 在此之上注册项目工具。这里说明工具怎样操作、连接与扩展；具体模块的状态含义、异常原因和排查步骤在所属模块中说明。
 
 文档中的功能分区面向实际用途，插件的 C++ 模块分工见下文；一个功能可能使用多个底层模块，例如远程显示通过 ImGui 传输窗口，场景绘制仍在游戏进程完成。
 
@@ -68,6 +68,8 @@ Cheats 默认作用于选中的 Actor；按住 `Ctrl` 点击时改用本地受�
 
 先确认当前不是 Shipping、项目已启用插件且 Subsystem 注册了窗口，再检查 F1 调试输入、窗口可见性和当前世界。中文缺字还应检查非 Shipping 字体文件部署：字体由标准文件读取，只有 Cook 到 Pak 并不足以替代相应 NonUFS 文件。
 
-远程桌面显示见[netImgui 远程面板](/read/halodebug-remote)，输入调试见[Gamepad 与 Actions](/read/halodebug-input)，新窗口与绘制复用见[窗口扩展与属性绘制](/read/halodebug-extension)。AI 专用排查见[AstraAI 调试](/read/astraai-debugging)。
+Gamepad 与 Actions 的操作见[输入观察与模拟](/read/halodebug-input)，远程桌面显示见[netImgui 远程面板](/read/halodebug-remote)，新窗口与绘制复用见[窗口扩展与属性绘制](/read/halodebug-extension)。
+
+定位具体系统的问题时，从所属模块的排查章节进入，例如 [Input 调试与排查](/read/input-troubleshooting)和 [AstraAI 调试与排查](/read/astraai-debugging)。
 
 实现入口：`Plugins/Toolkit/HaloDebug` 与 `Source/StarryGame/Framework/Development/StarryDebugSubsystem`。插件来源为 Cog，保留 MIT 许可；具体来源与许可记录随项目维护。

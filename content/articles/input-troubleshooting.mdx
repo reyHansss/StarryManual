@@ -8,7 +8,9 @@ order: 46
 
 ## 从能观察到的最前一层开始
 
-先打开 `Input → Gamepad` 或 `Actions`。原始设备值、Enhanced Input Action、项目 Handler、领域能力是不同阶段，不要只看角色有没有动作就判定“输入丢了”。
+先在 HaloDebug 打开 `Input → Gamepad` 或 `Input → Actions`；面板操作、注入和重置方式见[输入观察与模拟](/read/halodebug-input)。沿下方路线检查设备、映射、Handler、缓存和领域能力，确定输入停在哪一层。
+
+原始设备值、Enhanced Input Action、项目 Handler、领域能力是不同阶段，不要只看角色有没有动作就判定“输入丢了”。
 
 <Diagram
   title="输入没有响应时的排查路线"
@@ -46,6 +48,6 @@ order: 46
 
 已有项目回归名称可用于定位，例如 `Starry.Input.DoubleTapPipeline`；这里提供查找线索，不代表本页编写时重新运行了 UE 自动化。
 
-[配置接入](/read/input-overview)、[绑定与生命周期](/read/input-binding)、[通道缓存](/read/input-buffer)分别对应排查链中的不同层。[HaloDebug 输入面板](/read/halodebug-input)说明物理与模拟值的观察方式。
+[配置接入](/read/input-overview)、[绑定与生命周期](/read/input-binding)、[通道缓存](/read/input-buffer)分别对应排查链中的不同层。
 
 实现入口：`Framework/Input/StarryInputLogs`、`StarryInputManagerComponent` 与相应 Handler／Trigger。

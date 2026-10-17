@@ -1,16 +1,18 @@
 ---
-title: HaloDebug · Gamepad 与 Actions
-description: 区分物理输入观察、手柄模拟与 Action 注入，沿输入流水线验证项目接入。
+title: HaloDebug · 输入观察与模拟
+description: 操作 Gamepad 与 Actions 工具，查看物理输入、模拟动作，并正确停止和重置注入。
 category: guide
-section: [输入调试]
+section: [工具使用]
 order: 32
 ---
 
-## 先确定要观察哪一层
+## 两个工具各自提供什么
+
+Gamepad 与 Actions 是 HaloDebug 提供的通用输入工具。本页介绍面板操作、模拟规则与清理方式；项目输入不生效时，按 [Input 的调试与排查](/read/input-troubleshooting)定位具体环节。
 
 `Input → Gamepad` 显示物理手柄的原始按键与轴，也提供模拟。`Input → Actions` 面向当前玩家已映射的 Enhanced Input Action，显示当前值并注入动作。
 
-如果要检查“手柄是否有信号”，先看 Gamepad；如果要检查“动作是否经过 Trigger 和 Modifier”，看 Actions，再追踪项目 Handler。
+观察手柄原始信号时使用 Gamepad，查看已映射动作的当前值或直接注入动作时使用 Actions。
 
 | 特性         | Gamepad                   | Actions                                |
 | ------------ | ------------------------- | -------------------------------------- |
@@ -40,16 +42,12 @@ order: 32
 <Diagram
   title="Action 注入从动作层进入"
   source={
-    'flowchart LR\n  Key(物理按键) --> Mapping(IMC 按键映射与修饰)\n  Mapping --> Action(Action 自身 Modifier / Trigger)\n  Inject(HaloDebug Action 注入) --> Action\n  Action --> Event(Enhanced Input 动作事件)\n  Event --> Manager(Starry InputManager)\n  Manager --> Handler(项目 Handler)'
+    'flowchart LR\n  Key(物理按键) --> Mapping(IMC 按键映射与修饰)\n  Mapping --> Action(Action 自身 Modifier / Trigger)\n  Inject(HaloDebug Action 注入) --> Action\n  Action --> Event(Enhanced Input 动作事件)\n  Event --> Consumer(已绑定的动作使用方)'
   }
 />
 
 注入通过原生 Enhanced Input Action 接口，走 Action 自身的修饰器和触发器，不走 IMC 按键条目上的修饰器。因此“模拟正常、物理按键不正常”时，要检查映射层差异。
 
 Gamepad 与 Actions 同时模拟同一个 Action 时，按 Enhanced Input 原生累积规则处理。做单一路径验证时先清理另一处的持续模拟，避免把叠加结果误认为项目重复分派。
-
-## 接着追踪 Starry
-
-有原始值却没有 Action，检查映射与玩家；有 Action 却没有 Handler，检查 Setup、事件类型与初始化。完整路线见[Input 排查](/read/input-troubleshooting)，配置所有权与共享绑定见[绑定与配置生命周期](/read/input-binding)。
 
 实现入口：`Plugins/Toolkit/HaloDebug/Source/HaloDebugInput`，项目菜单由 `UStarryDebugSubsystem` 注册。

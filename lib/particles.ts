@@ -86,7 +86,8 @@ export async function createPortraitScene(
       const speed = animated && pointer.active ? pointer.speed : 0;
       const radius = Math.min(size * 0.78, size * 0.16 + speed * 0.15);
       const strength = speed > 25 ? Math.min(speed / 1600, 0.48) : 0;
-      const response = 1 - Math.exp(-delta * 14);
+      const expandResponse = 1 - Math.exp(-delta * 14);
+      const returnResponse = 1 - Math.exp(-delta * 4.5);
       const dot = Math.max(0.9, (size / resolution) * 0.74);
       let unsettled = false;
       for (const [color, points] of groups) {
@@ -105,6 +106,8 @@ export async function createPortraitScene(
             const targetX = anchorX + dx * dilation;
             const targetY = anchorY + dy * dilation;
             const targetScale = 1 + dilation * 0.75;
+            // 外扩保持跟手，收拢使用更慢的阻尼；点尺寸与位置同步回位，避免突然缩回。
+            const response = targetScale >= point.scale ? expandResponse : returnResponse;
             point.x += (targetX - point.x) * response;
             point.y += (targetY - point.y) * response;
             // 点尺寸随局部展开稍增大，保持点阵连续；位置和点尺寸使用相同的阻尼。

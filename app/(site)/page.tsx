@@ -12,14 +12,13 @@ export default function HomePage() {
             <Sparkles size={15} /> UNREAL ENGINE 5.8
           </span>
           <h1>
-            Starry
-            <br />
-            <span>项目文档</span>
+            <span className="hero-name">Starry</span>
+            <span className="hero-title">项目文档</span>
           </h1>
-          <p>
+          <p className="hero-summary">
             按模块与具体功能查阅 Starry。
             <br className="desktop-break" />
-            了解功能用法、技术架构与扩展方法。
+            了解<em>功能用法</em>、<em>技术架构</em>与<em>扩展方法</em>。
           </p>
           <div className="hero-actions">
             <Link className="button primary" href="/read/start-here">

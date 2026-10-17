@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { ArrowRight, ArrowUpRight, BookOpen, Sparkles } from 'lucide-react';
 import { ParticlePortrait } from '@/components/particle-effects';
-import { StarCompanion } from '@/components/star-companion';
 import siteLinks from '@/content/site-links.json';
 
 export default function HomePage() {
@@ -12,16 +11,11 @@ export default function HomePage() {
           <span className="edition-label">
             <Sparkles size={15} /> UNREAL ENGINE 5.8
           </span>
-          <div className="hero-heading">
-            <h1>
-              Starry
-              <br />
-              <span>项目文档</span>
-            </h1>
-            <div className="hero-guide">
-              <StarCompanion />
-            </div>
-          </div>
+          <h1>
+            Starry
+            <br />
+            <span>项目文档</span>
+          </h1>
           <p>
             按模块与具体功能查阅 Starry。
             <br className="desktop-break" />

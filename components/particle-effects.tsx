@@ -1,11 +1,12 @@
 'use client';
 
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Pause, Play } from 'lucide-react';
 import { assetUrl } from '@/lib/site-config';
 import {
   createBackgroundScene,
   createPortraitScene,
+  PORTRAIT_PADDING,
   type ParticlePointer,
   type ParticleScene,
 } from '@/lib/particles';
@@ -23,7 +24,7 @@ export function SiteMotion({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function useSiteMotion() {
+function useSiteMotion() {
   return useContext(SiteMotionContext);
 }
 
@@ -42,8 +43,7 @@ function useParticleCanvas(kind: 'portrait' | 'background') {
     const canvas = canvasRef.current!;
     const context = canvas.getContext('2d');
     if (!context) return;
-    const scope =
-      kind === 'portrait' ? canvas.closest('.particle-portrait')! : document.documentElement;
+    const scope = document.documentElement;
     const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
     const pointer: ParticlePointer = { x: 0, y: 0, active: false, speed: 0 };
     let scene: ParticleScene | undefined;
@@ -202,14 +202,12 @@ export function ParticleMotionToggle() {
 export function ParticlePortrait() {
   const canvas = useParticleCanvas('portrait');
   return (
-    <>
-      <div className="particle-portrait">
-        <img src={portraitSource} alt="白发角色插画，使用彩色粒子呈现" width={1024} height={1024} />
-        <canvas ref={canvas} aria-hidden="true" />
-      </div>
-      <div className="hero-particle-footer">
-        <span>移动鼠标或轻触，拨动星屑</span>
-      </div>
-    </>
+    <div
+      className="particle-portrait"
+      style={{ '--portrait-padding': `${PORTRAIT_PADDING}px` } as CSSProperties}
+    >
+      <img src={portraitSource} alt="白发角色插画，使用彩色粒子呈现" width={1024} height={1024} />
+      <canvas ref={canvas} aria-hidden="true" />
+    </div>
   );
 }

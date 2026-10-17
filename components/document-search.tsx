@@ -8,7 +8,7 @@ import type { Article } from '@/lib/types';
 
 const SearchContext = createContext<() => void>(() => {});
 
-/** 页眉、文档首页与快捷键共用一个搜索窗口。 */
+/** 页眉与快捷键共用一个全站搜索窗口。 */
 export function DocumentSearch({
   articles,
   children,
@@ -98,16 +98,12 @@ export function DocumentSearch({
   );
 }
 
-export function SearchTrigger({ prominent = false }: { prominent?: boolean }) {
+export function SearchTrigger() {
   const open = useContext(SearchContext);
   return (
-    <button
-      className={prominent ? 'home-search-trigger' : 'search-trigger'}
-      onClick={open}
-      aria-label={prominent ? '搜索全部文档' : '搜索文档'}
-    >
-      <Search size={prominent ? 21 : 15} />
-      <span>{prominent ? '搜索功能、概念或 API…' : '搜索'}</span>
+    <button className="search-trigger" onClick={open} aria-label="搜索文档">
+      <Search size={15} />
+      <span>搜索</span>
       <kbd>Ctrl K</kbd>
     </button>
   );

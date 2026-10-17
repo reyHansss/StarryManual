@@ -1,0 +1,9 @@
+{
+  "sites": [
+    {
+      "title": "UE-Book",
+      "description": "Unreal Engine 内置插件文档、开源库与技术更新。",
+      "url": "https://kisspread.github.io/UE-Book/"
+    }
+  ]
+}

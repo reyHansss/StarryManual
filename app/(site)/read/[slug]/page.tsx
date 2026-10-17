@@ -11,7 +11,6 @@ import {
 } from '@/lib/navigation';
 import { ReadingNavigation } from '@/components/reading-navigation';
 import { ModuleContents } from '@/components/module-contents';
-import { DocumentHome } from '@/components/document-home';
 import { getMDXComponents } from '@/components/mdx';
 import { EditorLink } from '@/components/editor-link';
 
@@ -41,16 +40,6 @@ export default async function ArticlePage({ params }: Props) {
   const module = modules.find((group) => group.key === current.module)!;
   const isModuleOverview =
     module.overview?.slug === slug && !['manual', 'authoring'].includes(module.key);
-  if (slug === 'start-here') {
-    return (
-      <main id="main" className="reading-layout document-home-layout">
-        <ReadingNavigation modules={modules} current={current} />
-        <DocumentHome title={page.data.title} description={page.data.description ?? ''}>
-          <MDX components={getMDXComponents()} />
-        </DocumentHome>
-      </main>
-    );
-  }
   const outgoing = articles.filter((article) => current.links.includes(article.slug));
   const incoming = articles.filter(
     (article) => article.slug !== slug && article.links.includes(slug),

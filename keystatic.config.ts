@@ -1,10 +1,32 @@
-import { collection, config, fields } from '@keystatic/core';
+import { collection, config, fields, singleton } from '@keystatic/core';
 import { block, wrapper } from '@keystatic/core/content-components';
 
 export default config({
   locale: 'zh-CN',
   storage: { kind: 'local' },
   ui: { brand: { name: 'Starry手册' } },
+  singletons: {
+    siteLinks: singleton({
+      label: '首页推荐站点',
+      path: 'content/site-links',
+      format: { data: 'json' },
+      previewUrl: '/',
+      schema: {
+        sites: fields.array(
+          fields.object({
+            title: fields.text({ label: '站点名称', validation: { isRequired: true } }),
+            description: fields.text({ label: '简介', multiline: true }),
+            url: fields.url({ label: '网址', validation: { isRequired: true } }),
+          }),
+          {
+            label: '推荐站点',
+            description: '按显示顺序添加；首页自动排版，点击后在新标签页打开。',
+            itemLabel: (props) => props.fields.title.value || '新站点',
+          },
+        ),
+      },
+    }),
+  },
   collections: {
     articles: collection({
       label: '文章',

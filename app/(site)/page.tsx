@@ -1,26 +1,12 @@
 import Link from 'next/link';
-import {
-  ArrowRight,
-  ArrowUpRight,
-  Orbit,
-  MousePointer2,
-  BrainCircuit,
-  Bug,
-  Gamepad2,
-  MessagesSquare,
-  Sparkles,
-} from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Orbit, MousePointer2, BookOpen, Sparkles } from 'lucide-react';
 import { getCatalog } from '@/lib/catalog';
-import { articleModules, buildModuleNavigation } from '@/lib/navigation';
 import { KnowledgeGraph } from '@/components/knowledge-graph';
 import { StarCompanion } from '@/components/star-companion';
+import siteLinks from '@/content/site-links.json';
 
 export default async function HomePage() {
   const articles = await getCatalog();
-  const modules = buildModuleNavigation(articles).filter(
-    (module) => module.key !== 'manual' && module.key !== 'authoring' && module.overview,
-  );
-  const moduleIcons = { astraai: BrainCircuit, halodebug: Bug, input: Gamepad2 };
   const previewSlugs = new Set([
     'start-here',
     'architecture',
@@ -35,7 +21,7 @@ export default async function HomePage() {
         <span>
           <i className="status-dot" /> STARRY / 项目文档
         </span>
-        <span>MODULES · FEATURES · GUIDES</span>
+        <span>STARRY MANUAL</span>
       </div>
       <section className="hero">
         <div className="hero-copy">
@@ -56,8 +42,8 @@ export default async function HomePage() {
             <Link className="button primary" href="/read/start-here">
               开始阅读 <ArrowRight size={16} />
             </Link>
-            <Link href="/read/start-here" className="button quiet">
-              按模块查阅 <ArrowUpRight size={16} />
+            <Link href="/graph" className="button quiet">
+              知识图谱 <ArrowUpRight size={16} />
             </Link>
           </div>
           <div className="hero-footnote">
@@ -85,67 +71,37 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
-      <section className="entry-section">
-        <div className="section-heading">
-          <h2>
-            已整理的模块<span> / MODULES</span>
-          </h2>
-          <span>按项目系统持续补充</span>
-        </div>
-        <div className="entry-grid">
-          {modules.map((module, index) => {
-            const definition = articleModules[module.key];
-            const Icon = moduleIcons[module.key as keyof typeof moduleIcons] ?? MessagesSquare;
-            return (
-              <Link
-                href={module.overview!.url}
-                className="entry-card"
-                key={module.key}
-                style={
-                  {
-                    '--card-color': definition.color,
-                    '--card-soft': `color-mix(in srgb, ${definition.nodeColor} 16%, var(--surface))`,
-                  } as React.CSSProperties
-                }
+      {siteLinks.sites.length > 0 && (
+        <section className="site-recommendations" aria-labelledby="site-recommendations-title">
+          <div className="site-recommendations-intro">
+            <span className="eyebrow">BOOKMARKS</span>
+            <h2 id="site-recommendations-title">推荐站点</h2>
+            <p>值得收藏的 Unreal Engine 技术资料。</p>
+          </div>
+          <div className="site-recommendations-list">
+            {siteLinks.sites.map((site) => (
+              <a
+                className="recommended-site"
+                href={site.url}
+                key={site.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`${site.title}（在新标签页打开）`}
               >
-                <div className="entry-card-top">
-                  <span className="entry-icon">
-                    <Icon size={20} />
-                  </span>
-                  <span>
-                    {String(index + 1).padStart(2, '0')} / {definition.shortLabel.toUpperCase()}
-                  </span>
-                  <ArrowUpRight size={18} />
-                </div>
-                <h3>{definition.label}</h3>
-                <p>{module.overview!.description}</p>
-                <span className="card-link">
-                  进入 {definition.shortLabel} <ArrowRight size={14} />
+                <span className="recommended-site-icon">
+                  <BookOpen size={24} aria-hidden="true" />
                 </span>
-              </Link>
-            );
-          })}
-        </div>
-      </section>
-      <section className="reading-path">
-        <div>
-          <span className="eyebrow">PROJECT DOCUMENTATION</span>
-          <h2>从模块进入具体功能</h2>
-        </div>
-        <div className="path-steps">
-          {[
-            ['/read/start-here', '选择模块'],
-            ['/graph', '探索关联'],
-            ['/read/writing', '维护内容'],
-          ].map(([href, label], index) => (
-            <Link href={href} key={href}>
-              <span>0{index + 1}</span>
-              {label}
-              <ArrowRight size={15} />
-            </Link>
-          ))}
-        </div>
-      </section>
+                <span className="recommended-site-copy">
+                  <strong>{site.title}</strong>
+                  <span>{site.description}</span>
+                  <small>{site.url.replace(/^https?:\/\//, '').replace(/\/$/, '')}</small>
+                </span>
+                <ArrowUpRight size={20} aria-hidden="true" />
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
     </main>
   );
 }

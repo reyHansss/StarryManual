@@ -1,0 +1,57 @@
+---
+title: AstraAI · 组合与覆盖
+description: 正确区分优先级、行为分数与 Stack 顺序，按完整路径组织可撤销的配置。
+category: architecture
+order: 11
+---
+
+## 用路径定位一个行为
+
+一个行为的身份是完整路径，例如 `Daily/Rest`。`Daily` 是 Group，`Rest` 是 Behavior；路径使用 `FName`，大小写不能用来区分两个身份。
+
+Modifier 的每条请求属于 `AddGroup`、`AddBehavior`、`RemoveGroup` 或 `RemoveBehavior`。它描述对最终组合的修改，不是一份每帧顺序执行的动作清单。
+
+## 在编辑器里组织配置
+
+打开 `AIBM_` 后，先选择 `Critical` 或 `Normal`，再添加根组或根行为。编辑器的“路径与请求工具”支持输入完整路径、选择 Group／Behavior 类型、添加与移除请求，并提供重命名、顺序调整与节点参数编辑。
+
+父组负责条件，子组与子行为继承根优先级。给节点填写设计说明，能帮助区分“为什么需要这一项”与“这项的当前参数”；说明与节点颜色不参与评分。
+
+打开 `AIBMS_` 时，只配置 Modifier 类型及其先后顺序。行为内部的 Logic、条件、评分参数在所属 Modifier 中修改；Stack 不提供另一套参数覆盖。
+
+<Diagram
+  title="三种顺序分别影响什么"
+  source={
+    'flowchart TB\n  Priority(Critical / Normal) -->|决定竞争层级| Selection(候选选择)\n  Score(Behavior 分数) -->|同级比较| Selection\n  Order(Stack 前层到后层) -->|组合增删与替换| Effective(最终有效配置)\n  Effective --> Selection'
+  }
+/>
+
+## 后层怎样覆盖前层
+
+| 操作                     | 最终行为                                |
+| ------------------------ | --------------------------------------- |
+| 后层添加同路径 Behavior  | 完整替换前层定义，包括它的 Logic 与参数 |
+| 撤回覆盖层               | 恢复仍然有效的前层定义                  |
+| 后层显式重定义已有 Group | 替换该组条件，保留已有子项              |
+| 向已有 Group 增删子行为  | 引用其路径，不需要顺手重复定义 Group    |
+| 移除 Group               | 该路径下的组与行为退出最终组合          |
+
+例如，前层定义 `Daily/Rest`，后层以同一路径放入受伤后的休息配置。后层存在时使用后层完整定义；撤回后恢复前层。这里没有按字段合并，也不按 Behavior 的类名合并两个不同路径。
+
+正在执行的行为若因撤回或替换而失去原定义，组件会先取消、清理，再重新选择。不会为了保留当前动作继续使用已经撤销的配置。
+
+## 运行时应用要保存 Handle
+
+`AddModifier` 返回应用句柄，用它精确定位一次应用。相同 Modifier 类型的不同 Handle 是独立应用；不要只保存类型，事后猜测要撤回哪一层。
+
+请求在安全边界处理，拿到 Handle 只表示申请已登记。通过 `OnModifierChanged` 观察 `Pending`、`Applied`、`Rejected`、`Removed`，需要生效结果时以通知为准。
+
+可选的来源对象是弱引用；来源失效时，属于它的应用会撤销。`MoveModifier` 的位置从零开始，最终组合不合法时会拒绝。应用与移除事件 `OnApplied / OnRemoved` 成对管理该层自己的副作用，不因重算而重复执行仍保留的层。
+
+## 配置共享，应用状态独立
+
+多个 NPC 可以引用同一套 Modifier、Group、Behavior 模板。每个 NPC 的应用 Handle、评估结果、冷却与活动执行独立；不要把当前目标、Owner、执行下标写进共享模板成员。
+
+评分与抢占的具体规则见[评分与抢占](/read/astraai-selection)，动作中的独立数据与清理见[Logic 与生命周期](/read/astraai-logic)。区域应用的来源管理见[行为区域](/read/astraai-zones)。
+
+实现入口：插件的 `Behavior/AstraAIBehaviorModifier`、`AstraAIBehaviorModifierStack`、`AstraAIBehaviorTypes` 与 `AstraAIComponent`。

@@ -1,0 +1,65 @@
+---
+title: AstraAI · 调试与排查
+description: 从初始化到候选、机会、应用层与后端，沿真实运行路径定位 AI 没有行动的原因。
+category: reference
+order: 18
+---
+
+## 打开项目的 AI 面板
+
+在非 Shipping 游戏中按 `F1` 打开 HaloDebug 输入，再打开 `AI` 菜单。Starry 当前注册了以下窗口，它们共享项目的 AI 调试会话。
+
+| 菜单                 | 主要查看内容             |
+| -------------------- | ------------------------ |
+| `AI → Agents`        | 选择与定位当前 AI        |
+| `AI → AstraBehavior` | 当前组合决策与行为执行   |
+| `AI → Objectives`    | 当前机会与生成器相关数据 |
+| `AI → Modifiers`     | 应用层及组合结果         |
+| `AI → BehaviorTree`  | BT 后端                  |
+| `AI → StateTree`     | StateTree 后端           |
+| `AI → HTN`           | HTN 后端                 |
+| `AI → Blackboard`    | 实际黑板数据             |
+
+这里的窗口是 Starry 项目通过 HaloDebug 注册的面板。插件提供真实运行事件，项目会话组织显示；不会为了打开调试窗口重新调用一遍评分来生成“历史结果”。
+
+## 按运行链定位
+
+<Diagram
+  title="AI 不行动时先确认哪一层没有完成"
+  source={
+    'flowchart TD\n  Begin(AI 没有行动) --> Ready{Controller Ready？}\n  Ready -->|否| Setup(检查控制、Provider、软引用与失败通知)\n  Ready -->|是| Layers{Modifier 已应用？}\n  Layers -->|否| Apply(检查 Stack、来源与 Rejected 事件)\n  Layers -->|是| Facts{条件与机会有效？}\n  Facts -->|否| Objective(检查 Generator 更新与精确类)\n  Facts -->|是| Choice{有可选行为？}\n  Choice -->|否| Score(检查优先级、分数、冷却)\n  Choice -->|是| Exec(检查当前 Logic、后端与清理)'
+  }
+/>
+
+## 常见现象与检查点
+
+| 现象                   | 优先检查                                                                            |
+| ---------------------- | ----------------------------------------------------------------------------------- |
+| 没有 AstraAI Brain     | `BrainType` 是否为 Composition，Pawn 是否提供 AISetup，控制器是否运行在允许的世界   |
+| 初始化直接停在 Stopped | `UStarryAISettings::bDisableLogic` 是否开启；全局禁用时不会开始加载配置             |
+| 初始化一直未完成       | 软引用加载、`ObjectiveSetup` 与 `ModifierStack`、`OnAISetupFailed` 的原因           |
+| AISetup 资产校验失败   | 是否填写有效的 `PerceptionSenseProfile`；新建感知配置还须检查感官与 `DominantSense` |
+| 新加 Modifier 没有效果 | 不能只看 Handle；确认 Applied／Rejected，检查后层覆盖                               |
+| 有机会却不执行         | 机会是否当前有效、是否精确类匹配、组条件、分数与冷却                                |
+| 高分行为没有抢占       | 是否同级严格高分、当前是否 Critical、是否阻止普通中断                               |
+| 已切换配置却仍等待     | 旧执行的 Cancel／Cleanup 与局部树是否安全结束                                       |
+| 新执行被旧任务结束     | 异步回调是否保存并校验原 ExecutionId                                                |
+| BT 看起来走完却按失败  | SingleRun 是否通过 FinishTree 明确报告结果                                          |
+
+## 实时数据和历史值分清
+
+AstraBehavior 树中，灰色表示条件失败、冷却或优先级阻挡；白色表示最近评估可用；黄色表示当前执行行为及其祖先组。`[--]` 表示尚无有效评分记录，条件失败后仍可保留最近一次真实分数，Normal 显示上次实际评估结果。
+
+Timeline 记录启停、原因与当时的 Objective 内容，收起图表后仍可查看历史表。当前只采集所选角色；横轴为游戏秒，察觉曲线取 Starry 各目标累计察觉值的最大值，范围 0～1。
+
+对象 Inspector 展示的是当前对象；历史查看需要会话在当时采集的值。不要拿当前共享模板或当前 Struct 地址，反推几秒前另一次执行的状态。
+
+记录问题时同时写下 Controller、行为完整路径、应用 Handle、执行 Id、发生的世界和触发操作。这样能够判断是配置未应用、条件不满足、任务失败，还是回调代次错误。
+
+## 验证改动时观察退出
+
+先验证直接相关的成功与失败，再检查抢占、配置撤销、角色销毁与复用。若修正的是接入顺序，先确认原生初始化与通知是否完整，不把一次手动赋值或延迟能绕过问题当成根因证据。
+
+HaloDebug 的操作与远程显示见[调试工具入门](/read/halodebug-overview)和[远程面板](/read/halodebug-remote)。执行清理规则见[Logic 与生命周期](/read/astraai-logic)。
+
+实现入口：`Source/StarryGame/Framework/Development/StarryDebugSubsystem` 与 `Framework/AI/Debug` 下的窗口、`FStarryAIDebugSession`；运行事件定义位于 AstraAI 插件。

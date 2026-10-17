@@ -1,0 +1,52 @@
+---
+title: Input · 修饰器与双击
+description: 选择输入值变换所在层，理解玩家设置修饰器与 Double Tap 的时序规则。
+category: reference
+order: 44
+---
+
+## 修饰器与触发器分别解决什么
+
+Modifier 改变输入值，例如死区、灵敏度和反转；Trigger 判断何时满足动作条件，例如长按或双击。Handler 接收的是 Enhanced Input 处理后的值与事件，不应该再复制一套同样的设备规则。
+
+按键映射条目上的 Modifier 只影响该映射；Action 自身的 Modifier／Trigger 作用于动作层。需要通过 HaloDebug 注入验证时，注意注入从动作层进入，不经过 IMC 按键条目修饰。
+
+## 当前项目的设置修饰器
+
+| 类型                                     | 用途                               |
+| ---------------------------------------- | ---------------------------------- |
+| `UStarrySettingBasedScalar`              | 从设置读取 double 值，按轴缩放输入 |
+| `UStarryInputModifierDeadZone`           | 按玩家设置处理死区                 |
+| `UStarryInputModifierGamepadSensitivity` | 应用手柄灵敏度设置                 |
+| `UStarryInputModifierAimInversion`       | 应用瞄准方向反转                   |
+
+设置数据由玩家设置层拥有，修饰器读取它；不要在每个 Handler 内再缓存一套偏好。修改某个轴的倍率前，先确认是否已经在设备映射或 Action 上缩放过，避免重复放大。
+
+## Double Tap 的三步
+
+`UStarryInputTriggerDoubleTap` 在编辑器中显示为 `Double Tap`。一次有效双击需要：
+
+1. 首次按下。
+2. 在 `TapReleaseTimeThreshold` 秒内释放。
+3. 在 `TapIntervalThreshold` 秒内第二次按下。
+
+第二次按下触发一次，之后继续按住不会连续算成新的双击。只长按一次，也不会满足这条规则。
+
+<Diagram
+  title="双击在第二次按下时成立"
+  source={
+    'sequenceDiagram\n  participant Player as 玩家\n  participant Trigger as Double Tap\n  Player->>Trigger: 第一次按下\n  Note over Trigger: 按住时间不超过释放阈值\n  Player->>Trigger: 释放\n  Note over Trigger: 等待时间不超过间隔阈值\n  Player->>Trigger: 第二次按下\n  Trigger-->>Player: 本次 Triggered\n  Note over Trigger: 本次继续按住不重复双击'
+  }
+/>
+
+`bAffectedByTimeDilation` 只控制按住时长如何应用全局时间膨胀，间隔按传入 DeltaTime 累计，不能把它解释成整套时序全部切换时钟。
+
+触发器持续空闲计时，并在映射重建时通过 `ReceiveTriggerReinstanced` 延续按住时长与双击进度。排查时应覆盖“第一次释放后空闲太久”与“按住中重建映射”，不能只看两次快速点击。
+
+## 什么时候应该使用 Triggered
+
+如果 Handler 要在“双击已成立”后执行，就响应 Triggered。Started 表示开始评估，不表示双击已经成功；Ongoing 也不能替代成功事件。
+
+动作没有反应时，先在 [Actions 面板](/read/halodebug-input)确认最终 Action 状态，再检查 Handler 的事件列表。玩家设置与改键保存见[改键与玩家设置](/read/input-settings)。
+
+实现入口：`Framework/Input/Modifiers` 与 `Triggers/StarryInputTriggerDoubleTap`。

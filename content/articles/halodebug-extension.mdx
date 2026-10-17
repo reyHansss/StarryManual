@@ -1,0 +1,81 @@
+---
+title: HaloDebug · 窗口扩展与属性绘制
+description: 复用窗口生命周期、反射 Inspector 和场景绘制，避免为每个调试页重做基础设施。
+category: reference
+order: 33
+---
+
+## 新窗口先复用基类
+
+窗口继承 `FHaloDebugWindow`，由 Subsystem 注册并拥有。以下是窗口主体片段；它应放在项目的非 Shipping 调试代码中，实际类名与文件按所属功能命名。
+
+```cpp
+#include "HaloDebugCommon.h"
+
+#if ENABLE_HALODEBUG
+#include "HaloDebugWindow.h"
+
+/** 展示所选对象的调试摘要。 */
+class FStarryExampleDebugWindow : public FHaloDebugWindow
+{
+protected:
+    virtual void RenderContent() override
+    {
+        ImGui::TextUnformatted("Starry debug window");
+    }
+};
+#endif
+```
+
+在项目已有的窗口注册处使用 `Subsystem->AddWindow<FStarryExampleDebugWindow>("Engine.Actor.Example")`。点分路径同时决定菜单和窗口／布局身份，应使用稳定、有语义的名字。
+
+Subsystem 管理窗口内存，不手动 delete。`RenderContent` 的顶层 Begin／End 已由基类处理，不要再套一个同名顶层窗口。
+
+## 把初始化和清理放对位置
+
+| 时机             | 合适职责                             |
+| ---------------- | ------------------------------------ |
+| 构造             | 默认参数，不依赖 ImGui／Slate 上下文 |
+| `Initialize`     | 先调用基类，再建立窗口所需资源与订阅 |
+| `RenderContent`  | 当帧面板内容                         |
+| `RenderHelp`     | 操作说明与约束                       |
+| `RenderViewport` | 游戏视口里的调试绘制                 |
+| `Shutdown`       | 解除订阅、释放所拥有资源             |
+
+不要让通用插件硬编码 Starry 的菜单或 Gameplay 依赖。项目功能窗口在项目注册，公共控件才沉到共享层。
+
+## 反射属性不用再写一套递归
+
+使用 `HaloDebugEngine` 的 `FHaloDebugPropertyInspector`：
+
+```cpp
+// 仅在游戏线程的有效 ImGui 绘制帧内调用，对象须在调用期间有效。
+FHaloDebugPropertyInspector::DrawReadOnly("SelectedObject", Object);
+
+// 结构体可传 UStruct 与当帧有效内存，也适用于 FInstancedStruct 的内容。
+FHaloDebugPropertyInspector::DrawReadOnly("ExecutionData", StructType, StructMemory);
+```
+
+`Id` 在宿主窗口内唯一。绘制不复制对象、不持有 GC 引用、不缓存属性地址，也不采集历史快照。历史查看需要在发生时独立采样，不能把实时 Inspector 当成录像。
+
+`FHaloDebugPropertyInspectorOptions` 可控制过滤、Category、排序与默认展开。UObject 引用默认不展开；允许后由用户逐层打开，过滤器不会顺着所有引用递归搜索。
+
+## 可编辑不等于自动应用业务
+
+`DrawEditable` 返回本帧是否发生修改。它支持常用标量、枚举、字符串、结构体、数组成员与 Map Value；Set 元素、Map Key 及其嵌套字段保持只读，避免破坏哈希。
+
+编辑器不会自动补 Undo、PostEditChange、资产保存或业务刷新。调用者必须按领域要求处理变更；会触发网络权限、重建或复杂副作用的值，应使用已有业务接口操作。
+
+短文本输入复用 `FHaloDebugWidgets::InputText`，其缓冲为 256 字节且包含终止符。其他控件、图表优先用现有 ImGui／ImPlot 与共享 Widgets，不复制一份文本框或 tooltip 实现。
+
+## 场景绘制按本次调用指定参数
+
+`FHaloDebugPaintDraw` 提供点、线、形状、骨骼与碰撞结果绘制。分类入口受日志级别控制，`Draw` 前缀入口供主动绘制的面板使用；按所需入口设置颜色、线宽与寿命。
+
+三维线框默认单帧，正 `LifeTime` 持续指定游戏秒，`Persistent` 持续到清理；世界位置与尺寸沿用 UE 单位，2D 屏幕绘制使用像素。不要依赖一套隐式全局尺寸让不同窗口互相影响。
+
+绘制留在本进程，不自动复制到其他玩家。日志使用 `UE_LOG`，通知可用 `LogHaloDebugNotify`；蓝图曲线入口为 `UHaloDebugPaintPlotBlueprint::Plot`，不要依赖已移除的旧 Draw／Log 蓝图库。
+
+构建中保持 `HaloDebugCommon` 可用，具体面板依赖和实现按 `ENABLE_HALODEBUG`／非 Shipping 条件组织。[调试工具入门](/read/halodebug-overview)解释模块分工，[远程面板](/read/halodebug-remote)解释 UI 传输边界。
+
+实现入口：`HaloDebugWindow.h`、`HaloDebugSubsystem.h`、`HaloDebugWidgets.h`、`HaloDebugPropertyInspector.h` 与 `HaloDebugPaintDraw.h`，均在 HaloDebug 插件对应模块中。

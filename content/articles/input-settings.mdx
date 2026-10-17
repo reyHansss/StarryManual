@@ -1,0 +1,45 @@
+---
+title: Input · 改键与玩家设置
+description: 通过 GameSettings 统一编辑与应用，区分 SharedSettings 偏好和 Enhanced Input 键映射数据。
+category: guide
+order: 45
+---
+
+## 设置界面使用 GameSettings
+
+Starry 的玩家设置 UI 统一通过 GameSettings 构建。输入层不再维护单独的 ViewModel、Resolver、修改跟踪与第二套保存流程。
+
+这里有两类数据：`UStarrySettingsShared` 保存灵敏度、反转、死区与瞄准倍率等偏好；`UStarryInputUserSettings` 基于 Enhanced Input UserSettings 保存键映射与 Profile。界面统一不等于把两类数据复制到一个对象。
+
+<Diagram
+  title="统一界面下的两条数据职责"
+  source={
+    'flowchart TD\n  UI(GameSettings 设置界面) --> Preference(SharedSettings 偏好)\n  UI --> Key(UStarrySettingKeyboardInput)\n  Key --> User(Enhanced Input UserSettings)\n  User --> Profile(键映射与 Profile)\n  Preference --> Modifier(输入修饰器读取)\n  UI --> Apply(Registry SaveChanges)\n  Apply --> Save(应用偏好并保存映射)'
+  }
+/>
+
+## 让一个功能的按键出现在设置里
+
+先在 IMC 中正确配置可由玩家修改的映射，再在构建设置树之前把相关 IMC 登记到 UserSettings。设置层据此生成可改键条目，不自动扫描所有项目资产。
+
+Manager 添加正在使用的配置时，默认 `bNotifyUserSettings = true`，只覆盖实际应用到当前玩家的 IMC。想让尚未进入的功能也提前出现在设置页，需要显式预登记其 IMC。
+
+键鼠条目使用 `UStarrySettingKeyboardInput` 访问原生 UserSettings。更改按键时沿用 GameSettings 的编辑、应用与保存流程，不直接改 IMC 资产作为玩家个人配置。
+
+## 应用与保存
+
+用户确认应用时由设置 Registry 的 `SaveChanges` 进入统一流程，再由 SharedSettings 应用相关偏好并处理映射保存。
+
+设置修饰器读取当前偏好，键映射由 UserSettings 与其 Profile 管理。调试时应区分“界面已改动”“已经应用”“已经持久保存”，重启后的结果才说明持久数据被正确读取。
+
+不要在 Input Handler 里另存灵敏度副本，也不要由另一个 UI 重新实现保存状态；这样会让设置页、实际输入与存档相互脱节。
+
+## 当前覆盖范围
+
+当前有键鼠改键入口。手柄改键条目、跨 Profile／硬件写入，以及 Tooltip／InputFilter 的桥接尚未完整接入，不能把底层已有类型当成所有设置 UI 都已完成。
+
+若某功能不出现在设置页，先确认映射是否可配置、IMC 是否在建树前登记，再检查设置条目创建。若当前输入可用而重启不保留，继续追踪统一 Apply／Save 路线。
+
+修饰器职责见[修饰器与双击](/read/input-triggers)，配置实际应用的通知见[绑定与生命周期](/read/input-binding)，完整排查见[Input 排查](/read/input-troubleshooting)。
+
+实现入口：`Framework/Settings/StarrySettingsShared`、`CustomSettings/StarrySettingKeyboardInput` 与 `Framework/Input/StarryInputUserSettings`。

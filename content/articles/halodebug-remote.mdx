@@ -1,0 +1,65 @@
+---
+title: HaloDebug · netImgui 远程面板
+description: 在独立桌面程序查看调试窗口，区分远程 UI、游戏视口绘制与玩法网络权限。
+category: guide
+order: 31
+---
+
+## 先构建桌面查看器
+
+项目内的 `NetImgui` 提供 Windows x64／DirectX 11 查看器。需要 VS 2022 C++ 桌面开发、Windows SDK 与 CMake，使用项目根目录下的构建入口：
+
+```powershell
+./NetImgui/Build.bat
+```
+
+结果位于 `NetImgui/NetImguiServer/NetImguiServer.exe`。复制使用时保留整个输出目录。中间文件在 `NetImgui/Intermediate`，可通过 `-OutputDirectory` 指定输出，通过 `-Configuration Debug` 选择调试构建。
+
+上游把桌面程序称为 Server，游戏插件称为 client。这是调试 UI 传输中的命名，不表示桌面程序是 UE 专用玩法服务器。
+
+## 推荐的本机连接路线
+
+1. 启动 `NetImguiServer.exe`。
+2. 启动 Starry 的 PIE 或 Development 游戏，按 F1 打开 HaloDebug。
+3. 打开 `Engine → Debug Tools → Net ImGui`。
+4. Server Address 使用 `127.0.0.1`、端口 `8888`，点击 Connect。
+5. 在桌面程序中查看调试窗口，确认当前连接的是需要排查的游戏实例。
+
+也可以让游戏 Listen，默认客户端监听端口 `8889`，再由桌面程序添加连接。跨机器连接时填写对应机器地址。
+
+<Diagram
+  title="两种连接方向只选择所需的一种"
+  source={
+    'flowchart LR\n  GameA(游戏 Connect) -->|默认 8888| ViewerA(桌面查看器监听)\n  ViewerB(桌面查看器发起连接) -->|默认 8889| GameB(游戏 Listen)\n  GameA -.-> ViewA(游戏视口仍显示场景绘制)\n  GameB -.-> ViewB(游戏视口仍显示场景绘制)'
+  }
+/>
+
+## 常用控制台命令
+
+| 命令                             | 用途                           |
+| -------------------------------- | ------------------------------ |
+| `HaloDebug.NetImgui.Connect`     | 按窗口中保存的连接配置发起连接 |
+| `HaloDebug.NetImgui.Listen`      | 按客户端端口等待桌面查看器     |
+| `HaloDebug.NetImgui.Disconnect`  | 断开当前连接                   |
+| `HaloDebug.NetImgui.RunServer`   | 启动配置的桌面程序             |
+| `HaloDebug.NetImgui.CloseServer` | 关闭由工具管理的桌面程序       |
+
+桌面程序目录留空时指向项目的 `NetImgui/NetImguiServer`。默认不自动启动桌面程序；打包游戏可配置独立工具目录。自动连接可分别按 Standalone、Client、Listen Server、Dedicated Server 设置。
+
+## 远程窗口和场景操作分开
+
+netImgui 传输面板 UI 与交互。选框、碰撞和 Gizmo 仍在游戏视口里逐帧绘制，不会变成桌面查看器中的远程三维场景。
+
+在桌面面板点击选取后，回到游戏视口左键选择、右键取消。需要拖动 Gizmo 时，在游戏视口按 F1 启用调试输入，再拖动轴或平面。断开 netImgui 后恢复本地面板。
+
+远程显示没有提供通用 Actor 复制或图形 RPC。连接客户端进程后看到的仍是该进程状态，修改是否影响服务器由实际领域接口决定。
+
+## 连接失败时检查
+
+先确认桌面程序已经启动、双方选择了匹配的 Connect／Listen 方向、端口一致、目标游戏实例正确，再检查机器地址与连接配置。多实例时给客户端使用可辨认名称，避免在错误进程里追查状态。
+
+若窗口已连接但游戏视口里没有图形，检查当前世界、窗口绘制开关和视口调试输入；不要把 UI 连接成功当成三维内容也会在桌面程序显示。
+
+日常工具入口见[调试工具入门](/read/halodebug-overview)，输入注入的作用范围见[Gamepad 与 Actions](/read/halodebug-input)。
+
+实现入口：项目 `NetImgui` 目录、插件 `HaloDebugEngineWindow_NetImGui` 与 `HaloDebugImguiContext`。当前项目两端使用同源 netImgui 1.13 协议。

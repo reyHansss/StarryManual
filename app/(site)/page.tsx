@@ -2,10 +2,11 @@ import Link from 'next/link';
 import {
   ArrowRight,
   ArrowUpRight,
-  BookOpen,
   Orbit,
   MousePointer2,
-  Workflow,
+  BrainCircuit,
+  Bug,
+  Gamepad2,
   Sparkles,
 } from 'lucide-react';
 import { getCatalog } from '@/lib/catalog';
@@ -14,6 +15,14 @@ import { StarCompanion } from '@/components/star-companion';
 
 export default async function HomePage() {
   const articles = await getCatalog();
+  const previewSlugs = new Set([
+    'start-here',
+    'architecture',
+    'astraai-overview',
+    'halodebug-overview',
+    'input-overview',
+    'writing',
+  ]);
   return (
     <main id="main" className="home-main">
       <div className="home-kicker">
@@ -33,8 +42,9 @@ export default async function HomePage() {
             点亮<span>每个灵感。</span>
           </h1>
           <p>
-            从第一份配置到系统间的协作，
-            <br className="desktop-break" />在 Starry手册里找到路径，再动手试一试。
+            从 AI 决策、玩家输入到调试观察，
+            <br className="desktop-break" />
+            沿着真实配置与运行机制，找到动手的路径。
           </p>
           <div className="hero-actions">
             <Link className="button primary" href="/read/start-here">
@@ -60,7 +70,10 @@ export default async function HomePage() {
             </span>
             <span className="visual-coordinate">✦ LIVE MAP</span>
           </div>
-          <KnowledgeGraph articles={articles} compact />
+          <KnowledgeGraph
+            articles={articles.filter((article) => previewSlugs.has(article.slug))}
+            compact
+          />
           <div className="hero-graph-hint">
             <MousePointer2 size={12} /> 点击星点选择页面 · 沿着关系继续阅读
           </div>
@@ -69,51 +82,51 @@ export default async function HomePage() {
       <section className="entry-section">
         <div className="section-heading">
           <h2>
-            选择你的探索方式<span> / EXPLORE</span>
+            从一个模块开始<span> / EXPLORE</span>
           </h2>
-          <span>阅读只是一个开始</span>
+          <span>AstraAI · HaloDebug · Input</span>
         </div>
         <div className="entry-grid">
-          <Link href="/read/architecture" className="entry-card">
+          <Link href="/read/astraai-overview" className="entry-card">
             <div className="entry-card-top">
               <span className="entry-icon">
-                <BookOpen size={20} />
+                <BrainCircuit size={20} />
               </span>
-              <span>01 / UNDERSTAND</span>
+              <span>01 / ASTRA AI</span>
               <ArrowUpRight size={18} />
             </div>
-            <h3>从全局，看清架构</h3>
-            <p>领域、配置与运行时如何协作。沿着关联页面，逐层理解。</p>
+            <h3>理解 AI 的每次选择</h3>
+            <p>从行为组合到机会、评分与执行，配置可扩展的 NPC 决策。</p>
             <span className="card-link">
-              阅读架构导览 <ArrowRight size={14} />
+              进入 AstraAI <ArrowRight size={14} />
             </span>
           </Link>
-          <Link href="/lab" className="entry-card">
+          <Link href="/read/halodebug-overview" className="entry-card">
             <div className="entry-card-top">
               <span className="entry-icon">
-                <MousePointer2 size={20} />
+                <Bug size={20} />
               </span>
-              <span>02 / EXPERIMENT</span>
+              <span>02 / HALO DEBUG</span>
               <ArrowUpRight size={18} />
             </div>
-            <h3>动动参数，看看结果</h3>
-            <p>把抽象机制放上时间线。改变输入时机，亲手试出边界。</p>
+            <h3>看见系统正在发生什么</h3>
+            <p>打开场景、日志、AI 与输入工具，沿真实状态定位问题。</p>
             <span className="card-link">
-              打开交互实验 <ArrowRight size={14} />
+              进入 HaloDebug <ArrowRight size={14} />
             </span>
           </Link>
-          <Link href="/blueprint" className="entry-card">
+          <Link href="/read/input-overview" className="entry-card">
             <div className="entry-card-top">
               <span className="entry-icon">
-                <Workflow size={20} />
+                <Gamepad2 size={20} />
               </span>
-              <span>03 / INSPECT</span>
+              <span>03 / PLAYER INPUT</span>
               <ArrowUpRight size={18} />
             </div>
-            <h3>直接读懂蓝图节点</h3>
-            <p>在网页里平移、缩放节点，也可以粘贴自己的 UE 节点文本。</p>
+            <h3>让每次操作准确抵达</h3>
+            <p>接好 Action、配置与 Handler，再处理缓存、改键和玩家偏好。</p>
             <span className="card-link">
-              查看蓝图示例 <ArrowRight size={14} />
+              进入 Input <ArrowRight size={14} />
             </span>
           </Link>
         </div>
@@ -126,8 +139,8 @@ export default async function HomePage() {
         <div className="path-steps">
           {[
             ['start-here', '认识手册'],
-            ['architecture', '架构导览'],
-            ['input-buffer', '试用一个机制'],
+            ['architecture', '理解模块协作'],
+            ['halodebug-overview', '打开调试工具'],
           ].map(([slug, label], index) => (
             <Link href={`/read/${slug}`} key={slug}>
               <span>0{index + 1}</span>

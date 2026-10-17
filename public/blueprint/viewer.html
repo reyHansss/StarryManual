@@ -73,7 +73,7 @@
   </head>
   <body>
     <div id="playground"></div>
-    <div id="message">正在绘制节点…</div>
+    <div id="message">从 UE 复制一组节点，点击上方「粘贴节点」查看。</div>
     <script src="../vendor/blueprintue/render.js"></script>
     <script type="module">
       import { attachBlueprintNavigation } from './navigation.js';
@@ -86,7 +86,7 @@
       function render(text) {
         try {
           if (typeof text !== 'string' || text.length > 200000)
-            throw new Error('节点文本超过示例限制。');
+            throw new Error('节点文本超过 200,000 字符限制。');
           detachNavigation?.();
           detachNavigation = undefined;
           if (renderer) renderer.stop();
@@ -106,7 +106,7 @@
           });
         } catch (error) {
           message.textContent =
-            '这段文本暂时无法显示。请尝试从 UE 复制完整的一组普通蓝图节点，或恢复内置示例。';
+            '这段文本暂时无法显示。请从 UE 复制完整的一组普通蓝图节点后重新粘贴。';
           message.hidden = false;
         }
       }
@@ -126,16 +126,6 @@
           if (currentText) render(currentText);
         }, 150);
       });
-      fetch('./samples/begin-play.txt')
-        .then((response) => {
-          if (!response.ok) throw new Error('资源读取失败');
-          return response.text();
-        })
-        .then(render)
-        .catch(() => {
-          message.hidden = false;
-          message.textContent = '示例资源读取失败，请刷新重试。';
-        });
     </script>
   </body>
 </html>

@@ -1,0 +1,68 @@
+---
+title: Input · 配置与角色接入
+description: 用 Input Action、IMC、Setup 与 Handler 接入玩家输入，明确 Controller 和 Pawn 的职责。
+category: guide
+order: 40
+---
+
+## 输入经过哪几层
+
+Input Action 定义输入值与触发规则，IMC 把设备按键映射到 Action，Setup 把 IMC 与 Handler 组织为一份配置。PlayerController 上的 `UStarryInputManagerComponent` 绑定动作事件，再分派到共享 Handler。
+
+<Diagram
+  title="从按键到项目能力"
+  source={
+    'flowchart LR\n  Device(键鼠 / 手柄) --> IMC(Input Mapping Context)\n  IMC --> IA(Input Action)\n  IA --> Event(Enhanced Input 事件)\n  Setup(Input Setup) -->|IMC 与 Handler| Manager(Controller 的 InputManager)\n  Event --> Manager\n  Manager --> Buffer(按通道判断缓存)\n  Buffer --> Handler(共享 InputHandler)\n  Handler --> Domain(Mover / GAS / UI / Gameplay)'
+  }
+/>
+
+Manager 随 Controller 跨 Pawn 复用，只支持 PlayerController 挂载。`UStarryInputManagerComponent` 已继承输入缓存组件，不需要为了基本缓存再在角色上挂一份平行 Manager。
+
+## 新增一个动作
+
+1. 创建 Input Action，选择正确的 `Value Type`，配置动作自身的 Trigger 与 Modifier。
+2. 在 IMC 中添加键位映射，按需配置按键条目的修饰器。
+3. 在内容浏览器 `Starry → Input` 创建 Input Setup；需要自定义行为时从同分类创建 Input Handler 蓝图。
+4. 填写 Setup 的 `InputMappingContext`、`Priority`、`InputHandlers`。
+5. 给 Handler 指定 `InputActions` 与 `TriggerEvents`，实现或选用对应的处理逻辑。
+6. 按配置的拥有者，将 Setup 接入固定 Controller、角色或 GameFeature 中的一处。
+
+`Priority` 默认 `0`。Setup 的资产校验会检查缺失 IMC、空 Handler、未配置动作／事件与 IMC 动作缺少处理器等情况。先解决配置校验，再排查运行时。
+
+共用 Action 位于 `Content/Blueprints/Input/Actions`，共用 Setup／IMC 位于 `Content/Blueprints/Input/Setups`；只服务某一功能的资源随功能归属，不把所有输入资产都堆到全局目录。
+
+## 选择一个接入拥有者
+
+| 配置来源            | 填写或调用位置                                                                | 适合用途                               |
+| ------------------- | ----------------------------------------------------------------------------- | -------------------------------------- |
+| Controller 固定配置 | Manager 的 `InputHandlerSetup`                                                | 跟随本地玩家持续存在的输入             |
+| 角色配置            | `UStarryCharacterData::InputSetups` 数组，经 PlayerCharacter 的 Provider 返回 | 随角色切换的移动或角色能力             |
+| 功能配置            | `GameFeatureAction_AddInputBinding::InputSetups`                              | 随功能进入与退出配对添加、移除         |
+| 辅助映射            | Manager 的 `StandaloneContexts`                                               | 不由一份 Setup 提供 Handler 的辅助 IMC |
+
+角色配置由 Manager 统一应用；Hero 在角色数据就绪时请求 `RefreshPawnInputSetups`，不维护第二份角色配置记录。功能来源之间不要重复拥有同一 Setup 或同一 IMC。
+
+## Controller 初始化要完整
+
+`AStarryPlayerController` 已创建默认 Manager，并在 `SetupInputComponent` 的基类调用之后执行 `InitializeInput()`。自定义 Controller 时保留同样的接入顺序。
+
+初始化需要 LocalPlayer、Enhanced Input Subsystem 与 Controller InputComponent 就绪。InputComponent 应为 `UEnhancedInputComponent`；当前没有输入组件运行中重建后的自动恢复机制。
+
+项目 `Config/DefaultInput.ini` 使用：
+
+```ini
+DefaultPlayerInputClass=/Script/StarryGame.StarryPlayerInput
+DefaultInputComponentClass=/Script/EnhancedInput.EnhancedInputComponent
+bEnableUserSettings=True
+UserSettingsClass=/Script/StarryGame.StarryInputUserSettings
+```
+
+这些是输入配置的相关项，实际修改时保留它们所在的配置节与其他配置。
+
+## 完成后应该看到什么
+
+在 [HaloDebug Actions](/read/halodebug-input) 中能看到映射后的 Action；操作设备后，对应 TriggerEvent 分派到 Handler。切换 Pawn 时角色配置随之更换，Controller 固定配置按 Manager 的重置策略处理。
+
+配置增删、共享绑定与所有权见[绑定与生命周期](/read/input-binding)，动作如何交给移动和 GAS 见[Handler 与能力分派](/read/input-handlers)，没有响应时看[Input 排查](/read/input-troubleshooting)。
+
+实现入口：`Source/StarryGame/Framework/Input`、`Framework/Character/StarryCharacterData` 与 `StarryPlayerCharacter`。

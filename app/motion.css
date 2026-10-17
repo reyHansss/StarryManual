@@ -163,51 +163,12 @@
 .knowledge-graph:has(:focus-visible) .atlas-node:before,
 .knowledge-graph:has(:focus-visible) .react-flow__edge-path,
 .knowledge-graph:has(:focus-visible) :is(.node-point > i, .dot-title),
-:is(.button, .icon-button, .text-button, .filter-tabs button, .presets button):focus-visible {
+:is(.button, .icon-button, .text-button, .filter-tabs button):focus-visible {
   transition: none;
 }
 
 .site-shell:has(:focus-visible) :is(.hero-copy > *, .hero-visual, .entry-card) {
   transition: none;
-}
-
-.buffer-window,
-.demo-state,
-.result-icon {
-  transition:
-    color var(--motion-state) ease,
-    background-color var(--motion-state) ease,
-    border-color var(--motion-state) ease;
-}
-
-.demo-state[data-result='consumed'] {
-  background: var(--success-soft);
-  border-color: var(--success);
-}
-
-.demo-state[data-result='expired'] {
-  background: var(--warning-soft);
-  border-color: var(--warning);
-}
-
-.result-icon {
-  position: relative;
-}
-
-.result-icon > svg {
-  position: absolute;
-  opacity: 0;
-  transform: scale(0.9);
-  transition:
-    opacity var(--motion-state) var(--ease-out),
-    transform var(--motion-state) var(--ease-out);
-}
-
-.demo-state[data-result='pending'] .result-pending,
-.demo-state[data-result='consumed'] .result-consumed,
-.demo-state[data-result='expired'] .result-expired {
-  opacity: 1;
-  transform: scale(1);
 }
 
 /* 首页是偶尔访问的导览页；短间隔进场只用于这里，不延迟正文显示或交互。 */

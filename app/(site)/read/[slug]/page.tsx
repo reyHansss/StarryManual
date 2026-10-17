@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { ArrowLeft, ArrowRight, ArrowUpRight, Network, Pencil, Link2 } from 'lucide-react';
 import { source } from '@/lib/source';
 import { getCatalog } from '@/lib/catalog';
-import { categories } from '@/lib/types';
+import { articleSections, categories, getArticleSection } from '@/lib/types';
 import { getMDXComponents } from '@/components/mdx';
 import { isStaticExport } from '@/lib/site-config';
 
@@ -29,6 +29,7 @@ export default async function ArticlePage({ params }: Props) {
   const current = articles.find((article) => article.slug === slug);
   if (!current) notFound();
   const MDX = page.data.body;
+  const section = articleSections[getArticleSection(slug)];
   const outgoing = articles.filter((article) => current.links.includes(article.slug));
   const incoming = articles.filter(
     (article) => article.slug !== slug && article.links.includes(slug),
@@ -44,21 +45,21 @@ export default async function ArticlePage({ params }: Props) {
           回到首页
         </Link>
         <span className="sidebar-label">THE FIELD MANUAL</span>
-        {Object.entries(categories).map(([key, category]) => (
+        {Object.entries(articleSections).map(([key, group]) => (
           <div className="sidebar-group" key={key}>
             <h2>
-              <i style={{ background: category.color }} />
-              {category.label}
+              <i style={{ background: group.color }} />
+              {group.label}
             </h2>
             {articles
-              .filter((article) => article.category === key)
+              .filter((article) => getArticleSection(article.slug) === key)
               .map((article) => (
                 <Link
                   key={article.slug}
                   href={article.url}
                   className={slug === article.slug ? 'selected' : ''}
                 >
-                  {article.title}
+                  {article.title.replace(/^(AstraAI|HaloDebug|Input) · /, '')}
                   {slug === article.slug && <span>↗</span>}
                 </Link>
               ))}
@@ -72,12 +73,11 @@ export default async function ArticlePage({ params }: Props) {
       </aside>
       <article className="reading-article">
         <div className="article-breadcrumb">
-          手册 <span>/</span> {categories[current.category].label} <span>/</span>{' '}
-          <strong>{current.title}</strong>
+          手册 <span>/</span> {section.label} <span>/</span> <strong>{current.title}</strong>
         </div>
         <div className="article-eyebrow">
           <span className="eyebrow">{categories[current.category].english}</span>
-          <span className="pill">体验原型 · 示例文章</span>
+          <span className="pill">{section.label}</span>
         </div>
         <h1>{page.data.title}</h1>
         <p className="article-description">{page.data.description}</p>

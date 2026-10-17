@@ -1352,10 +1352,6 @@ p {
   --page-accent: var(--coral);
   --page-soft: var(--pink-soft);
 }
-.lab-page {
-  --page-accent: var(--peach);
-  --page-soft: var(--peach-soft);
-}
 .blueprint-page {
   --page-accent: var(--coral);
   --page-soft: var(--pink-soft);
@@ -1440,280 +1436,8 @@ p {
 .feature-aside a:hover {
   color: var(--accent);
 }
-.input-demo {
-  padding: 25px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-  box-shadow: 0 5px 0 color-mix(in srgb, var(--peach) 13%, var(--surface));
-}
-.demo-topline {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 27px;
-}
-.demo-topline .eyebrow {
-  color: var(--peach);
-}
-.demo-parameters {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 28px;
-  margin-bottom: 28px;
-}
-.demo-parameters label {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  color: var(--muted);
-  font-size: 13px;
-}
-.demo-parameters label > strong {
-  position: absolute;
-  top: -6px;
-  right: 0;
-  color: var(--accent);
-  font-size: 24px;
-  font-weight: 700;
-}
-.demo-parameters small {
-  font-size: 11px;
-  font-weight: 400;
-}
-.demo-parameters input {
-  width: 100%;
-  height: 22px;
-  accent-color: var(--accent);
-}
-.demo-parameters label > span {
-  display: flex;
-  justify-content: space-between;
-  color: var(--muted);
-  font-size: 10px;
-}
-.timeline-wrap {
-  padding: 20px 22px 15px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-soft);
-}
-.timeline-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: var(--muted);
-  font-size: 12px;
-  letter-spacing: 0.5px;
-}
-.timeline-top strong {
-  color: var(--accent);
-  font-family: monospace;
-  font-size: 21px;
-  font-weight: 600;
-  letter-spacing: 0;
-}
-.timeline-top small {
-  color: var(--muted);
-  font-size: 11px;
-}
-.timeline {
-  position: relative;
-  height: 170px;
-  margin-top: 30px;
-}
-.timeline-track {
-  position: absolute;
-  top: 49px;
-  left: 0;
-  display: flex;
-  width: 100%;
-  height: 39px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-}
-.timeline-track > span {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 50%;
-  font-size: 12px;
-  letter-spacing: 0.3px;
-}
-.locked-phase {
-  border-right: 1px solid var(--border);
-  background: repeating-linear-gradient(135deg, #f5e4e0 0 5px, var(--accent-soft) 5px 10px);
-  color: var(--muted);
-}
-.ready-phase {
-  background: #dff4ec;
-  color: #307f69;
-}
-.buffer-window {
-  position: absolute;
-  top: 98px;
-  height: 26px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #7bbbab;
-  border-radius: 4px;
-  background: #d9eee7;
-  color: #377b69;
-  font-size: 10px;
-  white-space: nowrap;
-}
-.buffer-window.expired {
-  border-color: #d49784;
-  background: #f9e1d8;
-  color: #a55f47;
-}
-.input-marker {
-  position: absolute;
-  top: 16px;
-  display: flex;
-  align-items: center;
-  flex-direction: column-reverse;
-  gap: 4px;
-  color: #458a79;
-  transform: translateX(-50%);
-}
-.input-marker > span {
-  font-size: 10px;
-  white-space: nowrap;
-}
-.ready-marker {
-  position: absolute;
-  left: 50%;
-  top: 36px;
-  height: 99px;
-  border-left: 1px dashed #73a897;
-}
-.ready-marker > span {
-  position: absolute;
-  bottom: -13px;
-  color: #4d8d79;
-  font-size: 10px;
-  white-space: nowrap;
-  transform: translateX(-50%);
-}
-.playhead-track {
-  position: absolute;
-  top: 35px;
-  bottom: 21px;
-  left: 0;
-  right: 0;
-  overflow: clip;
-  overflow-clip-margin: 4px;
-  pointer-events: none;
-}
-.playhead {
-  position: absolute;
-  inset: 0;
-}
-.playhead:before {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 2px;
-  background: var(--accent);
-}
-.playhead i {
-  position: absolute;
-  top: -4px;
-  left: -3px;
-  display: block;
-  width: 8px;
-  height: 8px;
-  border-radius: 2px;
-  background: var(--accent);
-  transform: rotate(45deg);
-}
-.timeline-axis {
-  display: flex;
-  justify-content: space-between;
-  color: var(--muted);
-  font-family: monospace;
-  font-size: 11px;
-}
-.demo-state {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  min-height: 82px;
-  padding: 17px;
-  margin: 23px 0;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface);
-}
-.result-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 37px;
-  height: 37px;
-  border: 1px solid #a3cfc1;
-  border-radius: 50%;
-  color: #23816c;
-  background: color-mix(in srgb, var(--surface) 86%, transparent);
-}
-.result-icon.bad {
-  border-color: #d6ad9a;
-  color: #b8654d;
-}
-.demo-state strong {
-  color: var(--text);
-  font-size: 14px;
-  font-weight: 700;
-}
-.demo-state p {
-  margin-top: 5px;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.7;
-}
-.demo-controls {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.demo-controls .button {
-  gap: 8px;
-  min-height: 39px;
-  padding: 10px 16px;
-  font-size: 13px;
-}
-.presets {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-left: auto;
-  font-size: 11px;
-}
-.presets > span {
-  margin-right: 4px;
-  color: var(--muted);
-}
-.presets button {
-  padding: 7px 10px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  color: var(--accent);
-  background: var(--surface);
-}
-.presets button:hover {
-  background: var(--accent-soft);
-}
-
 /* 蓝图内部保留编辑器画布，外层工具栏和说明遵循手册的明亮主题。 */
-.blueprint-demo {
+.blueprint-viewer {
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 16px;
@@ -2033,6 +1757,11 @@ p {
   margin: 17px 0;
   line-height: 1.95;
 }
+/* 真实接口名和源码路径可跨行，避免窄屏被长标识符撑开；代码块保留自身滚动。 */
+.article-prose :where(p, li, th, td) > code {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
 .article-prose :where(a:not([role='button'])) {
   color: var(--tw-prose-links);
 }
@@ -2294,25 +2023,15 @@ p {
   color: inherit;
   font-size: inherit;
 }
-.article-prose > .input-demo,
-.article-prose > .blueprint-demo {
+.article-prose > .blueprint-viewer {
   margin: 28px 0;
   line-height: 1.5;
 }
-.article-prose .input-demo p,
-.article-prose .blueprint-demo p {
+.article-prose .blueprint-viewer p {
   margin: 5px 0 0;
   line-height: 1.7;
 }
-.article-prose .input-demo strong {
-  color: inherit;
-}
-.article-prose .input-demo input {
-  margin: 0;
-}
-.article-prose .input-demo .eyebrow {
-  font-size: 10px;
-}
+
 .article-note {
   display: flex;
   align-items: flex-start;
@@ -3085,109 +2804,6 @@ p {
     padding: 20px;
     font-size: 12px;
   }
-  .input-demo {
-    padding: 17px;
-  }
-  .demo-topline {
-    margin-bottom: 24px;
-  }
-  .demo-topline .eyebrow {
-    font-size: 10px;
-    letter-spacing: 1px;
-  }
-  .demo-topline .pill {
-    font-size: 9px;
-    padding: 4px 6px;
-  }
-  .demo-parameters {
-    gap: 16px;
-    margin-bottom: 22px;
-  }
-  .demo-parameters label {
-    gap: 10px;
-    font-size: 10px;
-  }
-  .demo-parameters label > strong {
-    position: static;
-    font-size: 24px;
-  }
-  .demo-parameters input {
-    height: 23px;
-  }
-  .demo-parameters label > span {
-    font-size: 9px;
-  }
-  .timeline-wrap {
-    padding: 17px 12px 13px;
-  }
-  .timeline-top {
-    font-size: 10px;
-  }
-  .timeline-top strong {
-    font-size: 18px;
-  }
-  .timeline-top small {
-    font-size: 9px;
-  }
-  .timeline {
-    height: 158px;
-  }
-  .timeline-track > span {
-    font-size: 9px;
-    letter-spacing: 0;
-  }
-  .buffer-window {
-    font-size: 8px;
-  }
-  .input-marker > span,
-  .ready-marker > span {
-    font-size: 8px;
-  }
-  .timeline-axis {
-    font-size: 9px;
-  }
-  .demo-state {
-    min-height: 78px;
-    gap: 11px;
-    padding: 13px;
-    margin: 20px 0;
-  }
-  .demo-state strong {
-    font-size: 13px;
-  }
-  .demo-state p {
-    font-size: 11px;
-  }
-  .result-icon {
-    width: 31px;
-    height: 31px;
-  }
-  .result-icon svg {
-    width: 18px;
-    height: 18px;
-  }
-  .demo-controls {
-    gap: 9px;
-    flex-wrap: wrap;
-  }
-  .demo-controls .button {
-    padding: 9px 12px;
-    font-size: 11px;
-  }
-  .demo-controls .icon-button {
-    width: 34px;
-    height: 34px;
-  }
-  .presets {
-    gap: 5px;
-    font-size: 10px;
-  }
-  .presets > span {
-    display: none;
-  }
-  .presets button {
-    padding: 6px 7px;
-  }
   .feature-aside {
     padding: 22px;
   }
@@ -3339,15 +2955,6 @@ p {
   .article-prose :where(th, td) {
     padding: 10px;
     font-size: 13px;
-  }
-  .article-prose > .input-demo {
-    padding: 13px;
-  }
-  .article-prose .demo-parameters {
-    gap: 13px;
-  }
-  .article-prose .input-demo .demo-topline .pill {
-    display: none;
   }
   .article-next {
     gap: 13px;

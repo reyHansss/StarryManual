@@ -1,0 +1,51 @@
+---
+title: AstraAI · Objective 与机会生成
+description: 把领域事实整理成当前机会，让评分只读数据，让生成器独立管理订阅。
+category: guide
+order: 14
+---
+
+## Objective 表达当前事实
+
+Objective 是供决策读取的机会数据，例如“有可接取命令”或“当前在分配区域之外”。它不负责自己选择 Behavior，也不是所有模块共用的任意 Payload。
+
+Generator 负责向所属 `UAstraAIObjectiveComponent` 提供这些事实。选择器在更新批次结束后读取完成的机会，避免读取到同批次只写了一半的数据。
+
+<Diagram
+  title="领域通知进入机会，行为再读取机会"
+  source={
+    'sequenceDiagram\n  participant Domain as 项目领域\n  participant Gen as 每 NPC 的 Generator\n  participant Obj as ObjectiveComponent\n  participant AI as Behavior 评估\n  Domain-->>Gen: 状态变化或通知\n  Gen->>Obj: 请求更新\n  Obj->>Gen: OnUpdate\n  Gen->>Obj: 创建、更新或标记失效\n  Obj->>Obj: 结束更新批次\n  AI->>Obj: 读取当前有效 Objective'
+  }
+/>
+
+## 添加一种机会
+
+1. 创建 `UAstraAIObjective` 派生类型，只放本机会需要的事实字段。
+2. 创建 `UAstraAIObjectiveGenerator` 派生类型，在 `OnInitialize` 绑定领域通知，在 `OnShutdown` 解除。
+3. 在 `OnUpdate` 内使用 `GetOrCreateObjective(Class, WasCreated)` 创建或取得自己负责的机会，再更新字段。
+4. 把生成器模板加入 `AIOCS_` 的 `GeneratorTemplates`。
+5. 在 Behavior 中填写所需 `ObjectiveClass`，或在派生的激活与评分逻辑里读取相应机会。
+
+`GeneratorTemplates` 会按每个组件复制，所以生成器可以保存本 NPC 的订阅与临时状态。它与共享只读的 Behavior／Modifier 规则不同，不要把两者机械套成同一种对象生命周期。
+
+## 一个精确类只有一个写入者
+
+`GetOrCreateObjective` 只允许在自己所属组件正在进行的 `OnUpdate` 批次中调用；不能从任意外部异步回调直接创建。
+
+同一个精确 Objective 类只接受一个生成器写入。若两个领域都想写同一类型，应先确定一个汇总拥有者，或把机会拆成职责明确的不同类型，不让它们相互覆盖。
+
+读取 `TryGetCurrentObjective` 按精确类查找，不会自动把任意子类当成父类的一份机会。类型设计应与读取方约定一致。
+
+## 机会消失时要标失效
+
+条件消失时使用 `MarkObjectiveInvalid`，机会立即不再供新候选读取，随后在批次结束时移除。不要只清一个业务字段却留下 `IsCurrent` 为真的旧机会。
+
+组件的 `UpdateInterval` 默认 `0.2` 秒。发生需要及时处理的领域变化时调用 `RequestUpdate`，在受控批次里刷新；更新请求不意味着在通知调用栈内同步完成所有决策。
+
+## 使用现有生成器
+
+命令机会使用 `UAstraAIObjectiveGenerator_Commands`；区域外机会使用对应的 ReturnToZone 生成器。感知、生态或玩法目标由所属项目领域接入，不因为都叫“目标”就混进一个无边界的共享数据对象。
+
+命令的订阅、领取与结束见[命令](/read/astraai-commands)，区域分配见[行为区域](/read/astraai-zones)，机会没有出现时的排查见[AI 调试](/read/astraai-debugging)。
+
+实现入口：插件 `Objectives` 目录中的 Objective、Generator、ObjectiveComponent 与 ObjectiveComponentSetup。

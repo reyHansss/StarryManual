@@ -1,7 +1,6 @@
 import defaultComponents from 'fumadocs-ui/mdx';
 import { Info } from 'lucide-react';
-import { InputBufferDemo } from './input-buffer-demo';
-import { BlueprintDemo } from './blueprint-demo';
+import { BlueprintViewer } from './blueprint-viewer';
 import { Diagram } from './diagram';
 
 function Note({ title, children }: { title?: string; children: React.ReactNode }) {
@@ -17,5 +16,5 @@ function Note({ title, children }: { title?: string; children: React.ReactNode }
 }
 
 export function getMDXComponents() {
-  return { ...defaultComponents, Note, InputBufferDemo, BlueprintDemo, Diagram };
+  return { ...defaultComponents, Note, BlueprintViewer, Diagram };
 }

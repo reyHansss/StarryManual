@@ -1,0 +1,50 @@
+---
+title: Input · 调试与排查
+description: 从设备原始值到 Action、绑定、缓存与能力，找出输入在哪一层没有继续。
+category: reference
+order: 46
+---
+
+## 从能观察到的最前一层开始
+
+先打开 `Input → Gamepad` 或 `Actions`。原始设备值、Enhanced Input Action、项目 Handler、领域能力是不同阶段，不要只看角色有没有动作就判定“输入丢了”。
+
+<Diagram
+  title="输入没有响应时的排查路线"
+  source={
+    'flowchart TD\n  Start(输入未生效) --> Raw{设备原始值正常？}\n  Raw -->|否| Device(检查设备、焦点与输入模式)\n  Raw -->|是| Action{Action 有正确值与事件？}\n  Action -->|否| Map(检查 IMC、优先级、修饰器与 Trigger)\n  Action -->|是| Bound{Manager 和 Handler 已登记？}\n  Bound -->|否| Setup(检查 Controller 初始化和 Setup)\n  Bound -->|是| Buffer{正在等待缓存窗口关闭？}\n  Buffer -->|是| Window(检查通道与正常结束或中断)\n  Buffer -->|否| Domain(检查 Mover、GAS 或业务条件)'
+  }
+/>
+
+## 按现象查
+
+| 现象                               | 优先检查                                                          |
+| ---------------------------------- | ----------------------------------------------------------------- |
+| Setup 加了却 HasSetupData 为 false | 是否尚在 Pending；LocalPlayer、Subsystem、InputComponent 是否就绪 |
+| 动作有值但 Handler 不执行          | InputActions 资产是否一致，TriggerEvents 是否包含真实阶段         |
+| 加配置时警告重复 IMC／Setup        | 配置拥有者是否重叠；重复 Add 不提供来源计数                       |
+| 同类 Handler 执行多次              | 是否实际创建了多个对象；去重不按类名                              |
+| 切换配置后按住无反应               | 默认等待已按键释放，松开后再试                                    |
+| Hold 短按没到 Completed            | 可能实际是 Canceled，检查触发器结果                               |
+| 双击一直不成立                     | 首次释放与两次间隔阈值、第二次按下事件                            |
+| 输入延迟到动画末尾                 | 检查是否按设计进入通道缓存                                        |
+| 中断后仍期待执行缓存               | 中断窗口按规则丢弃；不要靠补发旧命令修正                          |
+| 切换 Pawn 后方向不对               | 显式 ForwardReference 是否由提供者正确更新／清除                  |
+| 模拟可用、实体键不同               | Action 注入不经过 IMC 按键 Modifier                               |
+| 改键页缺少某功能                   | 建设置树前是否登记对应 IMC                                        |
+
+## 有 Action 不等于技能必然激活
+
+沿 Handler 继续检查 ASC、InputTag、技能激活条件与 NetExecutionPolicy。GameplayEvent 的同步返回值不包括稍后远程 RPC 的结果，不能拿客户端当前返回值替代服务器最终结论。
+
+移动还应确认角色 Mover 与实际能力接口接入。不要在共享 Handler 加临时玩家成员、另建缓存或补一个延迟，来绕过领域初始化缺失。
+
+## 验证一次改动需要什么
+
+针对动作验证按下、持续、正常释放与未触发取消，再覆盖改动直接涉及的配置退出、切换 Pawn、缓存取消或映射重建。跨 IMC 共享绑定的改动要同时观察同一 Action 是否只分派一次。
+
+已有项目回归名称可用于定位，例如 `Starry.Input.DoubleTapPipeline`；这里提供查找线索，不代表本页编写时重新运行了 UE 自动化。
+
+[配置接入](/read/input-overview)、[绑定与生命周期](/read/input-binding)、[通道缓存](/read/input-buffer)分别对应排查链中的不同层。[HaloDebug 输入面板](/read/halodebug-input)说明物理与模拟值的观察方式。
+
+实现入口：`Framework/Input/StarryInputLogs`、`StarryInputManagerComponent` 与相应 Handler／Trigger。

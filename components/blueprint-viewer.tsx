@@ -1,10 +1,10 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Clipboard, Code2, RotateCcw, X } from 'lucide-react';
+import { Clipboard, Code2, Trash2, X } from 'lucide-react';
 import { assetUrl } from '@/lib/site-config';
 
-export function BlueprintDemo() {
+export function BlueprintViewer() {
   const [revision, setRevision] = useState(0);
   const [pasting, setPasting] = useState(false);
   const [custom, setCustom] = useState(false);
@@ -13,7 +13,7 @@ export function BlueprintDemo() {
   const frame = useRef<HTMLIFrameElement>(null);
   const render = () => {
     if (text.length > 200000) {
-      setStatus('当前示例最多接收 200 KB 节点文本。');
+      setStatus('最多接收 200,000 个字符的节点文本。');
       return;
     }
     if (!text.trim().startsWith('Begin Object') || !text.includes('End Object')) {
@@ -29,11 +29,11 @@ export function BlueprintDemo() {
     setStatus('');
   };
   return (
-    <section className="blueprint-demo not-prose" aria-label="UE 蓝图节点查看器">
+    <section className="blueprint-viewer not-prose" aria-label="UE 蓝图节点查看器">
       <div className="blueprint-toolbar">
         <span>
-          <Code2 size={15} /> {custom ? '自定义节点文本' : 'Begin Play → Print String'}
-          <i className="pill">{custom ? '本地文本' : '示例节点'}</i>
+          <Code2 size={15} /> {custom ? '当前节点文本' : 'UE 蓝图节点'}
+          <i className="pill">{custom ? '本地文本' : '等待粘贴'}</i>
         </span>
         <div>
           <button onClick={() => setPasting(!pasting)} className="text-button">
@@ -46,10 +46,12 @@ export function BlueprintDemo() {
               setRevision(revision + 1);
               setPasting(false);
               setCustom(false);
+              setText('');
+              setStatus('');
             }}
-            aria-label="恢复示例蓝图"
+            aria-label="清空蓝图画布"
           >
-            <RotateCcw size={16} />
+            <Trash2 size={16} />
           </button>
         </div>
       </div>

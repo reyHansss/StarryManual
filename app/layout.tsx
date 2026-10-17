@@ -5,7 +5,7 @@ import './motion.css';
 
 export const metadata: Metadata = {
   title: { default: 'Starry手册 · 探索系统之间的联系', template: '%s · Starry手册' },
-  description: 'Starry 的文档体验原型。阅读、连接与动手探索。',
+  description: 'Starry 项目手册：AstraAI、HaloDebug 与 Input 的架构、配置使用、扩展与排查。',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

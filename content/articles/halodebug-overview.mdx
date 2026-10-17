@@ -1,0 +1,67 @@
+---
+title: HaloDebug · 调试工具入门
+description: 打开调试输入、选择对象，找到 Starry 当前注册的场景、日志、AI 与输入面板。
+category: guide
+order: 30
+---
+
+## 从 F1 开始
+
+在 PIE 或非 Shipping 游戏中按 `F1`，或执行 `HaloDebug.ToggleInput`，切换调试输入。打开菜单中的所需窗口，完成检查后再切回正常游戏操作。
+
+Starry 由 `UStarryDebugSubsystem` 注册项目菜单。HaloDebug 提供窗口、输入、绘制与配置能力，项目决定打开哪些工具以及工具操作哪些领域。
+
+## 常用工具在哪里
+
+| 想做什么                         | 当前菜单                                               |
+| -------------------------------- | ------------------------------------------------------ |
+| 选择 Actor、观察当前选择         | `Engine → Selection`                                   |
+| 查看 Actor 属性                  | `Engine → Actor → Inspector`                           |
+| 调整位置、旋转与缩放             | `Engine → Actor → Transform`                           |
+| 查看骨架                         | `Engine → Actor → Skeleton`                            |
+| 执行 Cheat                       | `Engine → Actor → Cheats`                              |
+| 碰撞查询与碰撞显示               | `Engine → Scene → Collision Tester / Collision Viewer` |
+| 看日志、通知、曲线与指标         | `Engine → Diagnostics`                                 |
+| 时间倍率                         | `Engine → Time Scale`                                  |
+| 网络模拟与画质                   | `Engine → Runtime → Net Emulation / Scalability`       |
+| ImGui、Slate、快捷命令与远程连接 | `Engine → Debug Tools`                                 |
+| AI 决策与后端                    | `AI`                                                   |
+| 手柄与 Action 注入               | `Input → Gamepad / Actions`                            |
+
+这些路径对应当前注册代码。查不到旧名称时，先核对项目菜单，不要据此新增同功能窗口。
+
+## 操作对象与当前世界
+
+选择决定 Inspector、Transform 等工具的目标。使用选取模式时在游戏视口左键选择、右键取消。拖动 Gizmo 需要游戏视口里的调试输入已经打开。
+
+Cheats 默认作用于选中的 Actor；按住 `Ctrl` 点击时改用本地受控 Pawn。控制台形式是 `HaloDebug.Cheat <CheatName> [-Controlled]`。当前没有 Shift／Alt 的阵营批量操作，也没有调试 Possess 菜单。
+
+面板操作发生在当前连接的游戏进程与世界。它不会自动把客户端的修改变成服务器 RPC；玩法权限与同步仍由对应领域处理。多人 PIE 中先确认正在操作哪个世界。
+
+<Diagram
+  title="面板、领域与游戏视口的关系"
+  source={
+    'flowchart LR\n  User(调试输入) --> UI(ImGui 窗口)\n  UI --> Domain(当前世界的领域接口)\n  Domain --> State(运行状态)\n  State --> UI\n  UI --> Draw(本进程场景绘制)\n  Draw --> Viewport(游戏视口)\n  UI --> Remote(netImgui 桌面显示)'
+  }
+/>
+
+## 插件内部如何分工
+
+| 模块              | 职责                                   |
+| ----------------- | -------------------------------------- |
+| `HaloDebug`       | WorldSubsystem、窗口、菜单、布局与配置 |
+| `HaloDebugCommon` | 公共接口与构建宏                       |
+| `HaloDebugImgui`  | ImGui、输入、Slate 与 netImgui 接入    |
+| `HaloDebugPaint`  | 本进程场景绘制、Gizmo、曲线与指标      |
+| `HaloDebugEngine` | 通用 Engine 工具与反射属性 Inspector   |
+| `HaloDebugInput`  | Gamepad 与 Actions 调试                |
+
+`ENABLE_HALODEBUG = !UE_BUILD_SHIPPING`。面板和工具代码按构建条件使用；部分运行时反射类型仍需在 Shipping 中存在以便资产加载，不能把这一宏解释为整个插件完全不存在。
+
+## 看不到面板时
+
+先确认当前不是 Shipping、项目已启用插件且 Subsystem 注册了窗口，再检查 F1 调试输入、窗口可见性和当前世界。中文缺字还应检查非 Shipping 字体文件部署：字体由标准文件读取，只有 Cook 到 Pak 并不足以替代相应 NonUFS 文件。
+
+远程桌面显示见[netImgui 远程面板](/read/halodebug-remote)，输入调试见[Gamepad 与 Actions](/read/halodebug-input)，新窗口与绘制复用见[窗口扩展与属性绘制](/read/halodebug-extension)。AI 专用排查见[AstraAI 调试](/read/astraai-debugging)。
+
+实现入口：`Plugins/Toolkit/HaloDebug` 与 `Source/StarryGame/Framework/Development/StarryDebugSubsystem`。插件来源为 Cog，保留 MIT 许可；具体来源与许可记录随项目维护。

@@ -10,6 +10,23 @@ export type Article = {
   text: string;
 };
 
+// 模块由稳定的网址前缀归组，普通文章不必再维护一套目录元数据。
+export const articleSections = {
+  manual: { label: '手册导览', color: '#9f6744' },
+  astraai: { label: 'AstraAI · AI 决策', color: '#496f87' },
+  halodebug: { label: 'HaloDebug · 调试工具', color: '#ad5360' },
+  input: { label: 'Input · 玩家输入', color: '#4b8071' },
+  authoring: { label: '工具与创作', color: '#9f6744' },
+} as const;
+
+export function getArticleSection(slug: string): keyof typeof articleSections {
+  if (slug.startsWith('astraai-')) return 'astraai';
+  if (slug.startsWith('halodebug-')) return 'halodebug';
+  if (slug.startsWith('input-')) return 'input';
+  if (slug === 'start-here' || slug === 'architecture') return 'manual';
+  return 'authoring';
+}
+
 /** 分类文字使用深色保证可读性，图谱标记使用更明快的同色系。 */
 export const categories: Record<
   Category,

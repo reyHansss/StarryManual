@@ -18,7 +18,8 @@ export default config({
           name: { label: '标题' },
           slug: {
             label: '网址标识',
-            description: '使用英文小写和短横线；已有文章改名时请同时更新指向它的链接。',
+            description:
+              '使用英文小写和短横线；模块文章以 astraai-、halodebug- 或 input- 开头。改名时同步更新链接。',
           },
         }),
         description: fields.text({ label: '简介', multiline: true }),
@@ -36,8 +37,7 @@ export default config({
           label: '正文',
           components: {
             Note: wrapper({ label: '说明卡片', schema: { title: fields.text({ label: '标题' }) } }),
-            InputBufferDemo: block({ label: '输入缓冲交互实验', schema: {} }),
-            BlueprintDemo: block({ label: '蓝图节点查看器', schema: {} }),
+            BlueprintViewer: block({ label: '蓝图节点查看器', schema: {} }),
             Diagram: block({
               label: '自动排版图表',
               schema: {

@@ -1,0 +1,66 @@
+---
+title: AstraAI · Logic 与生命周期
+description: 把动作接入 Start、Cancel、Cleanup，正确处理共享模板、蓝图实例与过期异步回调。
+category: architecture
+order: 13
+---
+
+## Logic 负责这一次动作
+
+Behavior 选择机会，Logic 取得这次动作需要的目标与资源，启动任务，并在结束时归还。项目中的 GAS、Smart Object 或具体交互各自负责实际能力，AstraAI 不要求所有交互都经过一种专用 GA 基类。
+
+每个 Controller 至多一个顶层活动 Logic。BT、StateTree 内部仍可以按各自机制组织任务，这个限制不等于后端内部只能有一个节点。
+
+<Diagram
+  title="旧执行清理完成后，下一次执行才开始"
+  source={
+    'stateDiagram-v2\n  [*] --> Ready\n  Ready --> Running: Start\n  Running --> Running: Tick\n  Running --> Cleaning: FinishExecution 成功或失败\n  Running --> Cancelling: 抢占、撤销或失效\n  Cancelling --> Cleaning: 取消完成\n  Cleaning --> Cleaning: 等待后端安全停止\n  Cleaning --> Ready: Cleanup 完成\n  Ready --> Running: 下一次选择\n  Ready --> [*]: 关闭'
+  }
+/>
+
+## 选哪一种状态存储
+
+| 实现方式                              | 配置与状态放在哪里                                                 |
+| ------------------------------------- | ------------------------------------------------------------------ |
+| 原生、无 UObject 成员状态的 Logic     | 共享模板；本次数据由 `GetInstanceDataType()` 指定的 Struct 保存    |
+| 需要独立 UObject 成员状态的原生 Logic | 构造时启用 `bCreateInstance`，实际执行时创建实例                   |
+| 蓝图 Logic                            | 派生 `UAstraAIBehaviorLogic_BlueprintBase`，实际执行时创建独立对象 |
+
+不要为了蓝图事件图直接派生基础 Logic 或原生 BT／StateTree Logic。蓝图入口统一使用 BlueprintBase。组件不会预先复制所有候选，也不会连同所属 Modifier、Group、Behavior 一起复制。
+
+## 原生生命周期的分工
+
+- `Start`：建立本次任务、订阅和资源，保存必要执行数据。
+- `Tick`：更新当前执行；持续约束使用 `IsExecutionValid`。
+- `Cancel`：请求停止任务，处理被抢占或主动撤销。
+- `Cleanup`：解绑、归还资源并完成结算；后端还没安全停止时可返回 `false` 等待。
+
+这些方法由选择器同步分派，传入 Data 属于当前执行。不要从异步回调直接重新调用 Start、Tick 或 Cleanup。
+
+取消等待期间仍可能收到 `Tick`，用于确认已有后端退出；准备提交新动作时先检查 `Context.Component->CanSubmitActions(Id)`。不能因为还在 Tick，就继续推进正常动作链。
+
+`FinishExecution(Id, Result)` 只接受当前执行原代次的首次完成，实际结算等回调退栈后处理。旧执行清理未完成时，新行为不会先抢占同一批资源。
+
+## 异步回调保存原 Id
+
+启动时保存组件弱引用与本次 `FAstraAIExecutionId`。回调到来后先确认组件还存在，再通过 `FindLogicData(原Id)` 取得仍有效的数据，或调用 `FinishExecution(原Id, Result)` 报告结果。
+
+不要捕获 `FInstancedStruct` 内存地址跨越异步边界：旧执行退出后，该地址可能已经失效。也不要在回调里读取“组件当前的 Id”代替原 Id，否则上一次任务的完成可能结束下一次任务。
+
+资源有独立生命周期时，回调还应使用该领域自己的有效性判断。执行 Id 解决的是“是不是同一次 Logic”，不能代替资产加载句柄、Actor 弱引用等检查。
+
+## 蓝图怎样结束与取消
+
+创建 `AIBL_` 蓝图后，实现 `OnStart(Context, Execution)`，在动作完成时调用 `Finish(Result)`。默认 OnStart 直接成功，所以只添加类型、未实现逻辑，不会自动得到等待或移动能力。
+
+在 `OnCancel` 中停止自己启动的任务；取消完成后调用 `Finish(Aborted)`。默认取消直接报告 Aborted。取消过程中不能再启动下一段正常动作。
+
+`OnCleanup` 用于同步解除委托、归还资源与处理结果，不能在里面依赖 latent 等待。随后组件会清除本蓝图实例的 latent 与定时器，释放组件引用，交由 GC 回收。
+
+## 开发时验证一轮完整退出
+
+先验证正常成功与失败，再验证执行中抢占、配置撤销、宿主结束与再次执行。观察是否重复订阅、迟到回调结束了新任务、取消后任务仍运动，以及下一次执行是否读到了旧目标。
+
+后端的结果与退出约束见[BT、StateTree 与 HTN](/read/astraai-backends)，命令领取与归还见[命令](/read/astraai-commands)。
+
+实现入口：`Behavior/AstraAIBehaviorLogic`、`AstraAIBehaviorLogic_BlueprintBase`、`AstraAIBehaviorLogic_Wait` 与 `AstraAIComponent`。

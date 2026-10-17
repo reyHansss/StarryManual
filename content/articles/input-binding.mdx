@@ -1,0 +1,64 @@
+---
+title: Input · 绑定与配置生命周期
+description: 理解跨 IMC 的共享绑定、配置所有权、延迟初始化，以及切换角色时的清理。
+category: architecture
+order: 41
+---
+
+## 相同 Action 只绑定一次事件
+
+同一个 Manager 中，相同 Input Action 与同一 TriggerEvent 共用一个 InputComponent 绑定。多个已登记配置引用它时，Manager 记录使用关系，不为每个 IMC 再重复绑定。
+
+一个事件可以分派给多个不同 Handler 对象；同一个 Handler 对象在同一 Action／事件中只调用一次。去重依据对象与动作身份，不是类名：同类的两个不同对象仍可各自处理。
+
+<Diagram
+  title="配置共享 Action 绑定，Handler 按对象分派"
+  source={
+    'flowchart LR\n  SetupA(Setup A / IMC A) --> Shared(同一 IA + Triggered)\n  SetupB(Setup B / IMC B) --> Shared\n  Shared --> Binding(一个 InputComponent 绑定)\n  Binding --> H1(Handler 对象 1)\n  Binding --> H2(Handler 对象 2)\n  SetupA -.-> H1\n  SetupB -.-> H1'
+  }
+/>
+
+## 使用次数不等于调用来源计数
+
+| 操作                             | 当前语义                                       |
+| -------------------------------- | ---------------------------------------------- |
+| 不同配置引用同一 Action／Handler | 按已登记配置记录使用关系，最后使用者退出才释放 |
+| 同一 Setup 连续 Add 两次         | 第二次拒绝，不增加一份所有权                   |
+| 不同 Setup 使用同一个 IMC        | 拒绝重复映射上下文                             |
+| Remove 一份已登记 Setup          | 移除这一份配置，不需要与重复 Add 次数配平      |
+
+因此，某功能的 Add 因冲突被拒绝后，再 Remove 不能当作“撤销我刚才那一次”。配置应在设计上只有一个拥有者，进入时 Add、退出时 Remove。
+
+`GameFeatureAction_AddInputBinding` 按自己的 `InputSetups` 列表配对调用，不另存成功列表或来源计数。冲突需要整理功能的配置归属，而不是靠叠加计数掩盖。
+
+## 初始化前后怎样判断
+
+`AddInputSetupData` 没有成功返回值。Manager 未初始化时把配置放入 Pending，初始化就绪后再处理；`HasSetupData` 只检查已处理配置，不把 Pending 当成已经生效。
+
+不要用一次 HasSetupData 查询推导异步初始化的最终结果。排查时同时看 Controller InputComponent、LocalPlayer、Enhanced Input Subsystem 与 Manager 初始化顺序。
+
+## 切换 Pawn 的策略
+
+`bResetSetupForNewPawn` 默认 `false`：保留固定与功能配置，更换旧 Pawn Provider 提供的配置。开启后会清空并按固定配置重建；两种模式都会重新处理 Pawn 配置。
+
+运行中不要直接修改已应用 Setup 资产的 Handler 数组来期待自动重绑。应通过明确的配置增删边界更新运行状态。
+
+## 停分派与清缓存
+
+`DisableInputProcessing` 停止项目分派并清理缓存，不会为所有 Handler 主动补发 Canceled，也没有恢复旧 `ResetInput` 基类协议。
+
+移除 Setup 会清缓存；Action／Handler 仍有其他已登记配置使用时保留，最后使用者退出才解除绑定。业务持有的任务、技能或移动状态仍按各自生命周期退出，不能只等一条不会到来的输入取消通知。
+
+## 添加映射后为何要松开再按
+
+默认 `FModifyContextOptions` 使用：
+
+- `bIgnoreAllPressedKeysUntilRelease = true`；
+- `bForceImmediately = false`；
+- `bNotifyUserSettings = true`。
+
+新增布尔动作时，已经按住的键通常需要先释放再按下。这有助于避免切换配置瞬间把旧按键状态当成新动作，不应直接诊断成绑定失败。
+
+Handler 的共享约束见[Handler 与能力分派](/read/input-handlers)，延迟命令的清理见[通道输入缓存](/read/input-buffer)，设置登记见[改键与玩家设置](/read/input-settings)。
+
+实现入口：`Framework/Input/StarryInputManagerComponent` 与项目 `GameFeatureAction_AddInputBinding`。

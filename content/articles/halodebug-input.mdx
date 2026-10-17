@@ -1,0 +1,54 @@
+---
+title: HaloDebug · Gamepad 与 Actions
+description: 区分物理输入观察、手柄模拟与 Action 注入，沿输入流水线验证项目接入。
+category: guide
+order: 32
+---
+
+## 先确定要观察哪一层
+
+`Input → Gamepad` 显示物理手柄的原始按键与轴，也提供模拟。`Input → Actions` 面向当前玩家已映射的 Enhanced Input Action，显示当前值并注入动作。
+
+如果要检查“手柄是否有信号”，先看 Gamepad；如果要检查“动作是否经过 Trigger 和 Modifier”，看 Actions，再追踪项目 Handler。
+
+| 特性         | Gamepad                   | Actions                                |
+| ------------ | ------------------------- | -------------------------------------- |
+| 物理原始输入 | 即使没有对应 IMC 也可观察 | 查看已映射 Action 的结果               |
+| 模拟方式     | 按钮、扳机与二维摇杆      | Action 对应值类型的 Inject             |
+| 持续状态     | 可锁定按钮与摇杆值        | 可按住或切换 Repeat                    |
+| 清理         | 关闭 Gamepad 清理其模拟   | 隐藏窗口仍可模拟；Reset 清理自己的注入 |
+
+物理输入由 Slate 的只读观察取得，不消费或重发原始事件，也不另行轮询硬件。
+
+## 操作 Gamepad
+
+浅色表示物理输入，橙色表示模拟。按钮可锁定；二维摇杆拖动后松开通常回中，按住 Ctrl 松开可保留。右键可以重置相关设置或布局。
+
+透明 Overlay 适合边玩边看。Home 只作静态图标展示，没有借用 Start／Select 伪装成通用 Home 键。
+
+## 操作 Actions
+
+窗口按 `Action / Current / Inject` 三列排列。普通点击按住注入，Ctrl 或右键切换 Repeat。按值类型调整布尔、标量或向量，再观察项目收到的动作事件。
+
+同一个 Action 跨多个 IMC 共用一份模拟；身份按资产区分，同名的不同资产各自独立。每帧每个 Action 注入一次，最后一个映射移除或玩家变化时清理对应状态。
+
+隐藏 Actions 不会自动停止 Repeat。完成检查后使用 Reset；它只清自己的模拟，不清 Gamepad 的模拟。
+
+## 注入会经过哪些规则
+
+<Diagram
+  title="Action 注入从动作层进入"
+  source={
+    'flowchart LR\n  Key(物理按键) --> Mapping(IMC 按键映射与修饰)\n  Mapping --> Action(Action 自身 Modifier / Trigger)\n  Inject(HaloDebug Action 注入) --> Action\n  Action --> Event(Enhanced Input 动作事件)\n  Event --> Manager(Starry InputManager)\n  Manager --> Handler(项目 Handler)'
+  }
+/>
+
+注入通过原生 Enhanced Input Action 接口，走 Action 自身的修饰器和触发器，不走 IMC 按键条目上的修饰器。因此“模拟正常、物理按键不正常”时，要检查映射层差异。
+
+Gamepad 与 Actions 同时模拟同一个 Action 时，按 Enhanced Input 原生累积规则处理。做单一路径验证时先清理另一处的持续模拟，避免把叠加结果误认为项目重复分派。
+
+## 接着追踪 Starry
+
+有原始值却没有 Action，检查映射与玩家；有 Action 却没有 Handler，检查 Setup、事件类型与初始化。完整路线见[Input 排查](/read/input-troubleshooting)，配置所有权与共享绑定见[绑定与配置生命周期](/read/input-binding)。
+
+实现入口：`Plugins/Toolkit/HaloDebug/Source/HaloDebugInput`，项目菜单由 `UStarryDebugSubsystem` 注册。

@@ -64,7 +64,6 @@ export function SiteHeader({ articles }: { articles: Article[] }) {
           {[
             ['/read', '阅读文档'],
             ['/graph', '知识图谱'],
-            ['/lab', '交互实验'],
             ['/blueprint', '蓝图节点'],
           ].map(([href, label]) => (
             <Link
@@ -139,7 +138,7 @@ export function SiteHeader({ articles }: { articles: Article[] }) {
           )}
         </div>
         <div className="search-footer">
-          搜索本站全部示例文章 <span>Esc 关闭</span>
+          搜索本站全部文章 <span>Esc 关闭</span>
         </div>
       </dialog>
     </>

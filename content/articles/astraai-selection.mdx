@@ -1,0 +1,53 @@
+---
+title: AstraAI · 评分与抢占
+description: 沿着条件、优先级、分数、持续有效性与冷却，解释一个行为为何开始或退出。
+category: architecture
+order: 12
+---
+
+## 先筛选，再比较
+
+Group 的条件筛选新候选。Behavior 的 `CanBeActivated` 判断当前机会是否适合启动；基础实现可通过 `ObjectiveClass` 要求一个当前有效的精确 Objective 类。
+
+`CalculateScore` 为机会返回有限分数，基础实现使用 `StaticWeight`。评分函数只读当前机会与领域状态，不领取命令、不占资源，也不偷偷启动任务。候选与活动行为都可能被重新评分，副作用放在评分里会产生重复执行。
+
+<Diagram
+  title="一次候选决策的主要判断"
+  source={
+    'flowchart TD\n  Candidate(有效组合中的 Behavior) --> Group{组条件通过？}\n  Group -->|否| Skip(跳过新候选)\n  Group -->|是| Activate{可激活且不在冷却？}\n  Activate -->|否| Skip\n  Activate -->|是| Score{分数为有限值？}\n  Score -->|否| Skip\n  Score -->|是| Compare(比较优先级与分数)\n  Compare --> Current{需要替换当前执行？}\n  Current -->|否| Keep(保持当前执行)\n  Current -->|是| Cancel(取消并清理旧执行)\n  Cancel --> Start(清理完成后启动新执行)'
+  }
+/>
+
+## Critical、分数和中断许可
+
+| 情况                                        | 处理                           |
+| ------------------------------------------- | ------------------------------ |
+| Critical 候选与 Normal 当前行为竞争         | 更高优先级可以抢占             |
+| 同优先级候选分数更高                        | 当前行为允许普通中断时可以替换 |
+| 同优先级分数相同                            | 不因为同分而替换当前行为       |
+| 当前正在执行 Critical                       | Normal 不能靠更高分越级抢占    |
+| Owner 拥有 `UninterruptibleTags` 中任一标签 | 阻止同优先级的普通抢占         |
+
+`CanBeInterrupted` 与 `UninterruptibleTags` 不会阻挡宿主失效、配置撤销或 Critical 对 Normal 的抢占。它们也不能代替任务自己的取消处理。
+
+`NormalInterval` 默认 `0.2` 秒，Critical 每帧评估。`RequestEvaluation` 可以请求提前评估 Normal，适合领域事实变化后主动唤醒；不必为了立即响应而把所有行为都归到 Critical。
+
+## 激活条件与持续约束分开写
+
+一个“弹药大于零”的组条件可以允许射击开始。最后一发消耗后，组条件不再满足，不等于当前射击必须立刻中断。否则已经合法开始的动作可能被自己的消耗打断。
+
+动作执行期间必须始终成立的要求，写入 Logic 的 `IsExecutionValid` 或底层任务的有效性规则。条件与配置本身被替换属于另一回事，会按配置撤销处理。
+
+## 冷却从结算开始
+
+`CooldownSeconds` 默认 `0`。成功结算后开始冷却；`bCooldownOnFailure` 开启时，失败也使用同一冷却。`Aborted` 不消费冷却。
+
+冷却属于每个 NPC 的行为运行状态，不要把上次执行时间写回共享 Behavior。业务资源的返还在 Logic 清理中完成，`OnExecutionFinished` 是清理完成后的无状态结果通知。
+
+## 为什么看起来没有切换
+
+依次核对：配置是否已应用、Group 与 Objective 是否允许新候选、冷却是否结束、分数是否有限、当前优先级、是否严格高分、普通中断是否被标签阻挡，以及旧执行是否仍在等待安全清理。
+
+不要用调试面板主动再跑一次评分来解释历史结果。[AI 调试](/read/astraai-debugging)展示实际采集的决策与执行信息；异步退出的判断见[Logic 与生命周期](/read/astraai-logic)。
+
+实现入口：`Behavior/AstraAIBehavior`、`AstraAIBehaviorGroup` 与 `AstraAIComponent`。

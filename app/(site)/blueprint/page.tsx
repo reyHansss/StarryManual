@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { ArrowRight, Workflow } from 'lucide-react';
-import { BlueprintDemo } from '@/components/blueprint-demo';
+import { BlueprintViewer } from '@/components/blueprint-viewer';
 
 export const metadata = { title: '蓝图节点' };
 export default function BlueprintPage() {
@@ -16,20 +16,19 @@ export default function BlueprintPage() {
           <Workflow size={13} /> UE 节点查看
         </span>
       </div>
-      <BlueprintDemo />
+      <BlueprintViewer />
       <div className="blueprint-explainer">
         <div>
           <span className="eyebrow">FROM EDITOR TO PAGE</span>
           <h2>复制节点，就能展示。</h2>
           <p>
             在 UE
-            蓝图编辑器里选中节点并复制，点击上方「粘贴节点」即可尝试。也可以把节点文本作为独立文件随文档维护，再嵌入文章。
+            蓝图编辑器里选中需要阅读的节点并复制，点击上方「粘贴节点」查看。文本仅保留在当前页面，刷新或清空后移除。
           </p>
         </div>
         <div>
           <p>
-            当前画布使用本地 blueprintUE
-            渲染器。内置内容是手写的教学样例；画布用于展示节点，不执行蓝图，也不直接打开
+            当前画布使用本地 blueprintUE 渲染器。画布用于展示你粘贴的节点，不执行蓝图，也不直接打开
             .uasset。其他图表类型与 UE 5.8 的复杂节点还需逐类验证。
           </p>
           <Link href="/read/blueprint-nodes">

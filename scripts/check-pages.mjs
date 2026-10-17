@@ -73,9 +73,9 @@ for (const route of ['api', 'keystatic']) {
 }
 await access(path.join(directory, '.nojekyll'));
 await access(path.join(directory, 'blueprint/navigation.js'));
-await access(path.join(directory, 'blueprint/samples/begin-play.txt'));
+await access(path.join(directory, 'blueprint/viewer.html'));
 assert.equal(errors.length, 0, errors.join('\n'));
 console.log(
   `通过：${htmlFiles.length} 个 HTML 文件、${articles.length} 篇文章、${referenceCount} 处本地资源/链接，部署路径 ${basePath || '/'}。`,
 );
-console.log('无失效文件引用，无 CMS/API 路由，已包含 .nojekyll、蓝图手势脚本与样例。');
+console.log('无失效文件引用，无 CMS/API 路由，已包含 .nojekyll、蓝图查看器与手势脚本。');

@@ -1,0 +1,61 @@
+---
+title: AstraAI · 命令发布与领取
+description: 发布一条命令后，经机会评估、Take、执行与 EndUse 完成一次受控使用。
+category: guide
+order: 15
+---
+
+## 发布不会自动执行
+
+命令代表一份可以被符合条件的 AI 使用的任务配置。发布后，命令生成器把它转成可选机会，Behavior 判断是否值得接取，Logic 真正开始时才领取。
+
+所以只调用“发布命令”却没有生成器、Behavior 与 Logic，不会凭空产生移动、技能或交互。
+
+<Diagram
+  title="发布、评估与实际使用分开"
+  source={
+    'sequenceDiagram\n  participant Caller as 发布方\n  participant Cmd as Command\n  participant Gen as Commands Generator\n  participant Behavior as Behavior\n  participant Logic as Logic\n  Caller->>Cmd: Issue AI Command\n  Cmd-->>Caller: Registered\n  Gen->>Cmd: 收集可用机会\n  Behavior->>Cmd: CanTake 只读检查\n  Logic->>Cmd: Start 时 Take，绑定执行 Id\n  Cmd-->>Caller: Taken\n  Logic->>Logic: 执行业务任务\n  Logic->>Cmd: Cleanup 时 EndUse\n  Cmd-->>Caller: Finished 或 Returned'
+  }
+/>
+
+## 配置接取要求
+
+| 字段            | 含义与单位                                                     |
+| --------------- | -------------------------------------------------------------- |
+| `Duration`      | 游戏时间秒；`-1` 无限，正数为有效期，其余值拒绝                |
+| `Radius`        | 厘米；`-1` 不限范围，非负值以 `Center` 为球心                  |
+| `Center`        | 世界空间坐标，配合 `Radius` 定义接取范围                       |
+| `TagQuery`      | 接取者必须符合的标签条件                                       |
+| `AllowedActors` | 显式允许的 Pawn 列表；空列表不限角色，非空时与其他要求共同约束 |
+
+`Duration`、`Radius` 必须是有限值，`Center` 不能包含 NaN。`AllowedActors` 使用弱引用，不延长指定角色的寿命。
+
+候选的 `CanTake` 与正式 `Take` 都会检查半径。领取后离开球形范围不会仅因这一条配置自动取消，持续约束应由实际任务或 Logic 处理。
+
+发布时会复制一份具体配置；多个 NPC 引用这条发布命令的同一身份，发布后不再修改其配置。需要变化时应结束旧发布并重新发布合适配置。
+
+## 蓝图发布路线
+
+使用 `Issue AI Command`（`UAstraAIAsyncIssueCommand`）提供有效的 `AAIController`、命令 Class，以及可选的同类型、尚未发布的初始化对象。先绑定需要的输出事件，再根据实际结果处理后续流程。
+
+蓝图通知为 `OnCommandRegistered`、`OnCommandTaken`、`OnCommandReturned`、`OnCommandFinished`、`OnCommandTimeout` 与 `OnFailed`。发布失败通过 OnFailed 报告，不会先假装 Registered。
+
+发布、`Take`、`EndUse` 与撤销应在服务端或单机的权威世界运行。发布节点检查控制器权威，命令子系统拒绝 `NM_Client` 世界；客户端调用此节点不会自动发送 RPC。
+
+`EndSubscription` 只停止本监听者接收事件，不撤销命令。某个 NPC 的 Finished 也不代表所有其他 NPC 都已经结束使用。
+
+## 在 AI 侧接入
+
+把 `UAstraAIObjectiveGenerator_Commands` 加入 Objective Setup。`SupportedClasses` 为空时接受全部命令类型，非空时按支持类型及子类过滤。
+
+Behavior 使用只读的 `CanTake` 评估机会；不要在评分时先 Take。Logic 的 `Start` 调用 `Take(Component, ExecutionId)`，将占用归属绑定到本次执行；在自己的 `Cleanup` 中配对调用 `EndUse(Component, ExecutionId, Result)`。
+
+清理后才报告完成，能避免“已通知下一段动作开始，但旧命令资源仍被占用”。同一角色成功完成后不会反复消费同一条命令。
+
+## 撤销和超时怎样退出
+
+撤销与超时会让命令失去有效性，已经使用它的执行仍须按取消与清理协议退场。不能在命令失效时直接丢掉任务引用、跳过归还。
+
+若出现“有命令却没人执行”，先检查发布通知、要求交集、生成器过滤、当前 Objective，再检查 Behavior 分数与 Logic 的 Take 结果。[AI 调试](/read/astraai-debugging)与 [Logic 生命周期](/read/astraai-logic)提供对应排查入口。
+
+实现入口：插件 `Commands/AstraAICommand`、`AstraAICommandSubsystem`、`AstraAIObjective_Commands` 与 `AstraAIAsyncIssueCommand`。

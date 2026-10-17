@@ -1,0 +1,55 @@
+---
+title: AstraAI · BT、StateTree 与 HTN
+description: 复用控制器上的树组件，正确传入数据、报告整树结果并等待安全退出。
+category: reference
+order: 17
+---
+
+## 顶层选择与树内编排
+
+AstraAI 决定当前运行哪个 Behavior，Logic 可以把这一次动作交给 Behavior Tree、StateTree 或 HTN。Controller 按需复用各后端组件与原生黑板，主 Brain 仍由 AstraAI 负责。
+
+这些组件可以独立使用，不持有 AstraAI 的执行身份；Logic 接收后端结果，校验原执行 Id，再结束本次行为。
+
+| 入口                                 | 配置                                          | 结束要点                                    |
+| ------------------------------------ | --------------------------------------------- | ------------------------------------------- |
+| `UAstraAIBehaviorLogic_BehaviorTree` | `BehaviorTree`、`ExecutionMode`               | SingleRun 自然退出但没有显式结果时按 Failed |
+| `UAstraAIBehaviorLogic_StateTree`    | `FStateTreeReference`，使用 AIComponentSchema | 通过 StateTree 结果完成，不接管黑板         |
+| `UAstraAIBehaviorLogic_HTN`          | `UHTN`、`bLoop`，HTN 必须有黑板               | 默认不循环，退出等待后端安全停止            |
+
+## Behavior Tree 怎样报告成功
+
+单次 BT 在真正完成整次目标的位置使用 `UAstraAIBTTask_FinishTree`，明确选择 `Succeeded`、`Failed` 或 `Aborted`；`InProgress` 不是合法终结结果。
+
+这个节点结束当前整棵 BT，不只是结束所在分支。如果 BT 由 StateTree 的局部任务调用，结果交给直接调用者，不会越过父 StateTree 直接结束顶层 AstraAI 行为。
+
+不要在局部 BT 中调用 Controller 的 `RunBehaviorTree` 来替换主 Brain。需要局部执行时，使用已接入的后端 Logic 或 StateTree 桥接任务。
+
+## StateTree 组合局部树
+
+`FAstraAISTTask_RunBehaviorTree` 与 `FAstraAISTTask_RunHTN` 允许 StateTree 调用相应局部后端。按单次任务配置时 `bLoop = false`；进入前准备所需黑板输入，退出时等待局部任务安全取消。
+
+StateTree 自己不创建、缓存或切换黑板。不要为了让 StateTree“看起来和 BT 一样”另外塞入一套黑板拥有权。
+
+<Diagram
+  title="StateTree 调用局部 BT 的结果返回路径"
+  source={
+    'sequenceDiagram\n  participant AI as AstraAI Logic\n  participant ST as StateTree\n  participant Task as RunBehaviorTree 任务\n  participant BT as 局部 BT\n  AI->>ST: 启动本次执行\n  ST->>Task: 进入任务\n  Task->>BT: 初始化输入并运行\n  BT-->>Task: FinishTree 明确结果\n  Task-->>ST: 本任务完成\n  ST-->>AI: 整棵 StateTree 结束\n  AI->>AI: 校验 Id 后完成并清理'
+  }
+/>
+
+## 黑板复用要初始化临时输入
+
+BT 与 HTN 使用的原生黑板归 Controller 管理。兼容布局复用时可以保留已有值，因此不能把“组件被复用”理解为“所有键已自动清零”。
+
+原生 Logic 可以覆写 `InitializeBlackboard` 写入本次目标与参数。只初始化自己拥有的键，避免留下上次目标，也避免顺手清除其他已约定保留的数据。
+
+需要蓝图事件图或 latent 的自定义动作使用 [BlueprintBase Logic](/read/astraai-logic)。原生 BT／StateTree／HTN Logic 不能当作可任意蓝图派生的入口。
+
+## 移动使用引擎能力
+
+UE 5.8 中使用原生 `UAITask_MoveTo`、StateTree 的 `FStateTreeMoveToTask`，以及 BT 的原生移动任务。取消与完成由当前任务和后端协议处理，不再增加一层已删除的 Astra Move 包装。
+
+如果退出后新行为一直不开始，先在[AI 调试面板](/read/astraai-debugging)核对局部树是否仍在运行或清理；不要用延迟启动下一行为掩盖未退出的任务。
+
+实现入口：插件 `BehaviorTree`、`StateTree`、`HTN` 目录及对应 Behavior Logic。

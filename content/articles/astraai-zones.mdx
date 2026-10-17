@@ -1,0 +1,46 @@
+---
+title: AstraAI · 行为区域
+description: 用可挂载的 Zone 组件分配行为层，并把回区机会与实际导航分开。
+category: guide
+order: 16
+---
+
+## 给普通 Actor 添加区域
+
+在关卡 Actor 上添加 `UAstraAIBehaviorZoneComponent`，让它引用同一个 Actor 的 Box 或 Sphere。`Shape` 留空时取根形状；组件不替你修改碰撞设置。
+
+区域有两个相关用途：按分配关系应用 Modifier，以及提供位置是否在区内、离区域最近点多远的几何信息。它不是必须继承的专用 Actor，也不是默认按碰撞重叠自动加入的触发器。
+
+## 分配与应用步骤
+
+1. 设置区域形状。
+2. 在 `ModifierApplications` 中填写 Modifier 类型及 `ViableAiAgentQuery`。
+3. 通过 `AssignedAgents` 填写关卡初始分配，或运行时调用 `Assign / Unassign`。
+4. 等待目标 AI 初始化与 Modifier 生效，再从调试面板确认对应应用。
+
+当前应用模式是 `ApplyWhileAssigned`。AI 尚未 Ready 时可以先登记分配意图，Assign 返回成功不代表那一刻已经完成 Modifier 应用。
+
+<Diagram
+  title="分配关系管理行为层，位置另外产生机会"
+  source={
+    'flowchart LR\n  Assign(Assign / 初始分配) --> Eligible(按查询判断是否适用)\n  Eligible --> Handle(应用 Modifier 并保存 Handle)\n  Unassign(Unassign / 区域关闭) --> Remove(撤回对应 Handle)\n  Zone(区域形状) --> Outside(判断分配角色是否在区外)\n  Outside --> Objective(ReturnToZone 机会)\n  Objective --> Logic(业务 Logic 选点并导航)'
+  }
+/>
+
+角色资格变化后，显式调用 `RefreshEligibility` 重判。未改变的适用项保留原 Handle，不通过每次刷新先删后加来制造重复事件。
+
+## 编辑器快速收集
+
+`Assign All Overlapping Editor Agents` 按已加载 Pawn 的世界包围盒收集当前重叠角色，并支持编辑器事务。它是配置初始分配的便捷操作，不是运行时持续监听所有进入区域的角色。
+
+## 回区机会不代替导航
+
+`ContainsLocation` 判断几何内外，`GetClosestLocation` 取得最近位置与厘米距离。最近几何点不保证 NavMesh 可达，也不保证角色能够站立。
+
+ReturnToZone 机会保留所有有效分配区域的区外事实；在区域内时没有相应回区机会。具体 Behavior／Logic 决定选择哪个区域、怎样投影到导航、如何移动与失败后怎样处理。
+
+当前没有仅靠挂 Zone 就生效的自动传送、软束缚或硬束缚。需要这些玩法时，由领域实现并定义持续约束，不要从“有区域数据”推导为“已有限制移动能力”。
+
+行为层覆盖规则见[组合与覆盖](/read/astraai-composition)，机会写入规则见[Objective 与机会生成](/read/astraai-objectives)，移动任务接入见[BT、StateTree 与 HTN](/read/astraai-backends)。
+
+实现入口：插件 `Zones/AstraAIBehaviorZoneComponent` 与 `AstraAIObjective_ReturnToZone`。

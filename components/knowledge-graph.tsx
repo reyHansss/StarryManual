@@ -109,7 +109,6 @@ export function KnowledgeGraph({
           source: article.slug,
           target,
           type: 'default',
-          animated: highlighted,
           style: {
             stroke: highlighted ? '#a9cc7d' : '#384144',
             strokeWidth: highlighted ? 1.5 : 1,
@@ -225,11 +224,13 @@ export function KnowledgeGraph({
         {!compact && current && (
           <aside className="graph-inspector">
             <div className="eyebrow">SELECTED PAGE</div>
-            <span className="pill" style={{ color: categories[current.category].color }}>
-              {categories[current.category].label}
-            </span>
-            <h2>{current.title}</h2>
-            <p>{current.description}</p>
+            <div className="inspector-summary" key={current.slug}>
+              <span className="pill" style={{ color: categories[current.category].color }}>
+                {categories[current.category].label}
+              </span>
+              <h2>{current.title}</h2>
+              <p>{current.description}</p>
+            </div>
             <Link href={current.url} className="button primary">
               阅读这篇文档 <ArrowRight size={16} />
             </Link>

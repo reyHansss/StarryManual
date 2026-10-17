@@ -213,12 +213,6 @@ button {
   font-size: 13px;
   font-weight: 550;
   min-height: 43px;
-  transition:
-    background 0.15s,
-    transform 0.15s;
-}
-.button:hover {
-  transform: translateY(-1px);
 }
 .button.primary {
   background: var(--accent);
@@ -447,13 +441,9 @@ button {
   border: 1px solid var(--border);
   border-radius: 7px;
   background: linear-gradient(150deg, #1b201b65, #151915);
-  transition:
-    border-color 0.2s,
-    transform 0.2s;
 }
 .entry-card:hover {
   border-color: #66784e;
-  transform: translateY(-3px);
 }
 .entry-card-top {
   display: flex;
@@ -678,16 +668,10 @@ button {
   background: #1a2218;
   box-shadow: 0 2px 12px #0005;
   color: #d3e2c7;
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
 }
 .atlas-node.focused {
   border-color: var(--node-color);
   background: #25311d;
-  box-shadow:
-    0 0 0 5px #c9f17b08,
-    0 8px 25px #0004;
 }
 .node-category {
   font-size: 8px;
@@ -1093,7 +1077,6 @@ button {
   color: #b1ce8e;
   white-space: nowrap;
   border-radius: 2px;
-  transition: background 0.2s;
 }
 .buffer-window.expired {
   border-color: #ce916366;
@@ -1130,15 +1113,29 @@ button {
   white-space: nowrap;
   color: #709557;
 }
-.playhead {
+.playhead-track {
   position: absolute;
   top: 35px;
   bottom: 21px;
+  left: 0;
+  right: 0;
+  overflow: clip;
+  overflow-clip-margin: 4px;
+  pointer-events: none;
+}
+.playhead {
+  position: absolute;
+  inset: 0;
+}
+.playhead:before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
   width: 1px;
   background: #e5ffc4;
   box-shadow: 0 0 6px #d2ff9f35;
-  transition: left 0.03s;
-  pointer-events: none;
 }
 .playhead i {
   display: block;
@@ -2545,8 +2542,8 @@ button {
   *,
   *:before,
   *:after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
+    animation: none !important;
+    transition-delay: 0ms !important;
   }
   .react-flow__edge-path {
     animation: none !important;

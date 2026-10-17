@@ -125,8 +125,10 @@ export function InputBufferDemo() {
           <div className="ready-marker">
             <span>窗口开启 400 ms</span>
           </div>
-          <div className="playhead" style={{ left: `${time / 8}%` }}>
-            <i />
+          <div className="playhead-track" aria-hidden="true">
+            <div className="playhead" style={{ transform: `translateX(${time / 8}%)` }}>
+              <i />
+            </div>
           </div>
         </div>
         <div className="timeline-axis">
@@ -143,7 +145,9 @@ export function InputBufferDemo() {
         aria-live="polite"
       >
         <span className={`result-icon ${expired ? 'bad' : ''}`}>
-          {consumed ? <Check size={20} /> : expired ? <X size={20} /> : <Clock3 size={20} />}
+          <Clock3 size={20} className="result-pending" aria-hidden="true" />
+          <Check size={20} className="result-consumed" aria-hidden="true" />
+          <X size={20} className="result-expired" aria-hidden="true" />
         </span>
         <div>
           <strong>{state}</strong>

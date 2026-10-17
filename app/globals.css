@@ -4,11 +4,11 @@
 
 :root {
   color-scheme: light;
-  /* 冷白阅读底去除黄调；雾蓝、淡粉紫和薄荷只负责层次与强调。 */
-  --bg: #edf0f6;
-  --surface: #f6f7fc;
-  --surface-soft: #e8ecf5;
-  --reading-bg: #f2f4fa;
+  /* 接近中性白的阅读底保留轻微冷灰层次；雾蓝、淡粉紫和薄荷只负责层次与强调。 */
+  --bg: #f7f8fa;
+  --surface: #ffffff;
+  --surface-soft: #f1f3f6;
+  --reading-bg: #fcfcfd;
   --border: #ced5e4;
   --text: #3c485e;
   --muted: #626e84;
@@ -333,7 +333,12 @@ p {
   min-width: 0;
   padding: 28px var(--page-gutter) 0;
   overflow: clip;
-  background: linear-gradient(135deg, #edf2fa 0%, #f1f2fa 55%, #f2eaf3 100%);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent-soft) 28%, var(--surface)) 0%,
+    var(--reading-bg) 55%,
+    color-mix(in srgb, var(--pink-soft) 22%, var(--surface)) 100%
+  );
 }
 .home-kicker {
   display: flex;
@@ -858,7 +863,11 @@ p {
   flex: 1;
   min-width: 0;
   min-height: 590px;
-  background: radial-gradient(ellipse at 50% 45%, #e5eaf6, var(--reading-bg) 72%);
+  background: radial-gradient(
+    ellipse at 50% 45%,
+    color-mix(in srgb, var(--accent-soft) 30%, var(--surface)),
+    var(--reading-bg) 72%
+  );
 }
 .knowledge-graph:not(.compact) .graph-canvas {
   height: clamp(590px, 65vh, 850px);

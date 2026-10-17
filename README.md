@@ -27,7 +27,21 @@ pnpm start
 
 ## GitHub Pages 静态发布
 
-已在本机完成静态导出与仓库子路径验证。假设 GitHub 仓库名为 `starry-manual`：
+站点：<https://reyhansss.github.io/starry-manual/>。独立仓库：<https://github.com/reyHansss/starry-manual>。
+
+推送到远端 `main` 分支后，GitHub Actions 会安装锁定的依赖，检查格式、文章与类型，再构建、检查并发布静态站点。工作流位于 `.github/workflows/pages.yml`，发布状态见 <https://github.com/reyHansss/starry-manual/actions>。也可在 Actions 中手动运行“发布 Starry手册”。
+
+内容更新后提交并推送即可，无需在本地生成或提交 `out/`：
+
+```powershell
+git add .
+git commit -m '更新手册内容'
+git push origin HEAD:main
+```
+
+Pages 的发布源使用 GitHub Actions。构建通过 `actions/configure-pages` 读取实际部署路径，产物仅上传 `out/`，部署任务使用 GitHub 自动提供的短期凭证，无需额外保存个人 Token。
+
+如需在本地预览同样的发布结果：
 
 ```powershell
 pnpm build:pages --base-path /starry-manual
@@ -39,11 +53,11 @@ pnpm preview:pages
 
 `out/` 就是待发布的完整目录，含预生成 HTML、浏览器脚本、样式、蓝图资源与 `.nojekyll`。实际发布时将该目录交给 GitHub Pages；仓库项目站点的 `--base-path` 必须与仓库名一致。若使用 `用户名.github.io` 或独立域名的根路径，运行不带参数的 `pnpm build:pages`。路径在构建时确定，不能只移动文件后修改。
 
-线上保留文章阅读、全文搜索、知识图谱、交互实验和蓝图渲染。网页编辑器继续通过本机 `pnpm dev` 使用；发布构建排除 Keystatic 页面和 API，也隐藏对应编辑按钮。可在本地文件或本地网页中修改同一份 MDX，再重新构建发布；也可在 GitHub 文件编辑器中修改 MDX。若需要发布站点内的在线可视化编辑后台，需另行提供身份验证和 API 托管。
+线上保留文章阅读、全文搜索、知识图谱、交互实验和蓝图渲染。网页编辑器继续通过本机 `pnpm dev` 使用；发布构建排除 Keystatic 页面和 API，也隐藏对应编辑按钮。可在本地文件或本地网页中修改同一份 MDX，再提交推送；也可在 GitHub 文件编辑器中修改 MDX，提交到 `main` 后同样触发发布。若需要发布站点内的在线可视化编辑后台，需另行提供身份验证和 API 托管。
 
 `pnpm build` / `pnpm start` 是原有的 Next 服务模式；`pnpm build:pages` / `pnpm preview:pages` 是静态发布与验证模式。执行静态构建后，如需使用 `pnpm start`，先重新运行 `pnpm build`。本地创作推荐直接运行 `pnpm dev`。
 
-本轮仅验证本地导出与静态托管行为，尚未配置 GitHub 远端、Actions、域名或实际发布。
+站点使用 GitHub Pages 默认域名；仓库公开，网页中的文章和静态资源也面向公开访问。
 
 ## 修改内容
 
@@ -79,7 +93,7 @@ Next.js 16 App Router 与 React 19 提供站点和组件；Fumadocs MDX/Core/UI 
 - 示例内容展示信息组织方式，不能视为项目接口文档或功能验收。
 - 交互实验是单输入的浏览器规则模型，没有接入 UE 运行时、真实技能或网络。
 - 蓝图内置文本为手写教学样例；渲染器不执行蓝图、不直接读取 `.uasset`。复杂自定义节点、其他图表类型和实际 UE 5.8 导出的兼容性需用目标资产进一步验证。临时粘贴只在当前页面保留，最大 200 KB。
-- Keystatic 当前采用本地文件存储，编辑时不自动 Git 提交，也不执行远端推送。GitHub Pages 构建已支持；在线编辑身份认证、Keystatic GitHub 存储与自动发布流程尚未配置。
+- Keystatic 当前采用本地文件存储，编辑时不自动 Git 提交，也不执行远端推送。GitHub Pages 自动构建发布已配置；在线编辑身份认证与 Keystatic GitHub 存储尚未配置。
 - 知识图谱表示文章阅读关系，连线不表示程序调用或模块依赖；节点位置是前端布局。
 - 当前内容规模为八篇示例，尚未验证大规模图谱性能。主题和组件种类由代码统一注册，日常文章内容可从网页编辑。
 
@@ -107,4 +121,4 @@ blueprintUE 代码的固定版本、原始许可证与本地使用方式见 `THI
 - 蓝图 iframe、脚本、样式和样例文本均在仓库子路径下加载；验证两节点连线渲染、自定义文本粘贴和示例恢复，浏览器未记录错误或警告。
 - 静态地址下 `/keystatic/`、`/api/keystatic/tree` 与不存在的文章均返回 404；本机 3210 端口的 Keystatic 仍可读取和编辑原有文章。
 - 从本地网页保存文章简介，确认写入 MDX，重新导出后在静态阅读页看到新简介；原有 `pnpm build` 服务模式也构建通过。
-- 实际 GitHub Pages 托管尚未执行；此结论证明当前演示的阅读与交互功能符合静态部署条件，不包含在线 CMS 或全部 UE 5.8 节点兼容性验收。
+- 以上为接入自动发布前的本机验证；线上构建和部署记录以仓库 Actions 为准，不包含在线 CMS 或全部 UE 5.8 节点兼容性验收。

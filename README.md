@@ -27,9 +27,9 @@ pnpm start
 
 ## GitHub Pages 静态发布
 
-站点：<https://reyhansss.github.io/starry-manual/>。独立仓库：<https://github.com/reyHansss/starry-manual>。
+站点：<https://reyhansss.github.io/StarryManual/>。独立仓库：<https://github.com/reyHansss/StarryManual>。
 
-推送到远端 `main` 分支后，GitHub Actions 会安装锁定的依赖，检查格式、文章与类型，再构建、检查并发布静态站点。工作流位于 `.github/workflows/pages.yml`，发布状态见 <https://github.com/reyHansss/starry-manual/actions>。也可在 Actions 中手动运行“发布 Starry手册”。
+推送到远端 `main` 分支后，GitHub Actions 会安装锁定的依赖，检查格式、文章与类型，再构建、检查并发布静态站点。工作流位于 `.github/workflows/pages.yml`，发布状态见 <https://github.com/reyHansss/StarryManual/actions>。也可在 Actions 中手动运行“发布 Starry手册”。
 
 内容更新后提交并推送即可，无需在本地生成或提交 `out/`：
 
@@ -44,12 +44,12 @@ Pages 的发布源使用 GitHub Actions。构建通过 `actions/configure-pages`
 如需在本地预览同样的发布结果：
 
 ```powershell
-pnpm build:pages --base-path /starry-manual
+pnpm build:pages --base-path /StarryManual
 pnpm check:pages
 pnpm preview:pages
 ```
 
-访问 <http://127.0.0.1:3211/starry-manual/>。预览服务只读取 `out/` 中的文件，提供目录首页与真实 404，不调用 Next.js 服务，也不使用首页回退来补救失效路由。
+访问 <http://127.0.0.1:3211/StarryManual/>。预览服务只读取 `out/` 中的文件，提供目录首页与真实 404，不调用 Next.js 服务，也不使用首页回退来补救失效路由。
 
 `out/` 就是待发布的完整目录，含预生成 HTML、浏览器脚本、样式、蓝图资源与 `.nojekyll`。实际发布时将该目录交给 GitHub Pages；仓库项目站点的 `--base-path` 必须与仓库名一致。若使用 `用户名.github.io` 或独立域名的根路径，运行不带参数的 `pnpm build:pages`。路径在构建时确定，不能只移动文件后修改。
 

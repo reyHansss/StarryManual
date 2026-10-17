@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import {
   Background,
   BackgroundVariant,
@@ -9,189 +10,389 @@ import {
   Handle,
   Position,
   ReactFlow,
+  useNodesState,
+  useNodesInitialized,
+  useReactFlow,
+  useStore,
   type NodeProps,
   type Node,
   type Edge,
 } from '@xyflow/react';
-import { ArrowRight, Maximize2, Search, Network, BookOpen } from 'lucide-react';
-import { categories, type Article, type Category } from '@/lib/types';
+import {
+  ArrowLeft,
+  ArrowRight,
+  ChevronRight,
+  Maximize2,
+  Search,
+  Network,
+  BookOpen,
+  RotateCcw,
+  X,
+} from 'lucide-react';
+import { categories, type Article } from '@/lib/types';
+import {
+  getGraphPositions,
+  getGraphRelations,
+  getLocalArticles,
+  globalGraphView,
+  readGraphView,
+  type GraphRelation,
+  type GraphView,
+} from '@/lib/graph';
 import '@xyflow/react/dist/style.css';
 
-type ArticleNode = Node<{ article: Article; focused: boolean; select: (slug: string) => void }>;
-function ArticleCard({ data }: NodeProps<ArticleNode>) {
+type ArticleNode = Node<{
+  article: Article;
+  focused: boolean;
+  center: boolean;
+  compact: boolean;
+  degree: number;
+  select: (slug: string) => void;
+  explore: (slug: string) => void;
+}>;
+
+function ArticlePoint({ data }: NodeProps<ArticleNode>) {
   const category = categories[data.article.category];
+  const zoom = useStore((state) => state.transform[2]);
+  if (data.compact) {
+    return (
+      <div
+        className={`atlas-node ${data.focused ? 'focused' : ''}`}
+        style={{ '--node-color': category.color } as React.CSSProperties}
+      >
+        <Handle type="target" position={Position.Left} />
+        <div className="node-category">
+          <i />
+          {category.english}
+        </div>
+        <button
+          className="node-title nodrag nopan"
+          aria-label={`选择${data.article.title}`}
+          aria-pressed={data.focused}
+          onClick={() => data.select(data.article.slug)}
+        >
+          {data.article.title}
+        </button>
+        <Link
+          href={data.article.url}
+          className="node-open nodrag nopan"
+          aria-label={`打开${data.article.title}`}
+        >
+          <ArrowRight size={13} />
+        </Link>
+        <Handle type="source" position={Position.Right} />
+      </div>
+    );
+  }
   return (
     <div
-      className={`atlas-node ${data.focused ? 'focused' : ''}`}
-      style={{ '--node-color': category.color } as React.CSSProperties}
+      className={`atlas-dot-node ${data.focused ? 'focused' : ''} ${data.center ? 'is-center' : ''}`}
+      style={
+        {
+          '--node-color': category.color,
+          '--node-size': `${16 + Math.min(data.degree, 6) * 2}px`,
+          '--graph-label-size': `${Math.min(data.focused ? 42 : 30, Math.max(15, 13 / zoom))}px`,
+        } as React.CSSProperties
+      }
     >
       <Handle type="target" position={Position.Left} />
-      <div className="node-category">
+      <span className="node-point" aria-hidden="true">
         <i />
-        {category.english}
-      </div>
+      </span>
       <button
-        className="node-title nodrag"
+        className="dot-title nodrag nopan"
         aria-label={`选择${data.article.title}`}
         aria-pressed={data.focused}
         onClick={() => data.select(data.article.slug)}
       >
         {data.article.title}
       </button>
-      <Link
-        href={data.article.url}
-        className="node-open nodrag"
-        aria-label={`打开${data.article.title}`}
-      >
-        <ArrowRight size={13} />
-      </Link>
+      {data.focused && (
+        <div className="dot-actions nodrag nopan">
+          <button
+            onClick={(event) => {
+              event.stopPropagation();
+              data.explore(data.article.slug);
+            }}
+            aria-label={`进入${data.article.title}的局部图谱`}
+            title="进入局部图谱"
+          >
+            <Network size={14} />
+          </button>
+          <Link href={data.article.url} aria-label={`打开${data.article.title}`} title="阅读文章">
+            <ArrowRight size={14} />
+          </Link>
+        </div>
+      )}
       <Handle type="source" position={Position.Right} />
     </div>
   );
 }
-const nodeTypes = { article: ArticleCard };
 
-export function KnowledgeGraph({
+const nodeTypes = { article: ArticlePoint };
+
+function FitGraphView({ compact }: { compact: boolean }) {
+  const { fitView } = useReactFlow();
+  const initialized = useNodesInitialized();
+  const width = useStore((state) => state.width);
+  const height = useStore((state) => state.height);
+  useEffect(() => {
+    if (initialized && width && height) {
+      void fitView({ padding: compact ? 0.25 : 0.18, maxZoom: 1.3 });
+    }
+  }, [fitView, initialized, width, height, compact]);
+  return null;
+}
+
+function GraphCanvas({
   articles,
-  compact = false,
+  relations,
+  activeSlug,
+  center,
+  layout,
+  compact,
+  select,
+  explore,
 }: {
   articles: Article[];
-  compact?: boolean;
+  relations: GraphRelation[];
+  activeSlug: string | undefined;
+  center: string | null;
+  layout: 'connections' | 'topics';
+  compact: boolean;
+  select: (slug: string) => void;
+  explore: (slug: string) => void;
 }) {
-  const [selected, setSelected] = useState('architecture');
-  const [filter, setFilter] = useState<Category | 'all'>('all');
-  const [query, setQuery] = useState('');
-  const [layout, setLayout] = useState<'orbit' | 'topics'>('orbit');
-  const [revision, setRevision] = useState(0);
-  const visible = articles.filter(
-    (article) =>
-      (filter === 'all' || article.category === filter) &&
-      `${article.title} ${article.description}`.toLowerCase().includes(query.toLowerCase()),
-  );
-  const current = visible.find((article) => article.slug === selected) ?? visible[0];
-  const activeSlug = current?.slug;
-  const { nodes, edges } = useMemo(() => {
-    const nodes: ArticleNode[] = visible.map((article, index) => {
-      const angle = (index / Math.max(visible.length - 1, 1)) * Math.PI * 2 - Math.PI / 2;
-      let position =
+  const [initialNodes] = useState(() => {
+    const positions = getGraphPositions(articles, relations, layout, center);
+    return articles.map((article, index): ArticleNode => {
+      // 首页保留紧凑卡片预览；完整图使用关系布局与可拖动的圆点节点。
+      const angle = (index / Math.max(articles.length - 1, 1)) * Math.PI * 2 - Math.PI / 2;
+      const previewPosition =
         index === 0
           ? { x: 340, y: 215 }
           : { x: 340 + Math.cos(angle) * 310, y: 215 + Math.sin(angle) * 205 };
-      if (layout === 'topics') {
-        const column = ['guide', 'architecture', 'reference'].indexOf(article.category);
-        const row = visible
-          .filter((item) => item.category === article.category)
-          .findIndex((item) => item.slug === article.slug);
-        position = { x: column * 260, y: row * 145 + (column === 1 ? 60 : 0) };
-      }
       return {
         id: article.slug,
         type: 'article',
-        position,
-        data: { article, focused: activeSlug === article.slug, select: setSelected },
+        position: compact ? previewPosition : positions.get(article.slug)!,
+        ariaLabel: article.title,
+        data: {
+          article,
+          focused: false,
+          center: article.slug === center,
+          compact,
+          degree: relations.filter(
+            (relation) => relation.source === article.slug || relation.target === article.slug,
+          ).length,
+          select,
+          explore,
+        },
       };
     });
-    const pairs = new Set<string>();
-    const edges: Edge[] = [];
-    visible.forEach((article) =>
-      article.links.forEach((target) => {
-        const pair = [article.slug, target].sort().join('--');
-        if (
-          target === article.slug ||
-          !visible.some((item) => item.slug === target) ||
-          pairs.has(pair)
-        )
-          return;
-        pairs.add(pair);
-        const highlighted = article.slug === activeSlug || target === activeSlug;
-        edges.push({
-          id: pair,
-          source: article.slug,
-          target,
-          type: 'default',
-          style: {
-            stroke: highlighted ? 'var(--graph-edge-active)' : 'var(--graph-edge)',
-            strokeWidth: highlighted ? 1.5 : 1,
-            opacity: highlighted ? 0.85 : 0.5,
-          },
-        });
-      }),
+  });
+  const [nodes, , onNodesChange] = useNodesState<ArticleNode>(initialNodes);
+  // 选择状态独立于位置，单击节点或更新详情不会抹掉读者的拖动结果。
+  const displayNodes = nodes.map((node) => ({
+    ...node,
+    data: { ...node.data, focused: node.id === activeSlug, select, explore },
+  }));
+  const edges: Edge[] = relations.map((relation) => {
+    const highlighted = relation.source === activeSlug || relation.target === activeSlug;
+    return {
+      ...relation,
+      type: compact ? 'default' : 'straight',
+      selectable: false,
+      focusable: false,
+      style: {
+        stroke: highlighted ? 'var(--graph-edge-active)' : 'var(--graph-edge)',
+        strokeWidth: highlighted ? 1.5 : 1,
+        opacity: highlighted ? 0.9 : 0.4,
+      },
+    };
+  });
+  return (
+    <ReactFlow
+      nodes={displayNodes}
+      edges={edges}
+      onNodesChange={onNodesChange}
+      nodeTypes={nodeTypes}
+      fitView
+      fitViewOptions={{ padding: compact ? 0.25 : 0.18, maxZoom: 1.3 }}
+      minZoom={0.2}
+      maxZoom={2}
+      nodesDraggable={!compact}
+      nodesConnectable={false}
+      onNodeClick={(_, node) => select(node.id)}
+      onNodeDragStart={(_, node) => select(node.id)}
+      deleteKeyCode={null}
+      nodeDragThreshold={5}
+      panOnDrag={[0]}
+      zoomOnDoubleClick={false}
+      panOnScroll={false}
+      zoomOnScroll={!compact}
+      preventScrolling={!compact}
+      aria-label="文章关系图谱"
+    >
+      <FitGraphView compact={compact} />
+      <Background variant={BackgroundVariant.Dots} gap={26} size={1} color="#cbd2cf" />
+      {!compact && <Controls showInteractive={false} />}
+    </ReactFlow>
+  );
+}
+
+function GraphExplorer({
+  articles,
+  compact = false,
+  view = globalGraphView,
+  navigate,
+}: {
+  articles: Article[];
+  compact?: boolean;
+  view?: GraphView;
+  navigate?: (view: GraphView, replace?: boolean) => void;
+}) {
+  const scopeKey = `${view.category}:${view.center ?? ''}:${view.query}`;
+  const [selection, setSelection] = useState({
+    scope: scopeKey,
+    slug: view.center ?? 'architecture',
+  });
+  const [layout, setLayout] = useState<'connections' | 'topics'>('connections');
+  const [revision, setRevision] = useState(0);
+  const visible = useMemo(() => {
+    const scoped = view.center
+      ? getLocalArticles(articles, view.center)
+      : articles.filter((article) => view.category === 'all' || article.category === view.category);
+    const query = view.query.trim().toLowerCase();
+    return scoped.filter((article) =>
+      `${article.title} ${article.description}`.toLowerCase().includes(query),
     );
-    return { nodes, edges };
-  }, [visible, layout, activeSlug]);
+  }, [articles, view.center, view.category, view.query]);
+  const relations = useMemo(() => getGraphRelations(visible), [visible]);
+  // 内容更新时重建节点；选择变化不进入 key，保留读者刚刚拖动的位置。
+  const canvasKey = JSON.stringify([
+    scopeKey,
+    layout,
+    revision,
+    visible.map((article) => [article.slug, article.title, article.category, article.links]),
+  ]);
+  const centerArticle = articles.find((article) => article.slug === view.center);
+  const current =
+    visible.find(
+      (article) => article.slug === (selection.scope === scopeKey ? selection.slug : view.center),
+    ) ??
+    visible.find((article) => article.slug === view.center) ??
+    visible[0];
   const neighbors = current
-    ? visible.filter(
-        (article) =>
-          article.slug !== current.slug &&
-          (current.links.includes(article.slug) || article.links.includes(current.slug)),
-      )
+    ? getLocalArticles(articles, current.slug).filter((article) => article.slug !== current.slug)
     : [];
+  function select(slug: string) {
+    setSelection({ scope: scopeKey, slug });
+  }
+  function explore(slug: string) {
+    navigate?.({ category: view.category, center: slug, query: '' });
+  }
+  const parentView = { category: view.category, center: null, query: '' };
   return (
     <div className={`knowledge-graph ${compact ? 'compact' : ''}`}>
       {!compact && (
-        <div className="graph-toolbar">
-          <div className="filter-tabs">
-            {(['all', 'guide', 'architecture', 'reference'] as const).map((category) => (
+        <>
+          <div className="graph-navigation">
+            <nav className="graph-breadcrumbs" aria-label="图谱路径">
               <button
-                key={category}
-                onClick={() => setFilter(category)}
-                className={filter === category ? 'selected' : ''}
+                onClick={() => navigate?.(globalGraphView)}
+                aria-current={!centerArticle && view.category === 'all' ? 'page' : undefined}
               >
-                {category === 'all' ? '全部主题' : categories[category].label}
+                <Network size={15} /> 全局图
               </button>
-            ))}
+              {view.category !== 'all' && (
+                <>
+                  <ChevronRight size={13} />
+                  <button
+                    onClick={() => navigate?.(parentView)}
+                    aria-current={!centerArticle ? 'page' : undefined}
+                  >
+                    {categories[view.category].label}
+                  </button>
+                </>
+              )}
+              {centerArticle && (
+                <>
+                  <ChevronRight size={13} />
+                  <span aria-current="page">{centerArticle.title}的局部图</span>
+                </>
+              )}
+            </nav>
+            {(centerArticle || view.category !== 'all') && (
+              <button
+                className="graph-up"
+                onClick={() => navigate?.(centerArticle ? parentView : globalGraphView)}
+              >
+                <ArrowLeft size={14} />
+                {centerArticle && view.category !== 'all' ? '返回主题图' : '返回全局图'}
+              </button>
+            )}
           </div>
-          <label className="graph-search">
-            <Search size={15} />
-            <input
-              aria-label="筛选图谱文章"
-              placeholder="查找节点"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </label>
-        </div>
+          <div className="graph-toolbar">
+            <div className="filter-tabs" aria-label="图谱主题">
+              {(['all', 'guide', 'architecture', 'reference'] as const).map((category) => (
+                <button
+                  key={category}
+                  onClick={() => navigate?.({ category, center: null, query: '' })}
+                  className={!view.center && view.category === category ? 'selected' : ''}
+                  aria-pressed={!view.center && view.category === category}
+                >
+                  {category === 'all' ? '全部' : categories[category].label}
+                </button>
+              ))}
+            </div>
+            <label className="graph-search">
+              <Search size={15} />
+              <input
+                aria-label="筛选图谱文章"
+                placeholder="在当前图中查找"
+                value={view.query}
+                onChange={(event) => navigate?.({ ...view, query: event.target.value }, true)}
+              />
+              {view.query && (
+                <button
+                  aria-label="清空图谱搜索"
+                  onClick={() => navigate?.({ ...view, query: '' }, true)}
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </label>
+          </div>
+        </>
       )}
       <div className="graph-body">
         <div className="graph-canvas">
-          <div className="graph-caption">
+          <div className="graph-caption" role="status" aria-live="polite">
             <i className="status-dot" />
-            {compact ? '文档之间的真实关联' : `${nodes.length} 个页面 · ${edges.length} 组关联`}
+            {compact
+              ? '文档之间的真实关联'
+              : `${visible.length} 个页面 · ${relations.length} 组关联${view.center ? ' · 含双向链接与跨主题页面' : ''}`}
           </div>
-          {!!nodes.length ? (
-            <ReactFlow
-              key={`${filter}-${query}-${layout}-${revision}`}
-              nodes={nodes}
-              edges={edges}
-              nodeTypes={nodeTypes}
-              fitView
-              fitViewOptions={{ padding: compact ? 0.25 : 0.35 }}
-              minZoom={0.35}
-              maxZoom={1.7}
-              nodesDraggable={false}
-              nodesConnectable={false}
-              elementsSelectable={true}
-              onNodeClick={(_, node) => setSelected(node.id)}
-              zoomOnDoubleClick={false}
-              panOnScroll={false}
-              zoomOnScroll={!compact}
-              preventScrolling={!compact}
-              proOptions={{ hideAttribution: false }}
-              aria-label="文章关系图谱"
-            >
-              <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#cbd2cf" />
-              {!compact && <Controls showInteractive={false} />}
-            </ReactFlow>
+          {visible.length ? (
+            <GraphCanvas
+              key={canvasKey}
+              articles={visible}
+              relations={relations}
+              activeSlug={current?.slug}
+              center={view.center}
+              layout={layout}
+              compact={compact}
+              select={select}
+              explore={explore}
+            />
           ) : (
             <div className="empty-graph">
               没有匹配的节点。
               <button
-                onClick={() => {
-                  setQuery('');
-                  setFilter('all');
-                }}
+                onClick={() => navigate?.(view.query ? { ...view, query: '' } : globalGraphView)}
               >
-                重置筛选
+                {view.query ? '清空搜索' : '返回全局图'}
               </button>
             </div>
           )}
@@ -208,46 +409,69 @@ export function KnowledgeGraph({
               <Maximize2 size={16} />
             </Link>
           ) : (
-            <button
-              className="graph-expand"
-              onClick={() => {
-                setLayout(layout === 'orbit' ? 'topics' : 'orbit');
-                setRevision(revision + 1);
-              }}
-              title="切换布局"
-            >
-              <Network size={16} />
-              <span>{layout === 'orbit' ? '按主题排列' : '环形排列'}</span>
-            </button>
+            <div className="graph-layout-tools">
+              <button
+                onClick={() => setRevision((value) => value + 1)}
+                title="重新排列节点"
+                aria-label="重新排列节点"
+              >
+                <RotateCcw size={15} />
+              </button>
+              <button
+                onClick={() => setLayout(layout === 'connections' ? 'topics' : 'connections')}
+                title="切换布局"
+              >
+                <Network size={15} />
+                <span>{layout === 'connections' ? '按主题排列' : '按关联排列'}</span>
+              </button>
+            </div>
           )}
         </div>
         {!compact && current && (
-          <aside className="graph-inspector">
-            <div className="eyebrow">SELECTED PAGE</div>
+          <aside className="graph-inspector" aria-label="节点详情">
+            <div className="eyebrow">{view.center ? 'LOCAL EXPLORER' : 'EXPLORE A PAGE'}</div>
             <div className="inspector-summary" key={current.slug}>
               <span className="pill" style={{ color: categories[current.category].color }}>
                 {categories[current.category].label}
               </span>
+              {current.slug === view.center && <span className="graph-center-label">中心节点</span>}
               <h2>{current.title}</h2>
               <p>{current.description}</p>
             </div>
-            <Link href={current.url} className="button primary">
-              阅读这篇文档 <ArrowRight size={16} />
-            </Link>
+            <div className="inspector-actions">
+              {current.slug !== view.center && (
+                <button className="button quiet" onClick={() => explore(current.slug)}>
+                  <Network size={16} /> 进入局部图谱 <ChevronRight size={16} />
+                </button>
+              )}
+              <Link href={current.url} className="button primary">
+                阅读这篇文档 <ArrowRight size={16} />
+              </Link>
+            </div>
             <div className="inspector-related">
               <span className="eyebrow">相连的页面 · {neighbors.length}</span>
+              <p className="graph-related-hint">选择一篇，继续探索它的局部图。</p>
               {neighbors.map((article) => (
-                <button key={article.slug} onClick={() => setSelected(article.slug)}>
+                <button
+                  key={article.slug}
+                  onClick={() => explore(article.slug)}
+                  aria-label={`探索${article.title}的局部图谱`}
+                >
                   <BookOpen size={14} />
                   {article.title}
-                  <ArrowRight size={14} />
+                  <ChevronRight size={14} />
                 </button>
               ))}
+              {!neighbors.length && (
+                <p className="graph-related-hint">这篇文章暂时没有关联链接。</p>
+              )}
             </div>
             <small>
-              单击选择 · 箭头打开文章
+              单击选择 · <Network size={11} /> 进入局部图 · 箭头阅读
               <br />
-              拖动画布平移，滚轮缩放
+              拖动节点或空白 · 滚轮缩放
+              <br />
+              触屏可单指拖动、双指缩放
             </small>
           </aside>
         )}
@@ -261,5 +485,44 @@ export function KnowledgeGraph({
         </Link>
       )}
     </div>
+  );
+}
+
+function NavigableGraph({ articles }: { articles: Article[] }) {
+  const params = useSearchParams();
+  const view = readGraphView(new URLSearchParams(params.toString()), articles);
+  function navigate(next: GraphView, replace = false) {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('category');
+    url.searchParams.delete('center');
+    url.searchParams.delete('q');
+    if (next.category !== 'all') url.searchParams.set('category', next.category);
+    if (next.center) url.searchParams.set('center', next.center);
+    if (next.query) url.searchParams.set('q', next.query);
+    if (url.href === window.location.href) return;
+    // 原生 History API 与 Next 路由同步，静态站点也能分享子图及使用前进、后退。
+    window.history[replace ? 'replaceState' : 'pushState'](null, '', url.pathname + url.search);
+  }
+  return <GraphExplorer articles={articles} view={view} navigate={navigate} />;
+}
+
+export function KnowledgeGraph({
+  articles,
+  compact = false,
+}: {
+  articles: Article[];
+  compact?: boolean;
+}) {
+  if (compact) return <GraphExplorer articles={articles} compact />;
+  return (
+    <Suspense
+      fallback={
+        <div className="graph-loading" role="status">
+          正在展开知识图谱…
+        </div>
+      }
+    >
+      <NavigableGraph articles={articles} />
+    </Suspense>
   );
 }

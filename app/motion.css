@@ -13,6 +13,9 @@
 .search-trigger,
 .graph-expand,
 .node-open,
+.dot-actions :is(button, a),
+.graph-layout-tools button,
+.graph-up,
 .filter-tabs button,
 .presets button {
   transition:
@@ -30,6 +33,9 @@
     .search-trigger,
     .graph-expand,
     .node-open,
+    .dot-actions :is(button, a),
+    .graph-layout-tools button,
+    .graph-up,
     .filter-tabs button,
     .presets button
   ):active:not(:disabled):not(:focus-visible) {
@@ -97,6 +103,15 @@
   opacity: 1;
 }
 
+.node-point > i {
+  transition: box-shadow var(--motion-state) ease;
+}
+.dot-title {
+  transition:
+    color var(--motion-state) ease,
+    background-color var(--motion-state) ease;
+}
+
 .react-flow__edge-path {
   transition:
     stroke var(--motion-state) ease,
@@ -118,6 +133,7 @@
 .knowledge-graph:has(:focus-visible) :is(.inspector-summary, .atlas-node),
 .knowledge-graph:has(:focus-visible) .atlas-node:before,
 .knowledge-graph:has(:focus-visible) .react-flow__edge-path,
+.knowledge-graph:has(:focus-visible) :is(.node-point > i, .dot-title),
 :is(.button, .icon-button, .text-button, .filter-tabs button, .presets button):focus-visible {
   transition: none;
 }
@@ -224,6 +240,9 @@
     .search-trigger,
     .graph-expand,
     .node-open,
+    .dot-actions :is(button, a),
+    .graph-layout-tools button,
+    .graph-up,
     .filter-tabs button,
     .presets button
   ):active,

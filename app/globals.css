@@ -711,7 +711,7 @@ p {
 /* 关系图保持同一份文章数据，颜色由主题变量与文章分类共同决定。 */
 .knowledge-graph {
   overflow: hidden;
-  border: 1px solid #bfd4ed;
+  border: 1px solid var(--border);
   border-radius: 18px;
   background: var(--surface);
   box-shadow: 0 7px 24px #3f71ae07;
@@ -721,6 +721,54 @@ p {
   border-radius: 0;
   background: transparent;
   box-shadow: none;
+}
+.graph-loading {
+  display: grid;
+  place-items: center;
+  min-height: 590px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--reading-bg);
+  color: var(--muted);
+}
+.graph-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--reading-bg);
+}
+.graph-breadcrumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.graph-breadcrumbs button,
+.graph-up {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+}
+.graph-breadcrumbs [aria-current='page'] {
+  color: var(--text);
+  font-weight: 650;
+}
+.graph-breadcrumbs button:hover,
+.graph-up:hover {
+  color: var(--accent-hover);
+}
+.graph-up {
+  flex-shrink: 0;
+  color: var(--accent);
+  font-size: 12px;
 }
 .graph-toolbar {
   display: flex;
@@ -738,7 +786,7 @@ p {
 .filter-tabs button {
   padding: 8px 14px;
   border-radius: 9px;
-  color: #667e9f;
+  color: var(--muted);
   font-size: 13px;
   font-weight: 600;
 }
@@ -754,10 +802,10 @@ p {
   align-items: center;
   gap: 9px;
   padding: 9px 12px;
-  border: 1px solid #c4d7ee;
+  border: 1px solid var(--border);
   border-radius: 9px;
   background: var(--surface);
-  color: #6e8bb0;
+  color: var(--muted);
 }
 .graph-search input {
   width: 160px;
@@ -766,6 +814,17 @@ p {
   background: transparent;
   color: var(--text);
   font-size: 13px;
+}
+.graph-search button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+}
+.graph-search button:hover {
+  background: var(--accent-soft);
 }
 .graph-body {
   display: flex;
@@ -795,7 +854,7 @@ p {
   left: 20px;
   z-index: 4;
   pointer-events: none;
-  color: #6c87a9;
+  color: var(--muted);
   font-size: 11px;
   letter-spacing: 0.3px;
 }
@@ -863,6 +922,102 @@ p {
   background: #dceaff;
   color: var(--accent-hover);
 }
+/* 完整图用轻量圆点呈现关系空间，按钮与拖动区域分别处理输入。 */
+.atlas-dot-node {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 172px;
+  min-height: 112px;
+  padding: 10px 4px 35px;
+  color: var(--text);
+}
+.node-point {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+}
+.node-point > i {
+  width: var(--node-size);
+  height: var(--node-size);
+  border: 3px solid var(--reading-bg);
+  border-radius: 50%;
+  background: var(--node-color);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--node-color) 45%, transparent);
+}
+.atlas-dot-node.focused .node-point > i {
+  box-shadow:
+    0 0 0 1px var(--node-color),
+    0 0 0 7px var(--selection-halo);
+}
+.atlas-dot-node.is-center .node-point:after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border: 1px dashed var(--node-color);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.dot-title {
+  max-width: 100%;
+  margin-top: 8px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: #f4f3eee8;
+  font-size: var(--graph-label-size);
+  font-weight: 550;
+  line-height: 1.5;
+  text-align: center;
+}
+.focused .dot-title {
+  color: var(--accent-hover);
+  background: var(--accent-soft);
+  font-weight: 700;
+}
+.atlas-dot-node .react-flow__handle {
+  top: 26px;
+  left: 50%;
+  right: auto;
+  width: 1px;
+  min-width: 1px;
+  height: 1px;
+  min-height: 1px;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  pointer-events: none;
+}
+.dot-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.dot-actions :is(button, a) {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--accent-hover);
+}
+.dot-actions :is(button, a):hover {
+  background: var(--accent-soft);
+}
+.knowledge-graph:not(.compact) .react-flow__node {
+  cursor: grab;
+}
+.knowledge-graph:not(.compact) .react-flow__node.dragging {
+  cursor: grabbing;
+}
 .react-flow__node.selected {
   outline: none;
 }
@@ -879,11 +1034,11 @@ p {
 }
 .react-flow__controls button {
   background: var(--surface) !important;
-  border-color: #d2e0f0 !important;
-  fill: #4d74a7 !important;
+  border-color: var(--border) !important;
+  fill: var(--accent-hover) !important;
 }
 .react-flow__controls button:hover {
-  background: #e6efff !important;
+  background: var(--accent-soft) !important;
 }
 .graph-legend {
   position: absolute;
@@ -893,7 +1048,7 @@ p {
   display: flex;
   gap: 18px;
   pointer-events: none;
-  color: #5d799e;
+  color: var(--muted);
   font-size: 11px;
 }
 .graph-legend span {
@@ -925,6 +1080,29 @@ p {
   bottom: 14px;
   padding: 7px;
 }
+.graph-layout-tools {
+  position: absolute;
+  right: 18px;
+  bottom: 42px;
+  z-index: 4;
+  display: flex;
+  gap: 6px;
+}
+.graph-layout-tools button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--accent-hover);
+  font-size: 12px;
+}
+.graph-layout-tools button:hover {
+  background: var(--accent-soft);
+}
 .graph-selected-link {
   display: flex;
   align-items: center;
@@ -950,12 +1128,15 @@ p {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  flex-shrink: 0;
   width: clamp(270px, 20vw, 360px);
+  height: clamp(590px, 65vh, 850px);
   padding: 30px;
   border-left: 1px solid var(--border);
   background: var(--surface);
 }
 .graph-inspector > .eyebrow {
+  flex-shrink: 0;
   margin-bottom: 25px;
   font-size: 10px;
 }
@@ -977,8 +1158,30 @@ p {
   padding: 12px;
   font-size: 13px;
 }
-.inspector-related {
+.inspector-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   width: 100%;
+  flex-shrink: 0;
+}
+.graph-inspector .inspector-summary {
+  flex-shrink: 0;
+}
+.inspector-actions .button {
+  justify-content: space-between;
+  gap: 8px;
+}
+.graph-center-label {
+  margin-left: 10px;
+  color: var(--accent);
+  font-size: 11px;
+}
+.inspector-related {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  overflow-y: auto;
   margin-top: 30px;
   padding-top: 23px;
   border-top: 1px dashed var(--border);
@@ -988,13 +1191,19 @@ p {
   font-size: 11px;
   letter-spacing: 0.4px;
 }
+.graph-inspector .graph-related-hint {
+  margin: 0 0 9px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
 .inspector-related button {
   display: flex;
   align-items: center;
   gap: 8px;
   width: 100%;
   padding: 10px 0;
-  color: #5f7a9e;
+  color: var(--accent-hover);
   font-size: 13px;
   text-align: left;
 }
@@ -1005,11 +1214,16 @@ p {
   margin-left: auto;
 }
 .graph-inspector small {
+  flex-shrink: 0;
   margin-top: auto;
   padding-top: 25px;
-  color: #7a90ae;
+  color: var(--muted);
   font-size: 11px;
   line-height: 1.8;
+}
+.graph-inspector small svg {
+  display: inline;
+  vertical-align: -1px;
 }
 .empty-graph {
   display: flex;
@@ -2417,6 +2631,22 @@ p {
     padding: 13px;
     gap: 13px;
   }
+  .graph-navigation {
+    flex-wrap: wrap;
+    padding: 13px;
+    gap: 9px;
+  }
+  .graph-breadcrumbs {
+    gap: 6px;
+    font-size: 12px;
+  }
+  .graph-breadcrumbs > span {
+    overflow-wrap: anywhere;
+  }
+  .graph-up {
+    margin-left: auto;
+    font-size: 11px;
+  }
   .filter-tabs {
     justify-content: space-between;
     gap: 2px;
@@ -2430,6 +2660,7 @@ p {
   }
   .graph-search input {
     width: 100%;
+    min-width: 0;
     font-size: 13px;
   }
   .graph-body {
@@ -2444,6 +2675,7 @@ p {
   }
   .graph-inspector {
     width: 100%;
+    height: auto;
     padding: 22px;
     border-left: 0;
     border-top: 1px solid var(--border);
@@ -2460,10 +2692,12 @@ p {
     font-size: 13px;
   }
   .graph-inspector .button {
-    width: auto;
-    gap: 26px;
+    width: 100%;
+    min-height: 44px;
   }
   .inspector-related {
+    flex: none;
+    overflow-y: visible;
     margin-top: 25px;
     padding-top: 20px;
   }
@@ -2478,6 +2712,18 @@ p {
   }
   .graph-caption {
     left: 13px;
+    font-size: 10px;
+    max-width: calc(100% - 26px);
+    flex-wrap: wrap;
+    line-height: 1.6;
+  }
+  .graph-layout-tools {
+    right: 12px;
+    bottom: 43px;
+  }
+  .graph-layout-tools button {
+    min-height: 34px;
+    padding: 8px;
     font-size: 10px;
   }
   .graph-expand {

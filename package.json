@@ -13,6 +13,7 @@
     "typecheck": "next typegen && tsc --noEmit",
     "check:content": "node scripts/check-content.mjs",
     "test:blueprint": "node --test tests/blueprint-navigation.test.mjs",
+    "test:graph": "node --test tests/knowledge-graph.test.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

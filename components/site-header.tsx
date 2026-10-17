@@ -2,19 +2,27 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { ArrowUpRight, Search, X, Pencil, ArrowRight } from 'lucide-react';
 import { categories, type Article } from '@/lib/types';
 import { isStaticExport } from '@/lib/site-config';
 
 export function StarMark() {
+  const gradient = `brand-star-${useId().replace(/[^a-zA-Z0-9-]/g, '')}`;
   return (
     <svg width="28" height="28" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient id={gradient} x1="3" y1="2" x2="29" y2="30" gradientUnits="userSpaceOnUse">
+          <stop stopColor="var(--brand-star-sky)" />
+          <stop offset="0.5" stopColor="var(--brand-star-violet)" />
+          <stop offset="1" stopColor="var(--brand-star-pink)" />
+        </linearGradient>
+      </defs>
       <path
         d="M16 1l3.8 11.2L31 16l-11.2 3.8L16 31l-3.8-11.2L1 16l11.2-3.8L16 1Z"
-        fill="currentColor"
+        fill={`url(#${gradient})`}
       />
-      <circle cx="25.5" cy="6.5" r="2" fill="currentColor" />
+      <circle cx="25.5" cy="6.5" r="2" fill={`url(#${gradient})`} />
     </svg>
   );
 }

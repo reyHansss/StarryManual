@@ -24,6 +24,9 @@
   --success-soft: var(--mint-soft);
   --warning: #946133;
   --warning-soft: #fff2e3;
+  --brand-star-sky: #67a9dc;
+  --brand-star-violet: #9a79cd;
+  --brand-star-pink: #e58bb6;
   --companion-light: #fff7c4;
   --companion-gold: #ffe58a;
   --companion-shade: #f6cf72;
@@ -146,7 +149,6 @@ p {
   letter-spacing: -1px;
 }
 .brand svg {
-  color: var(--accent);
   width: 32px;
   height: 32px;
 }

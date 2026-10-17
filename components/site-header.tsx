@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useId, useRef, useState } from 'react';
 import { ArrowUpRight, Search, X, Pencil, ArrowRight } from 'lucide-react';
-import { categories, type Article } from '@/lib/types';
+import type { Article } from '@/lib/types';
+import { articleModules } from '@/lib/navigation';
 import { isStaticExport } from '@/lib/site-config';
 
 export function StarMark() {
@@ -118,14 +119,14 @@ export function SiteHeader({ articles }: { articles: Article[] }) {
             results.map((article) => (
               <Link href={article.url} key={article.slug} onClick={() => dialog.current?.close()}>
                 <span
-                  className="category-label"
+                  className="module-label"
                   style={
                     {
-                      '--category-color': categories[article.category].color,
+                      '--module-color': articleModules[article.module].color,
                     } as React.CSSProperties
                   }
                 >
-                  {categories[article.category].label}
+                  {articleModules[article.module].shortLabel}
                 </span>
                 <strong>{article.title}</strong>
                 <span>{article.description}</span>

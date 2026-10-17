@@ -6,7 +6,6 @@ import {
   type ModuleNavigation,
   type NavigationEntry,
 } from '@/lib/navigation';
-import { categories } from '@/lib/types';
 
 function ContentsEntries({ entries }: { entries: NavigationEntry[] }) {
   return (
@@ -17,7 +16,6 @@ function ContentsEntries({ entries }: { entries: NavigationEntry[] }) {
             <>
               <Link href={entry.article.url}>
                 <span>{getArticleLabel(entry.article)}</span>
-                <small>{categories[entry.article.category].label}</small>
                 <ArrowUpRight size={13} aria-hidden="true" />
               </Link>
               <p>{entry.article.description}</p>

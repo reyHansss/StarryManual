@@ -8,7 +8,7 @@ export default config({
   collections: {
     articles: collection({
       label: '文章',
-      columns: ['title', 'category'],
+      columns: ['title', 'description'],
       previewUrl: '/read/{slug}',
       slugField: 'title',
       path: 'content/articles/*',
@@ -23,15 +23,6 @@ export default config({
           },
         }),
         description: fields.text({ label: '简介', multiline: true }),
-        category: fields.select({
-          label: '文章类型',
-          options: [
-            { label: '使用指南', value: 'guide' },
-            { label: '技术架构', value: 'architecture' },
-            { label: '节点与参考', value: 'reference' },
-          ],
-          defaultValue: 'guide',
-        }),
         section: fields.array(
           fields.text({ label: '子模块或功能分区', validation: { isRequired: true } }),
           {

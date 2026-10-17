@@ -3,7 +3,6 @@ import { ArrowLeft, ArrowUpRight, ChevronRight, ListTree, Network } from 'lucide
 import {
   flattenNavigation,
   getArticleLabel,
-  getArticleModule,
   type ModuleNavigation,
   type NavigationEntry,
 } from '@/lib/navigation';
@@ -44,7 +43,7 @@ export function ReadingNavigation({
   modules: ModuleNavigation[];
   current: Article;
 }) {
-  const active = getArticleModule(current.slug);
+  const active = current.module;
   const navigation = (
     <nav aria-label="模块与功能目录">
       {modules.map((module) => (

@@ -7,7 +7,6 @@ const articles = defineDocs({
   dir: 'content/articles',
   docs: {
     schema: pageSchema.extend({
-      category: z.enum(['guide', 'architecture', 'reference']).default('guide'),
       section: z.array(z.string().trim().min(1)).default([]),
       order: z.number().default(10),
     }),

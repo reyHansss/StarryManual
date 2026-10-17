@@ -5,13 +5,14 @@ import {
   flattenNavigation,
   getReadingNeighbors,
   getSectionAnchor,
+  getArticleModule,
 } from '../lib/navigation.ts';
 
-const article = (slug, order, section = [], category = 'guide') => ({
+const article = (slug, order, section = []) => ({
   slug,
   order,
   section,
-  category,
+  module: getArticleModule(slug),
   title: slug,
   description: '',
   url: `/read/${slug}`,
@@ -21,9 +22,9 @@ const article = (slug, order, section = [], category = 'guide') => ({
 
 test('同一功能的使用与架构留在同一子模块，多层功能路径保持完整', () => {
   const pages = [
-    article('astraai-backends', 4, ['行为执行', '树后端'], 'reference'),
+    article('astraai-backends', 4, ['行为执行', '树后端']),
     article('astraai-overview', 1),
-    article('astraai-logic', 3, ['行为执行'], 'architecture'),
+    article('astraai-logic', 3, ['行为执行']),
     article('astraai-usage', 2, ['行为执行']),
   ];
   const original = structuredClone(pages);

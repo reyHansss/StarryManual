@@ -3,11 +3,9 @@ import { notFound } from 'next/navigation';
 import { ArrowLeft, ArrowRight, ArrowUpRight, Network, Pencil, Link2 } from 'lucide-react';
 import { source } from '@/lib/source';
 import { getCatalog } from '@/lib/catalog';
-import { categories } from '@/lib/types';
 import {
   buildModuleNavigation,
   getArticleLabel,
-  getArticleModule,
   getReadingNeighbors,
   getSectionAnchor,
 } from '@/lib/navigation';
@@ -39,7 +37,7 @@ export default async function ArticlePage({ params }: Props) {
   if (!current) notFound();
   const MDX = page.data.body;
   const modules = buildModuleNavigation(articles);
-  const module = modules.find((group) => group.key === getArticleModule(slug))!;
+  const module = modules.find((group) => group.key === current.module)!;
   const isModuleOverview =
     module.overview?.slug === slug && !['manual', 'authoring'].includes(module.key);
   const isDirectory = slug === 'start-here';
@@ -78,7 +76,6 @@ export default async function ArticlePage({ params }: Props) {
           <strong aria-current="page">{getArticleLabel(current)}</strong>
         </nav>
         <div className="article-eyebrow">
-          <span className="eyebrow">{categories[current.category].english}</span>
           <span className="pill">{module.label}</span>
         </div>
         <h1>{page.data.title}</h1>

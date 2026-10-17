@@ -1,8 +1,14 @@
-import type { Article, Category } from './types';
+import type { Article } from './types';
+import type { ModuleKey } from './navigation';
 
 export type GraphRelation = { id: string; source: string; target: string };
-export type GraphView = { category: Category | 'all'; center: string | null; query: string };
-export const globalGraphView: GraphView = { category: 'all', center: null, query: '' };
+export type GraphView = {
+  module: ModuleKey | 'all';
+  section: string[];
+  center: string | null;
+  query: string;
+};
+export const globalGraphView: GraphView = { module: 'all', section: [], center: null, query: '' };
 
 // 阅读关系不分方向；反向链接合并，自引用和目录外的目标不进入图谱。
 export function getGraphRelations(articles: Article[]): GraphRelation[] {
@@ -28,36 +34,65 @@ export function getLocalArticles(articles: Article[], center: string): Article[]
   return articles.filter((article) => connected.has(article.slug));
 }
 
+/** 功能分区沿用文章层级，包含每一层祖先，不维护额外的子图清单。 */
+export function getGraphSections(articles: Article[], module: GraphView['module']): string[][] {
+  const paths = new Map<string, string[]>();
+  for (const article of articles) {
+    if (article.module !== module) continue;
+    const section = article.section ?? [];
+    for (let depth = 1; depth <= section.length; depth++) {
+      const path = section.slice(0, depth);
+      paths.set(JSON.stringify(path), path);
+    }
+  }
+  return [...paths.values()];
+}
+
 export function readGraphView(params: URLSearchParams, articles: Article[]): GraphView {
-  const category = params.get('category');
+  const module =
+    articles.find((article) => article.module === params.get('module'))?.module ?? 'all';
   const center = params.get('center');
   return {
-    category:
-      category === 'guide' || category === 'architecture' || category === 'reference'
-        ? category
-        : 'all',
+    module,
+    section:
+      getGraphSections(articles, module).find(
+        (path) => JSON.stringify(path) === params.get('section'),
+      ) ?? [],
     center: articles.some((article) => article.slug === center) ? center : null,
     query: params.get('q') ?? '',
   };
+}
+
+/** 局部图保留跨模块的一跳阅读关系，模块和功能范围用于返回原来的子图。 */
+export function getGraphArticles(articles: Article[], view: GraphView): Article[] {
+  const scoped = view.center
+    ? getLocalArticles(articles, view.center)
+    : articles.filter(
+        (article) =>
+          (view.module === 'all' || article.module === view.module) &&
+          view.section.every((label, index) => article.section?.[index] === label),
+      );
+  const query = view.query.trim().toLowerCase();
+  return scoped.filter((article) =>
+    `${article.title} ${article.description}`.toLowerCase().includes(query),
+  );
 }
 
 // 自动布局只产生当前视图的初始位置，之后由读者拖动，不写回文章内容。
 export function getGraphPositions(
   articles: Article[],
   relations: GraphRelation[],
-  layout: 'connections' | 'topics',
+  layout: 'connections' | 'modules',
   center: string | null,
 ): Map<string, { x: number; y: number }> {
-  if (layout === 'topics') {
+  if (layout === 'modules') {
     const rows = new Map<string, number>();
-    const topics = ['guide', 'architecture', 'reference'].filter((category) =>
-      articles.some((article) => article.category === category),
-    );
+    const modules = [...new Set(articles.map((article) => article.module))];
     return new Map(
       articles.map((article) => {
-        const row = rows.get(article.category) ?? 0;
-        rows.set(article.category, row + 1);
-        return [article.slug, { x: topics.indexOf(article.category) * 310, y: row * 170 }];
+        const row = rows.get(article.module) ?? 0;
+        rows.set(article.module, row + 1);
+        return [article.slug, { x: modules.indexOf(article.module) * 310, y: row * 170 }];
       }),
     );
   }

@@ -7,7 +7,6 @@ const directory = path.join(process.cwd(), 'content/articles');
 const schema = z.object({
   title: z.string().min(1),
   description: z.string().min(1),
-  category: z.enum(['guide', 'architecture', 'reference']),
   section: z.array(z.string().trim().min(1)).default([]),
   order: z.number().int(),
 });

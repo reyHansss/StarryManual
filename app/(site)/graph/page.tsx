@@ -9,13 +9,13 @@ export default async function GraphPage() {
         <div>
           <span className="eyebrow">THE KNOWLEDGE MAP</span>
           <h1>顺着联系，发现下一页。</h1>
-          <p>从全局看联系，进入局部看细节。每条连线都来自文章里的链接。</p>
+          <p>按模块与功能查找内容，再沿文章之间的真实链接继续探索。</p>
         </div>
         <span className="pill">拖动探索 · 节点可进入局部图</span>
       </div>
       <KnowledgeGraph articles={await getCatalog()} />
       <div className="understated-note">
-        局部图显示中心文章与直接相连的页面，包含正向和反向链接。主题图按文章分类生成；连线表示阅读关联，方向与系统调用、模块依赖无关。
+        节点颜色表示所属模块，模块图可继续按功能分区筛选。局部图显示中心文章与直接相连的页面，保留跨模块的正向和反向链接；连线表示阅读关联，程序调用与模块依赖由正文图表说明。
       </div>
     </main>
   );

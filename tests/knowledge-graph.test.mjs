@@ -4,14 +4,18 @@ import {
   getGraphPositions,
   getGraphRelations,
   getLocalArticles,
+  getGraphArticles,
+  getGraphSections,
+  globalGraphView,
   readGraphView,
 } from '../lib/graph.ts';
 import { createGraphMotion } from '../lib/graph-motion.ts';
 
-const article = (slug, links, category = 'guide') => ({
+const article = (slug, links, module = 'input', section = []) => ({
   slug,
   links,
-  category,
+  module,
+  section,
   title: slug,
   description: '',
   order: 0,
@@ -19,11 +23,11 @@ const article = (slug, links, category = 'guide') => ({
   text: '',
 });
 const articles = [
-  article('a', ['a', 'b', 'missing']),
-  article('b', ['a', 'd'], 'architecture'),
-  article('c', ['a'], 'reference'),
-  article('d', []),
-  article('isolated', []),
+  article('a', ['a', 'b', 'missing'], 'input', ['动作处理']),
+  article('b', ['a', 'd'], 'astraai', ['行为执行']),
+  article('c', ['a'], 'halodebug'),
+  article('d', [], 'input', ['动作处理', '值与触发规则']),
+  article('isolated', [], 'manual'),
 ];
 
 test('合并双向引用并忽略自引用与站外目标', () => {
@@ -33,7 +37,7 @@ test('合并双向引用并忽略自引用与站外目标', () => {
   );
 });
 
-test('局部图包含正向、反向和跨主题的一跳邻居，不引入二跳页面', () => {
+test('局部图包含正向、反向和跨模块的一跳邻居，不引入二跳页面', () => {
   const local = getLocalArticles(articles, 'a');
   assert.deepEqual(
     local.map((item) => item.slug),
@@ -46,14 +50,56 @@ test('局部图包含正向、反向和跨主题的一跳邻居，不引入二�
   );
 });
 
-test('网址可恢复主题、中心和搜索，未知主题与中心回到全局', () => {
+test('网址恢复模块、完整功能路径、中心和搜索，无效范围不会隐藏内容', () => {
+  const params = new URLSearchParams({
+    module: 'input',
+    section: JSON.stringify(['动作处理', '值与触发规则']),
+    center: 'a',
+    q: '输入',
+  });
+  assert.deepEqual(readGraphView(params, articles), {
+    module: 'input',
+    section: ['动作处理', '值与触发规则'],
+    center: 'a',
+    query: '输入',
+  });
   assert.deepEqual(
-    readGraphView(new URLSearchParams('category=architecture&center=a&q=输入'), articles),
-    { category: 'architecture', center: 'a', query: '输入' },
+    readGraphView(new URLSearchParams('module=unknown&section=invalid&center=missing'), articles),
+    globalGraphView,
   );
   assert.deepEqual(
-    readGraphView(new URLSearchParams('category=unknown&center=missing'), articles),
-    { category: 'all', center: null, query: '' },
+    readGraphView(new URLSearchParams('module=input&section=invalid'), articles).section,
+    [],
+  );
+  assert.deepEqual(
+    readGraphView(new URLSearchParams('category=architecture'), articles),
+    globalGraphView,
+  );
+});
+
+test('模块与功能筛选沿用文章层级，局部探索仍保留跨模块邻居', () => {
+  assert.deepEqual(getGraphSections(articles, 'input'), [
+    ['动作处理'],
+    ['动作处理', '值与触发规则'],
+  ]);
+  const view = { ...globalGraphView, module: 'input', section: ['动作处理'] };
+  assert.deepEqual(
+    getGraphArticles(articles, view).map((item) => item.slug),
+    ['a', 'd'],
+  );
+  assert.deepEqual(
+    getGraphArticles(articles, { ...view, section: ['动作处理', '值与触发规则'] }).map(
+      (item) => item.slug,
+    ),
+    ['d'],
+  );
+  assert.deepEqual(
+    getGraphArticles(articles, { ...view, center: 'a' }).map((item) => item.slug),
+    ['a', 'b', 'c'],
+  );
+  assert.deepEqual(
+    getGraphArticles(articles, { ...view, query: ' D ' }).map((item) => item.slug),
+    ['d'],
   );
 });
 
@@ -71,7 +117,10 @@ test('关系布局确定且坐标有效，中心固定，空图和独立节点�
     articles.length,
   );
   assert.equal(getGraphPositions([], [], 'connections', null).size, 0);
-  assert.equal(getGraphPositions([articles[4]], [], 'topics', null).size, 1);
+  assert.equal(getGraphPositions([articles[4]], [], 'modules', null).size, 1);
+  const modules = getGraphPositions(articles, relations, 'modules', null);
+  assert.equal(modules.get('a').x, modules.get('d').x, '同一模块共用一列');
+  assert.notEqual(modules.get('a').x, modules.get('b').x, '不同模块分列');
   assert.deepEqual(articles, before);
 });
 
@@ -124,7 +173,7 @@ test('松手后仍有连续余动，有限帧内衰减结束，新拖动可以�
 });
 
 test('减少动态效果立即停止余动，保留直接拖动，恢复偏好后不自行播放', () => {
-  const motion = createGraphMotion(motionPoints, motionRelations, 'topics');
+  const motion = createGraphMotion(motionPoints, motionRelations, 'modules');
   motion.update('a', { x: -100, y: 60 }, true);
   motion.tick();
   motion.setReducedMotion(true);

@@ -2,12 +2,48 @@ import type { Article } from './types';
 
 // 模块只登记一次，子模块层级由文章的 section 路径生成，不用维护第二份文章清单。
 export const articleModules = {
-  manual: { label: '文档导览', color: '#9f6744', overview: 'start-here' },
-  project: { label: '项目系统', color: '#496f87', overview: '' },
-  astraai: { label: 'AstraAI · AI 决策', color: '#496f87', overview: 'astraai-overview' },
-  halodebug: { label: 'HaloDebug · 调试工具', color: '#ad5360', overview: 'halodebug-overview' },
-  input: { label: 'Input · 玩家输入', color: '#4b8071', overview: 'input-overview' },
-  authoring: { label: '手册创作', color: '#9f6744', overview: 'writing' },
+  manual: {
+    label: '工程总览',
+    shortLabel: '工程总览',
+    color: '#9f6744',
+    nodeColor: '#f4a65f',
+    overview: 'start-here',
+  },
+  project: {
+    label: '项目系统',
+    shortLabel: '项目系统',
+    color: '#496f87',
+    nodeColor: '#8bb8df',
+    overview: '',
+  },
+  astraai: {
+    label: 'AstraAI · AI 决策',
+    shortLabel: 'AstraAI',
+    color: '#496f87',
+    nodeColor: '#69b6ec',
+    overview: 'astraai-overview',
+  },
+  halodebug: {
+    label: 'HaloDebug · 调试工具',
+    shortLabel: 'HaloDebug',
+    color: '#ad5360',
+    nodeColor: '#ed819a',
+    overview: 'halodebug-overview',
+  },
+  input: {
+    label: 'Input · 玩家输入',
+    shortLabel: 'Input',
+    color: '#40786a',
+    nodeColor: '#73c9ac',
+    overview: 'input-overview',
+  },
+  authoring: {
+    label: '手册维护',
+    shortLabel: '手册维护',
+    color: '#776294',
+    nodeColor: '#b49cde',
+    overview: 'writing',
+  },
 } as const;
 
 export type ModuleKey = keyof typeof articleModules;
@@ -31,12 +67,12 @@ export function getArticleModule(slug: string): ModuleKey {
   return 'project';
 }
 
-/** 先按模块组织，再按从外到内的功能路径建立树；分类不决定文章归属。 */
+/** 按文章所属模块和从外到内的功能路径建立目录树。 */
 export function buildModuleNavigation(articles: Article[]): ModuleNavigation[] {
   const sorted = [...articles].sort((a, b) => a.order - b.order || a.slug.localeCompare(b.slug));
   return (Object.entries(articleModules) as [ModuleKey, (typeof articleModules)[ModuleKey]][])
     .map(([key, module]) => {
-      const pages = sorted.filter((article) => getArticleModule(article.slug) === key);
+      const pages = sorted.filter((article) => article.module === key);
       const entries: NavigationEntry[] = [];
       for (const article of pages) {
         let children = entries;
@@ -55,7 +91,7 @@ export function buildModuleNavigation(articles: Article[]): ModuleNavigation[] {
       return {
         key,
         label: module.label,
-        color: module.color,
+        color: module.nodeColor,
         overview: pages.find((article) => article.slug === module.overview),
         entries,
       };

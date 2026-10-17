@@ -9,7 +9,7 @@ import type { GraphRelation } from '@/lib/graph';
 export function useGraphMotion<T extends Node>(
   initialNodes: T[],
   relations: GraphRelation[],
-  layout: 'connections' | 'topics',
+  layout: 'connections' | 'modules',
   compact: boolean,
   setNodes: Dispatch<SetStateAction<T[]>>,
 ) {

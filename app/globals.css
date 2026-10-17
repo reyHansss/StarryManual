@@ -795,7 +795,7 @@ p {
   color: var(--accent);
 }
 
-/* 关系图保持同一份文章数据，颜色由主题变量与文章分类共同决定。 */
+/* 图谱、目录和搜索共用文章所属模块的颜色。 */
 .knowledge-graph {
   overflow: hidden;
   border: 1px solid var(--border);
@@ -852,6 +852,11 @@ p {
 .graph-up:hover {
   color: var(--accent-hover);
 }
+.graph-section-crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
 .graph-up {
   flex-shrink: 0;
   color: var(--accent);
@@ -859,15 +864,17 @@ p {
 }
 .graph-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
+  gap: 12px 20px;
   padding: 16px 20px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
 .filter-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 5px;
 }
 .filter-tabs button {
@@ -883,6 +890,30 @@ p {
 .filter-tabs button.selected {
   background: color-mix(in srgb, var(--tab-color) 11%, var(--surface));
   color: color-mix(in srgb, var(--tab-color) 85%, var(--text));
+}
+.graph-section-filter {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.graph-section-filter select {
+  min-width: 0;
+  max-width: 260px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+}
+.graph-node-path {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
 }
 .graph-search {
   display: flex;
@@ -967,7 +998,7 @@ p {
   border-color: var(--node-color);
   background: color-mix(in srgb, var(--node-color) 30%, var(--surface));
 }
-.node-category {
+.node-module {
   display: flex;
   align-items: center;
   gap: 5px;
@@ -977,7 +1008,7 @@ p {
   font-weight: 700;
   letter-spacing: 1.1px;
 }
-.node-category i {
+.node-module i {
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -1141,6 +1172,8 @@ p {
   left: 20px;
   z-index: 4;
   display: flex;
+  flex-wrap: wrap;
+  max-width: calc(100% - 80px);
   gap: 18px;
   pointer-events: none;
   color: var(--muted);
@@ -1798,11 +1831,6 @@ p {
 .module-function-list a:hover {
   color: var(--accent-hover);
 }
-.module-function-list a small {
-  color: var(--muted);
-  font-size: 10px;
-  font-weight: 400;
-}
 .module-function-list a svg {
   margin-left: auto;
   color: var(--accent);
@@ -2389,13 +2417,13 @@ p {
 .search-results > a:hover {
   background: var(--accent-soft);
 }
-.search-results .category-label {
+.search-results .module-label {
   display: block;
   padding: 3px 7px;
-  border: 1px solid color-mix(in srgb, var(--category-color) 28%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--module-color) 28%, var(--surface));
   border-radius: 999px;
-  color: var(--category-color);
-  background: color-mix(in srgb, var(--category-color) 8%, var(--surface));
+  color: var(--module-color);
+  background: color-mix(in srgb, var(--module-color) 8%, var(--surface));
   font-size: 10px;
 }
 .search-results strong {

@@ -17,7 +17,7 @@ type Particle = MotionPoint & SimulationNodeDatum & { homeX: number; homeY: numb
 export function createGraphMotion(
   positions: MotionPoint[],
   relations: GraphRelation[],
-  layout: 'connections' | 'topics',
+  layout: 'connections' | 'modules',
 ) {
   const particles: Particle[] = positions.map((point) => ({
     ...point,
@@ -36,7 +36,7 @@ export function createGraphMotion(
       ),
     ),
   }));
-  const anchorStrength = layout === 'topics' ? 0.09 : 0.025;
+  const anchorStrength = layout === 'modules' ? 0.09 : 0.025;
   const anchorX = forceX<Particle>((point) => point.homeX).strength(anchorStrength);
   const anchorY = forceY<Particle>((point) => point.homeY).strength(anchorStrength * 1.5);
   // 由画布的 RAF 驱动 tick，关闭 d3 自带计时器，避免重复循环或卸载后继续计算。
@@ -51,7 +51,7 @@ export function createGraphMotion(
       forceLink<Particle, (typeof links)[number]>(links)
         .id((point) => point.id)
         .distance((link) => link.distance)
-        .strength(layout === 'topics' ? 0.12 : 0.3),
+        .strength(layout === 'modules' ? 0.12 : 0.3),
     )
     .force('charge', forceManyBody<Particle>().strength(-900).distanceMax(700))
     .force('spacing', forceCollide<Particle>(85).strength(0.65))

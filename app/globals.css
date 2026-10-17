@@ -24,9 +24,10 @@
   --success-soft: var(--mint-soft);
   --warning: #946133;
   --warning-soft: #fff2e3;
-  --companion-sky: #c4e4ff;
-  --companion-pink: #f4d8f4;
-  --companion-ink: #706599;
+  --companion-light: #fff7c4;
+  --companion-gold: #ffe58a;
+  --companion-shade: #f6cf72;
+  --companion-ink: #8b744f;
   --selection-halo: #8a83cd24;
   --graph-edge: #abb8d3;
   --graph-edge-active: #7b8ebb;

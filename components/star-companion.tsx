@@ -48,9 +48,9 @@ export function StarCompanion() {
           y2="140"
           gradientUnits="userSpaceOnUse"
         >
-          <stop stopColor="var(--companion-sky)" />
-          <stop offset="0.55" stopColor="#e6dfff" />
-          <stop offset="1" stopColor="var(--companion-pink)" />
+          <stop stopColor="var(--companion-light)" />
+          <stop offset="0.55" stopColor="var(--companion-gold)" />
+          <stop offset="1" stopColor="var(--companion-shade)" />
         </linearGradient>
       </defs>
       <g className="companion-orbit">
@@ -77,7 +77,7 @@ export function StarCompanion() {
       />
       <path
         d="m54 123-8 22 27-8m39-13 10 21-28-9"
-        fill="#c1b5e6"
+        fill="var(--companion-shade)"
         stroke="var(--companion-ink)"
         strokeWidth="2"
         strokeLinejoin="round"

@@ -1281,6 +1281,13 @@ p {
   align-items: center;
   gap: 6px;
 }
+.blueprint-status {
+  margin: 0;
+  padding: 8px 20px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 12px;
+}
 .blueprint-paste {
   position: absolute;
   inset: 18px;

@@ -1,5 +1,6 @@
 import { collection, config, fields, singleton } from '@keystatic/core';
 import { block, wrapper } from '@keystatic/core/content-components';
+import { BlueprintSourceInput } from './components/blueprint-source-input';
 
 export default config({
   locale: 'zh-CN',
@@ -63,12 +64,15 @@ export default config({
               label: '蓝图用法说明',
               schema: {
                 title: fields.text({ label: '节点图标题' }),
-                source: fields.text({
-                  label: 'UE 节点文本',
-                  description:
-                    '从 UE 蓝图编辑器复制完整节点文本，随文章保存，读者打开正文时直接显示。',
-                  multiline: true,
-                }),
+                source: {
+                  ...fields.text({
+                    label: 'UE 节点文本',
+                    description:
+                      '从 UE 蓝图编辑器复制完整节点文本，随文章保存，读者打开正文时直接显示。',
+                    multiline: true,
+                  }),
+                  Input: BlueprintSourceInput,
+                },
               },
             }),
             Diagram: block({

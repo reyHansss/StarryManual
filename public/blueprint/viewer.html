@@ -32,6 +32,7 @@
         align-items: center;
       }
       .blueprint-view-button {
+        flex-shrink: 0;
         padding: 3px 7px;
         border: 1px solid #48515e;
         border-radius: 6px;
@@ -47,6 +48,23 @@
       .blueprint-view-button:focus-visible {
         outline: 2px solid #80c4ff;
         outline-offset: 1px;
+      }
+      .blueprint-view-button:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      .bue-render .frame-header__breadcrumb {
+        max-width: calc(100% - 170px);
+        overflow-x: auto;
+        white-space: nowrap;
+      }
+      .is-editing .layer .node {
+        cursor: move !important;
+      }
+      .is-editing .node.layout-selected,
+      .is-editing .node:focus-visible {
+        outline: 2px solid #eaa3ba;
+        outline-offset: 3px;
       }
       .bue-render .layer {
         cursor: grab;
@@ -99,15 +117,22 @@
     <script src="../vendor/blueprintue/render.js"></script>
     <script type="module">
       import { attachBlueprintNavigation } from './navigation.js';
+      import { createBlueprintEditing } from './editing.js';
 
       let renderer;
       let detachNavigation;
+      let editing;
       let currentText;
+      let currentEditable = false;
+      let history = [];
+      let historyIndex = -1;
       const playground = document.getElementById('playground');
       const message = document.getElementById('message');
       function clear() {
         detachNavigation?.();
         detachNavigation = undefined;
+        editing?.dispose();
+        editing = undefined;
         renderer?.stop();
         renderer = undefined;
         currentText = undefined;
@@ -115,9 +140,16 @@
         message.textContent = '尚未提供节点文本。';
         message.hidden = false;
       }
-      function render(text, force = false) {
+      function publish(text) {
+        window.parent.postMessage(
+          { type: 'starry-blueprint-change', text },
+          window.location.origin,
+        );
+      }
+      function render(text, editable = false, force = false, preserveView = false) {
         // 正文水合与 iframe 加载都会发送文本，同一组节点只初始化一次。
-        if (!force && renderer && currentText === text) return;
+        if (!force && renderer && currentText === text && currentEditable === editable) return;
+        const transform = preserveView && playground.querySelector('.canvas')?.style.transform;
         clear();
         try {
           if (typeof text !== 'string' || text.length > 200000)
@@ -128,6 +160,7 @@
           });
           renderer = activeRenderer;
           currentText = text;
+          currentEditable = editable;
           activeRenderer.start(function (success) {
             if (renderer !== activeRenderer) return;
             if (!success || !playground.querySelector('.node')) {
@@ -144,13 +177,64 @@
             actualSizeButton.textContent = '100%';
             actualSizeButton.setAttribute('aria-label', '蓝图原始大小');
             actualSizeButton.className = 'blueprint-view-button';
-            playground
-              .querySelector('.frame-header__breadcrumb')
-              .replaceChildren(fitButton, actualSizeButton);
+            const buttons = [fitButton, actualSizeButton];
+            if (editable) {
+              const straightenButton = document.createElement('button');
+              straightenButton.type = 'button';
+              straightenButton.className = 'blueprint-view-button';
+              straightenButton.textContent = '拉直连线';
+              const undo = document.createElement('button');
+              undo.type = 'button';
+              undo.className = 'blueprint-view-button';
+              undo.textContent = '撤销';
+              undo.setAttribute('aria-label', '撤销排版');
+              const redo = document.createElement('button');
+              redo.type = 'button';
+              redo.className = 'blueprint-view-button';
+              redo.textContent = '重做';
+              redo.setAttribute('aria-label', '重做排版');
+              const updateHistory = () => {
+                undo.disabled = historyIndex <= 0;
+                redo.disabled = historyIndex >= history.length - 1;
+              };
+              editing = createBlueprintEditing(
+                playground,
+                () => currentText,
+                (next) => {
+                  currentText = next;
+                  history = [...history.slice(0, historyIndex + 1), next].slice(-30);
+                  historyIndex = history.length - 1;
+                  updateHistory();
+                  publish(next);
+                },
+              );
+              straightenButton.onclick = () => editing.straighten();
+              for (const [button, step] of [
+                [undo, -1],
+                [redo, 1],
+              ]) {
+                button.onclick = () => {
+                  historyIndex += step;
+                  const next = history[historyIndex];
+                  render(next, true, true, true);
+                  publish(next);
+                };
+              }
+              updateHistory();
+              buttons.push(straightenButton, undo, redo);
+            }
+            playground.querySelector('.frame-header__breadcrumb').replaceChildren(...buttons);
             detachNavigation = attachBlueprintNavigation(activeRenderer, playground, {
               fitButton,
               actualSizeButton,
+              nodeEditing: editing,
             });
+            if (transform) {
+              const view = new DOMMatrixReadOnly(transform);
+              activeRenderer.moveTo(view.e, view.f, view.a);
+              playground.querySelector('.frame-header__current-zoom').textContent =
+                `${Math.round(view.a * 100)}%`;
+            }
             message.hidden = true;
           });
         } catch (error) {
@@ -166,13 +250,18 @@
           event.data?.type !== 'starry-blueprint'
         )
           return;
-        render(event.data.text);
+        const editable = event.data.editable === true;
+        if (event.data.text !== currentText || editable !== currentEditable) {
+          history = [event.data.text];
+          historyIndex = 0;
+        }
+        render(event.data.text, editable);
       });
       let resize;
       window.addEventListener('resize', () => {
         clearTimeout(resize);
         resize = setTimeout(() => {
-          if (currentText) render(currentText, true);
+          if (currentText) render(currentText, currentEditable, true);
         }, 150);
       });
     </script>

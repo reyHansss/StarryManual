@@ -1,0 +1,122 @@
+.field {
+  display: grid;
+  gap: 8px;
+  font:
+    14px/1.6 'Segoe UI',
+    'Microsoft YaHei',
+    sans-serif;
+}
+.field label {
+  font-weight: 600;
+}
+.field p {
+  margin: 0;
+  color: #6b6065;
+  font-size: 12px;
+}
+.field textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 150px;
+  padding: 10px;
+  resize: vertical;
+  border: 1px solid #dccfd4;
+  border-radius: 8px;
+  background: #fff;
+  color: #342c30;
+  font: 12px/1.6 monospace;
+}
+.field button,
+.dialog button {
+  padding: 8px 14px;
+  border: 1px solid #dccfd4;
+  border-radius: 10px;
+  background: #fff;
+  color: #59444d;
+  font:
+    13px/1.4 'Segoe UI',
+    'Microsoft YaHei',
+    sans-serif;
+  cursor: pointer;
+}
+.field button {
+  justify-self: start;
+}
+.field button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.dialog {
+  box-sizing: border-box;
+  width: min(1440px, calc(100vw - 32px));
+  max-width: none;
+  max-height: calc(100svh - 24px);
+  margin: auto;
+  padding: 20px;
+  overflow-y: auto;
+  border: 1px solid #e8dce1;
+  border-radius: 20px;
+  background: #fffcfd;
+  color: #342c30;
+  box-shadow: 0 24px 80px #38222c33;
+  font:
+    14px/1.6 'Segoe UI',
+    'Microsoft YaHei',
+    sans-serif;
+}
+.dialog::backdrop {
+  background: #2d202959;
+}
+.header,
+.actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+.header {
+  margin-bottom: 16px;
+}
+.header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.header p {
+  margin: 3px 0 0;
+  color: #77666d;
+  font-size: 13px;
+}
+.canvas :global(.blueprint-stage) {
+  height: clamp(180px, calc(100svh - 390px), 580px);
+}
+.canvas :global(.blueprint-toolbar) {
+  padding: 10px 16px;
+}
+.canvas :global(.blueprint-footer) {
+  padding: 8px 16px;
+}
+.actions {
+  margin-top: 16px;
+}
+.actions span {
+  color: #77666d;
+  font-size: 12px;
+}
+.actions .primary {
+  flex-shrink: 0;
+  border-color: #ce819a;
+  background: #ce819a;
+  color: #fff;
+}
+@media (max-width: 600px) {
+  .dialog {
+    width: calc(100vw - 12px);
+    padding: 12px;
+  }
+  .actions {
+    flex-wrap: wrap;
+  }
+  .canvas :global(.blueprint-toolbar) {
+    flex-wrap: wrap;
+  }
+}

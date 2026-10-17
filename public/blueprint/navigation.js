@@ -26,7 +26,11 @@ export function getBlueprintFitView(bounds, width, height, padding = 24) {
 }
 
 /** 为只读蓝图接入网页手势，返回清理函数，供节点重载时解除监听。 */
-export function attachBlueprintNavigation(renderer, root, { fitButton, actualSizeButton } = {}) {
+export function attachBlueprintNavigation(
+  renderer,
+  root,
+  { fitButton, actualSizeButton, nodeEditing } = {},
+) {
   const layer = root.querySelector('.layer');
   const canvas = root.querySelector('.canvas');
   const zoom = root.querySelector('.frame-header__current-zoom');
@@ -35,6 +39,7 @@ export function attachBlueprintNavigation(renderer, root, { fitButton, actualSiz
   const pointers = new Map();
   let animation;
   let dragStart;
+  let nodeDrag;
   let suppressClick = false;
   let lastTransform = canvas.style.transform;
   let view = readView();
@@ -115,8 +120,13 @@ export function attachBlueprintNavigation(renderer, root, { fitButton, actualSiz
       if (event.target.closest(CONTROLS)) return;
       syncView();
       dragStart = { x: event.clientX, y: event.clientY };
+      nodeDrag = nodeEditing?.start(event, view);
     }
     if (pointers.size >= 2) return;
+    if (pointers.size === 1 && nodeDrag) {
+      nodeDrag.commit();
+      nodeDrag = undefined;
+    }
     event.preventDefault();
     layer.setPointerCapture(event.pointerId);
     pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
@@ -132,18 +142,29 @@ export function attachBlueprintNavigation(renderer, root, { fitButton, actualSiz
     const next = gesture();
     if (Math.hypot(event.clientX - dragStart.x, event.clientY - dragStart.y) > 4)
       suppressClick = true;
+    if (nodeDrag) {
+      nodeDrag.move(event);
+      return;
+    }
     // 同时使用双指中心和距离，缩放时可继续平移，抬起一指后自然转为单指拖动。
     const ratio = previous.distance > 0 ? next.distance / previous.distance : 1;
     zoomAt(view.scale * ratio, previous.center, next.center);
   }
 
   function pointerUp(event) {
+    if (!pointers.has(event.pointerId)) return;
+    const finishedDrag = nodeDrag;
+    nodeDrag = undefined;
+    if (event.type === 'pointercancel') finishedDrag?.cancel();
+    else finishedDrag?.commit();
     pointers.delete(event.pointerId);
     if (layer.hasPointerCapture(event.pointerId)) layer.releasePointerCapture(event.pointerId);
     layer.classList.toggle('is-panning', pointers.size > 0);
   }
 
   function clearPointers() {
+    nodeDrag?.cancel();
+    nodeDrag = undefined;
     for (const id of pointers.keys()) {
       if (layer.hasPointerCapture(id)) layer.releasePointerCapture(id);
     }

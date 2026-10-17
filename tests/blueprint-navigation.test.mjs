@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { attachBlueprintNavigation, getBlueprintFitView } from '../public/blueprint/navigation.js';
 
 // 不模拟浏览器布局；直接验证输入监听、缩放锚点和手势生命周期。
-function setup() {
+function setup(nodeEditing) {
   const frames = new Map();
   let frameId = 0;
   class Element {
@@ -38,6 +38,7 @@ function setup() {
     }
     emit(type, values = {}) {
       const event = {
+        type,
         target: this,
         button: 0,
         pointerId: 1,
@@ -91,10 +92,14 @@ function setup() {
       canvas.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
     },
   };
-  const detach = attachBlueprintNavigation(renderer, {
-    querySelector: (selector) => elements[selector],
-    querySelectorAll: () => [],
-  });
+  const detach = attachBlueprintNavigation(
+    renderer,
+    {
+      querySelector: (selector) => elements[selector],
+      querySelectorAll: () => [],
+    },
+    { nodeEditing },
+  );
   const flush = () => {
     const pending = [...frames.values()];
     frames.clear();
@@ -114,6 +119,48 @@ function setup() {
 
 const close = (actual, expected) =>
   assert.ok(Math.abs(actual - expected) < 1e-8, `${actual} != ${expected}`);
+
+test('只有编辑模式将节点拖动交给布局编辑，阅读模式继续平移', () => {
+  const calls = [];
+  const env = setup({
+    start: () => ({
+      move: (event) => calls.push(['move', event.clientX]),
+      commit: () => calls.push(['commit']),
+      cancel: () => calls.push(['cancel']),
+    }),
+  });
+  env.pointer('pointerdown', 1, 100, 100);
+  env.pointer('pointermove', 1, 160, 130);
+  env.pointer('pointerup', 1, 160, 130);
+  assert.deepEqual(env.renderer.view, { x: 20, y: 60, scale: 1 });
+  assert.deepEqual(calls, [['move', 160], ['commit']]);
+  env.pointer('pointerdown', 1, 100, 100);
+  env.pointer('pointercancel', 1, 160, 130);
+  assert.deepEqual(calls.at(-1), ['cancel']);
+  env.pointer('pointerdown', 1, 100, 100);
+  env.detach();
+  assert.deepEqual(calls.at(-1), ['cancel']);
+});
+
+test('编辑时加入第二个触点会提交当前拖动并转为双指缩放', () => {
+  let commits = 0;
+  const env = setup({
+    start: () => ({
+      move() {},
+      cancel() {},
+      commit() {
+        commits++;
+      },
+    }),
+  });
+  env.pointer('pointerdown', 1, 100, 200, { pointerType: 'touch' });
+  env.pointer('pointerdown', 2, 300, 200, { pointerType: 'touch' });
+  env.pointer('pointermove', 1, 50, 200);
+  env.pointer('pointermove', 2, 350, 200);
+  close(env.renderer.view.scale, 1.5);
+  assert.equal(commits, 1);
+  env.detach();
+});
 
 test('自动取景包含负坐标节点，保留边距与缩放边界，小图不额外放大', () => {
   const bounds = [

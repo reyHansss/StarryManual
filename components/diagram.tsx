@@ -1,22 +1,33 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { Waypoints } from 'lucide-react';
-import { getDiagramKind } from '@/lib/diagram';
+import { getDiagramKind, type DiagramSize, type DiagramView } from '@/lib/diagram';
+
+const DiagramViewport = dynamic(() =>
+  import('./diagram-viewport').then((module) => module.DiagramViewport),
+);
 
 /** 文章只提供关系文本；自动布局、字体和配色统一复用手册主题。 */
 export function Diagram({ title, source }: { title: string; source: string }) {
   const element = useRef<HTMLElement>(null);
+  const dialog = useRef<HTMLDialogElement>(null);
+  const inline = useRef<HTMLDivElement>(null);
+  const inlineView = useRef<DiagramView | null>(null);
+  const [inlineHeight, setInlineHeight] = useState<number>();
+  const [expanded, setExpanded] = useState(false);
   const id = `diagram-${useId().replace(/[^a-zA-Z0-9-]/g, '')}`;
   const [rendered, setRendered] = useState<{
     source: string;
     svg: string;
-    minimumWidth: number;
+    size: DiagramSize;
     error: boolean;
   } | null>(null);
 
   useEffect(() => {
     const target = element.current!;
+    inlineView.current = null;
     let disposed = false;
     async function render() {
       try {
@@ -76,11 +87,11 @@ export function Diagram({ title, source }: { title: string; source: string }) {
           .documentElement.getAttribute('viewBox')
           ?.split(/\s+/)
           .map(Number);
-        // 自动适配不能无限缩小文字；保留至少 90% 原始比例，宽图在内部横向滚动。
-        const minimumWidth = (viewBox?.[2] ?? 580) * 0.9;
-        if (!disposed) setRendered({ source, svg: result.svg, minimumWidth, error: false });
+        const size = { width: viewBox?.[2] || 580, height: viewBox?.[3] || 320 };
+        if (!disposed) setRendered({ source, svg: result.svg, size, error: false });
       } catch {
-        if (!disposed) setRendered({ source, svg: '', minimumWidth: 0, error: true });
+        if (!disposed)
+          setRendered({ source, svg: '', size: { width: 580, height: 320 }, error: true });
       }
     }
     // 只有图表靠近视口时才加载渲染器，首页、图谱及普通文章不承担图表初始化成本。
@@ -99,7 +110,48 @@ export function Diagram({ title, source }: { title: string; source: string }) {
     };
   }, [id, source]);
 
+  useEffect(() => {
+    if (!expanded) return;
+    const target = dialog.current!;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    // 原生对话框提供焦点约束和 Esc 退出，手机也不依赖浏览器 Fullscreen API。
+    target.showModal();
+    return () => {
+      target.close();
+      document.body.style.overflow = previousOverflow;
+      element.current
+        ?.querySelector<HTMLButtonElement>('[data-diagram-expand]')
+        ?.focus({ preventScroll: true });
+    };
+  }, [expanded]);
+
   const current = rendered?.source === source ? rendered : null;
+  const viewer = current?.svg ? (
+    <DiagramViewport
+      key={source}
+      title={title}
+      svg={current.svg}
+      size={current.size}
+      expanded={expanded}
+      toggleExpanded={() => {
+        if (!expanded) setInlineHeight(inline.current?.getBoundingClientRect().height);
+        setExpanded(!expanded);
+      }}
+      savedView={expanded ? null : inlineView.current}
+      rememberView={
+        expanded
+          ? undefined
+          : (view) => {
+              inlineView.current = view;
+            }
+      }
+    />
+  ) : (
+    <div className="diagram-placeholder" role="status">
+      {current?.error ? '这段图表暂时无法绘制，请检查下面的源码。' : '正在整理图表…'}
+    </div>
+  );
   return (
     <figure className="article-diagram" ref={element}>
       <figcaption>
@@ -109,21 +161,25 @@ export function Diagram({ title, source }: { title: string; source: string }) {
         </span>
         <span className="diagram-kind">{getDiagramKind(source)}</span>
       </figcaption>
-      {current?.svg ? (
-        <div
-          className="diagram-canvas"
-          role="img"
-          aria-label={title}
-          tabIndex={0}
-          style={{ '--diagram-min-width': `${current.minimumWidth}px` } as React.CSSProperties}
-          dangerouslySetInnerHTML={{ __html: current.svg }}
-        />
-      ) : (
-        <div className="diagram-placeholder" role="status">
-          {current?.error ? '这段图表暂时无法绘制，请检查下面的源码。' : '正在整理图表…'}
+      <div ref={inline} style={{ height: expanded ? inlineHeight : undefined }}>
+        {expanded ? null : viewer}
+      </div>
+      <dialog
+        ref={dialog}
+        className="diagram-dialog"
+        aria-labelledby={`${id}-expanded-title`}
+        onCancel={(event) => {
+          event.preventDefault();
+          setExpanded(false);
+        }}
+        onClose={() => setExpanded(false)}
+      >
+        <div className="diagram-dialog-title" id={`${id}-expanded-title`}>
+          <Waypoints size={18} />
+          {title}
         </div>
-      )}
-      <div className="diagram-scroll-hint">宽图可左右滑动查看</div>
+        {expanded ? viewer : null}
+      </dialog>
       <details className="diagram-source" open={current?.error || undefined}>
         <summary>查看图表源码</summary>
         <pre>

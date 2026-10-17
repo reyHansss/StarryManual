@@ -2015,26 +2015,140 @@ p {
   font-size: 11px;
   font-weight: 500;
 }
-.diagram-canvas {
-  padding: 26px 20px;
-  overflow-x: auto;
+.diagram-viewer {
+  min-width: 0;
+  color: var(--text);
 }
-.diagram-canvas > svg {
+.diagram-tools,
+.diagram-zoom-tools,
+.diagram-frame-tools {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.diagram-tools {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.diagram-frame-tools {
+  margin-left: auto;
+}
+.diagram-tools .icon-button {
+  width: 40px;
+  height: 40px;
+  color: var(--accent);
+  border-color: var(--border);
+}
+.diagram-tools .icon-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.diagram-zoom-value {
+  min-width: 48px;
+  color: var(--muted);
+  text-align: center;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.diagram-canvas {
+  position: relative;
+  width: 100%;
+  min-height: 220px;
+  max-height: 480px;
+  overflow: hidden;
+  touch-action: none;
+  background: var(--surface);
+}
+.diagram-artwork {
+  width: 100%;
+  height: 100%;
+}
+.diagram-artwork > svg {
   display: block;
   width: 100%;
-  min-width: var(--diagram-min-width);
-  height: auto;
-  margin: 0 auto;
+  height: 100%;
+  max-width: none !important;
 }
 .diagram-canvas:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -4px;
   border-radius: var(--radius-sm);
 }
-.diagram-scroll-hint {
-  padding: 0 20px 12px;
+.diagram-help {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 16px 12px;
+  border-top: 1px solid var(--border);
   color: var(--muted);
   font-size: 11px;
+}
+.diagram-keyboard-help {
+  display: none;
+}
+.diagram-viewer:has(.diagram-canvas:focus-visible) .diagram-keyboard-help {
+  display: inline;
+}
+.diagram-dialog {
+  position: fixed;
+  inset: 12px;
+  width: calc(100% - 24px);
+  height: calc(100dvh - 24px);
+  max-width: none;
+  max-height: none;
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-soft);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.diagram-dialog[open],
+.diagram-dialog .diagram-viewer {
+  display: flex;
+  flex-direction: column;
+}
+.diagram-dialog::backdrop {
+  background: #3c485e66;
+  backdrop-filter: blur(5px);
+}
+.diagram-dialog-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-soft);
+  font-weight: 650;
+}
+.diagram-dialog-title > svg {
+  flex-shrink: 0;
+  color: var(--lavender);
+}
+.diagram-dialog .diagram-viewer {
+  flex: 1;
+  min-height: 0;
+}
+.diagram-dialog .diagram-canvas {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  aspect-ratio: auto !important;
+}
+.diagram-dialog :is(.diagram-tools, .diagram-help, .diagram-dialog-title) {
+  flex-shrink: 0;
+}
+@media (pointer: coarse) {
+  .diagram-tools .icon-button {
+    width: 44px;
+    height: 44px;
+  }
 }
 .diagram-canvas .node rect,
 .diagram-canvas .actor {

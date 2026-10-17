@@ -14,3 +14,31 @@ export function getDiagramKind(source: string): string {
   if (/^timeline\b/.test(declaration)) return '时间线';
   return '图表';
 }
+
+export type DiagramSize = { width: number; height: number };
+export type DiagramView = {
+  viewport: { x: number; y: number; zoom: number };
+  canvas: DiagramSize;
+};
+
+export const diagramZoom = { min: 0.05, max: 4 };
+
+/** 默认保留可读字号；适应画布时完整显示图表，两种视图都留出操作边距。 */
+export function getDiagramViewport(diagram: DiagramSize, canvas: DiagramSize, fit = false) {
+  const padding = 24;
+  const fitted = Math.min(
+    1,
+    Math.max(1, canvas.width - padding * 2) / diagram.width,
+    Math.max(1, canvas.height - padding * 2) / diagram.height,
+  );
+  const zoom = fit ? fitted : Math.max(0.9, fitted);
+  return {
+    x: fit
+      ? (canvas.width - diagram.width * zoom) / 2
+      : Math.max(padding, (canvas.width - diagram.width * zoom) / 2),
+    y: fit
+      ? (canvas.height - diagram.height * zoom) / 2
+      : Math.max(padding, (canvas.height - diagram.height * zoom) / 2),
+    zoom,
+  };
+}

@@ -1,6 +1,6 @@
 ---
 title: Input · 调试与排查
-description: 从设备原始值到 Action、绑定、缓存与能力，找出输入在哪一层没有继续。
+description: 使用 Gamepad 与 Actions 观察和模拟输入，沿设备、映射、绑定、缓存与能力定位问题。
 category: reference
 section: [调试与排查]
 order: 46
@@ -8,7 +8,7 @@ order: 46
 
 ## 从能观察到的最前一层开始
 
-先在 HaloDebug 打开 `Input → Gamepad` 或 `Input → Actions`；面板操作、注入和重置方式见[输入观察与模拟](/read/halodebug-input)。沿下方路线检查设备、映射、Handler、缓存和领域能力，确定输入停在哪一层。
+在 PIE 或非 Shipping 游戏中按 `F1` 打开 HaloDebug 调试输入，再从菜单进入 `Input → Gamepad` 或 `Input → Actions`。沿下方路线检查设备、映射、Handler、缓存和领域能力，确定输入停在哪一层。
 
 原始设备值、Enhanced Input Action、项目 Handler、领域能力是不同阶段，不要只看角色有没有动作就判定“输入丢了”。
 
@@ -18,6 +18,35 @@ order: 46
     'flowchart TD\n  Start(输入未生效) --> Raw{设备原始值正常？}\n  Raw -->|否| Device(检查设备、焦点与输入模式)\n  Raw -->|是| Action{Action 有正确值与事件？}\n  Action -->|否| Map(检查 IMC、优先级、修饰器与 Trigger)\n  Action -->|是| Bound{Manager 和 Handler 已登记？}\n  Bound -->|否| Setup(检查 Controller 初始化和 Setup)\n  Bound -->|是| Buffer{正在等待缓存窗口关闭？}\n  Buffer -->|是| Window(检查通道与正常结束或中断)\n  Buffer -->|否| Domain(检查 Mover、GAS 或业务条件)'
   }
 />
+
+## Gamepad 与 Actions
+
+### Gamepad：观察原始手柄输入
+
+Gamepad 显示物理手柄的原始按键与轴，即使没有对应 IMC 也能观察。它通过 Slate 只读观察输入，不消费或重发原始事件；Overlay 适合边玩边看。
+
+浅色表示物理输入，橙色表示模拟。已映射按钮可点击锁定模拟；已映射二维摇杆可拖动，松开回中，按住 `Ctrl` 松开可保留。分轴 Action 可在 Actions 中模拟。右键可调整或重置相关设置与布局，关闭 Gamepad 会清理它自己的模拟。
+
+### Actions：查看和模拟已映射动作
+
+Actions 显示当前玩家已映射的 Enhanced Input Action，按 `Action / Current / Inject` 三列排列。根据值类型设置布尔、标量或向量，普通点击按住注入，`Ctrl` 点击或右键切换 Repeat。
+
+同一 Action 资产跨多个 IMC 共用一份模拟，每帧只注入一次；同名的不同资产各自独立。移除最后一个映射或切换玩家时，工具清理对应状态。
+
+**隐藏 Actions 窗口不会停止 Repeat，完成检查后要使用 Reset。** Reset 只清理 Actions 的注入，Gamepad 的模拟需要单独停止。
+
+## 模拟输入的范围
+
+<Diagram
+  title="Action 注入从动作层进入"
+  source={
+    'flowchart LR\n  Key(物理按键) --> Mapping(IMC 按键映射与修饰)\n  Mapping --> Action(Action 自身 Modifier / Trigger)\n  Inject(HaloDebug Action 注入) --> Action\n  Action --> Event(Enhanced Input 动作事件)\n  Event --> Consumer(已绑定的动作使用方)'
+  }
+/>
+
+Actions 通过原生 Enhanced Input 接口注入，经过 Action 自身的 Modifier 与 Trigger，绕过 IMC 按键条目上的 Modifier。因此“模拟正常、物理按键不正常”时，优先检查映射层差异。
+
+Gamepad 与 Actions 同时模拟同一个 Action 时，按 Enhanced Input 原生累积规则处理。验证单一路径前先清理另一处的持续模拟，避免把叠加结果误认为项目重复分派。
 
 ## 按现象查
 
@@ -50,4 +79,4 @@ order: 46
 
 [配置接入](/read/input-overview)、[绑定与生命周期](/read/input-binding)、[通道缓存](/read/input-buffer)分别对应排查链中的不同层。
 
-实现入口：`Framework/Input/StarryInputLogs`、`StarryInputManagerComponent` 与相应 Handler／Trigger。
+实现入口：`Framework/Input/StarryInputLogs`、`StarryInputManagerComponent` 与相应 Handler／Trigger；观察与模拟工具位于 `Plugins/Toolkit/HaloDebug/Source/HaloDebugInput`，项目菜单由 `UStarryDebugSubsystem` 注册。

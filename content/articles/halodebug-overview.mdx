@@ -68,8 +68,8 @@ Cheats 默认作用于选中的 Actor；按住 `Ctrl` 点击时改用本地受�
 
 先确认当前不是 Shipping、项目已启用插件且 Subsystem 注册了窗口，再检查 F1 调试输入、窗口可见性和当前世界。中文缺字还应检查非 Shipping 字体文件部署：字体由标准文件读取，只有 Cook 到 Pak 并不足以替代相应 NonUFS 文件。
 
-Gamepad 与 Actions 的操作见[输入观察与模拟](/read/halodebug-input)，远程桌面显示见[netImgui 远程面板](/read/halodebug-remote)，新窗口与绘制复用见[窗口扩展与属性绘制](/read/halodebug-extension)。
+远程桌面显示见[netImgui 远程面板](/read/halodebug-remote)，新窗口与绘制复用见[窗口扩展与属性绘制](/read/halodebug-extension)。
 
-定位具体系统的问题时，从所属模块的排查章节进入，例如 [Input 调试与排查](/read/input-troubleshooting)和 [AstraAI 调试与排查](/read/astraai-debugging)。
+定位具体系统的问题时，从所属模块的排查章节进入：[Input 调试与排查](/read/input-troubleshooting)包含 Gamepad／Actions 操作、模拟范围与输入诊断路线，AI 问题见 [AstraAI 调试与排查](/read/astraai-debugging)。
 
 实现入口：`Plugins/Toolkit/HaloDebug` 与 `Source/StarryGame/Framework/Development/StarryDebugSubsystem`。插件来源为 Cog，保留 MIT 许可；具体来源与许可记录随项目维护。

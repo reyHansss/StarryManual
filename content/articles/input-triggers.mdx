@@ -48,6 +48,6 @@ Modifier 改变输入值，例如死区、灵敏度和反转；Trigger 判断何
 
 如果 Handler 要在“双击已成立”后执行，就响应 Triggered。Started 表示开始评估，不表示双击已经成功；Ongoing 也不能替代成功事件。
 
-动作没有反应时，先在 [Actions 面板](/read/halodebug-input)确认最终 Action 状态，再检查 Handler 的事件列表。玩家设置与改键保存见[改键与玩家设置](/read/input-settings)。
+动作没有反应时，先在 [Actions 面板](/read/input-troubleshooting#gamepad-与-actions)确认最终 Action 状态，再检查 Handler 的事件列表。玩家设置与改键保存见[改键与玩家设置](/read/input-settings)。
 
 实现入口：`Framework/Input/Modifiers` 与 `Triggers/StarryInputTriggerDoubleTap`。

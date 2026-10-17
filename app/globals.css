@@ -597,7 +597,7 @@ p {
 }
 .entry-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 24px;
 }
 .entry-card {
@@ -616,14 +616,6 @@ p {
     color-mix(in srgb, var(--card-soft) 55%, var(--surface))
   );
   box-shadow: 3px 5px 0 color-mix(in srgb, var(--card-color) 14%, var(--surface));
-}
-.entry-card:nth-child(2) {
-  --card-color: var(--peach);
-  --card-soft: var(--peach-soft);
-}
-.entry-card:nth-child(3) {
-  --card-color: var(--blue);
-  --card-soft: var(--blue-soft);
 }
 .entry-card:before {
   content: '';

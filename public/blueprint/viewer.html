@@ -26,6 +26,28 @@
       .bue-render .frame-header {
         background: #20242b !important;
       }
+      .bue-render .frame-header__breadcrumb {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .blueprint-view-button {
+        padding: 3px 7px;
+        border: 1px solid #48515e;
+        border-radius: 6px;
+        background: #2d333d;
+        color: #d3dbe5;
+        font:
+          12px 'Segoe UI',
+          'Microsoft YaHei',
+          sans-serif;
+        cursor: pointer;
+        pointer-events: auto;
+      }
+      .blueprint-view-button:focus-visible {
+        outline: 2px solid #80c4ff;
+        outline-offset: 1px;
+      }
       .bue-render .layer {
         cursor: grab;
         touch-action: none;
@@ -113,7 +135,22 @@
               message.hidden = false;
               return;
             }
-            detachNavigation = attachBlueprintNavigation(activeRenderer, playground);
+            const fitButton = document.createElement('button');
+            fitButton.type = 'button';
+            fitButton.textContent = '适应画布';
+            fitButton.className = 'blueprint-view-button';
+            const actualSizeButton = document.createElement('button');
+            actualSizeButton.type = 'button';
+            actualSizeButton.textContent = '100%';
+            actualSizeButton.setAttribute('aria-label', '蓝图原始大小');
+            actualSizeButton.className = 'blueprint-view-button';
+            playground
+              .querySelector('.frame-header__breadcrumb')
+              .replaceChildren(fitButton, actualSizeButton);
+            detachNavigation = attachBlueprintNavigation(activeRenderer, playground, {
+              fitButton,
+              actualSizeButton,
+            });
             message.hidden = true;
           });
         } catch (error) {

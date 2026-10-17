@@ -25,6 +25,8 @@ Starry 以 Unreal Engine 5.8 为基础。运行时代码主要位于 `StarryGame
 
 HaloDebug 提供窗口与绘制基础，项目调试窗口读取各领域的真实状态；Input 的 Manager 负责输入配置与分派，Handler 调用实际的移动、技能或界面能力。这些功能各自在所属模块的文档中展开，依赖方向保持由使用方指向能力提供方。
 
+[Async Message System](/read/asyncmessage-overview)承担 World 内的解耦事件通知，技能、背包和快捷栏在各自规则处理或复制回调后发布消息；使用方负责登记与撤销自己的监听。插件不代替网络同步，状态复制和显式 RPC 仍由所属领域处理。
+
 ## 配置、资源与运行状态
 
 `Content` 保存角色、场景、美术、UI、配置蓝图及数据资产；`Config` 保存项目和引擎设置。`Content/Core` 用于系统级、全局共享一份的配置；角色、PawnData、Experience 等配置放在 `Content/Blueprints` 对应领域，资源目录不与 C++ 目录机械对应。

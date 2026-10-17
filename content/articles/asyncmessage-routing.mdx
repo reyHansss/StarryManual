@@ -1,0 +1,95 @@
+---
+title: Async Message · 标签、时机与生命周期
+description: 理解消息的标签层级、World 和 Endpoint 路由、游戏线程派发、载荷快照与 C++ 监听清理。
+section:
+  - 消息路由
+order: 52
+---
+
+## 标签决定监听哪些事件
+
+`FAsyncMessageId` 内部使用 Gameplay Tag。消息标签必须已经注册，名称中的点号形成父子层级：监听父标签会收到其后代的消息，监听子标签不会收到父标签或其他兄弟标签的消息。
+
+例如 `Starry.QuickBar.Message` 可以观察 `Starry.QuickBar.Message.SlotsChanged` 和 `Starry.QuickBar.Message.ActiveIndexChanged`。两个子消息使用不同载荷，因此父级监听必须先区分真实来源，再按类型解包。新功能使用自己的语义标签，不借用已有伤害、输入或任务标签发送无关数据。
+
+| 接收消息字段      | 含义                                                               |
+| ----------------- | ------------------------------------------------------------------ |
+| `MessageId`       | 当前被匹配的监听层级，可能是父标签                                 |
+| `MessageSourceId` | 发送时的原始消息标签，不随父级匹配而改变                           |
+| `Payload`         | 入队时复制的结构体，蓝图用 `Get Instanced Struct Value` 检查并读取 |
+| `QueueTime`       | 入队时的时间信息，不是业务持续时间，也不是接收时刻                 |
+
+需要精确匹配时，直接监听叶标签，或将 `MessageSourceId` 与目标 Id 作相等比较。这里没有与旧消息插件相同的“Exact／Partial Match”选择参数，不套用其他插件的节点签名。
+
+## World 和 Endpoint 一起确定范围
+
+World Subsystem 为每个 World 创建一套 `FAsyncGameplayMessageSystem`，默认 Endpoint 是这套系统的公共收发范围。项目当前发送均未传专用 Endpoint，蓝图监听项目消息时保持 `Desired Endpoint` 为空。
+
+Endpoint 进一步隔离**同一个 World 内**的收发组。若使用专用 Endpoint，发送方与监听方必须拿到同一个有效实例；两个 Actor 各自持有一个同类组件，并不代表它们共享 Endpoint。默认监听不会自动旁听专用 Endpoint，Endpoint 也不是网络地址或 Actor 复制通道。
+
+引擎提供 `UAsyncMessageBindingComponent` 与 `IAsyncMessageBindingEndpointInterface` 作为原生接入方式，组件代码在初始化时创建 Endpoint、反初始化时释放。Starry 当前没有查到专用 Endpoint 接入，本轮蓝图示例使用已接入的默认范围。需要对象级隔离时，先确认组件实际走到初始化且返回有效 Endpoint；当前实现遇到空或失效 Endpoint 会退回默认范围，不能把未初始化的组件当成可靠隔离。
+
+## 队列什么时候派发
+
+<Diagram
+  title="先登记监听，入队后在接收阶段回调"
+  source={
+    'sequenceDiagram\n  participant Owner as 使用方\n  participant System as World 消息系统\n  participant Queue as 接收队列\n  participant Listener as 监听者\n  Owner->>System: BindListener / 启动蓝图监听\n  Owner->>System: QueueMessageForBroadcast\n  System->>Queue: 复制载荷并入队\n  System-->>Owner: 返回是否加入队列\n  Note over Owner,Listener: 此返回不表示接收逻辑已执行\n  Queue->>System: 对应 Tick Group 的处理机会\n  System->>Listener: 按 Endpoint 和标签派发\n  Listener->>Listener: 核对来源、解包、筛选目标\n  Owner->>System: 请求解绑\n  Note over System,Listener: 后续预处理阶段移除监听，不撤回已开始的回调'
+  }
+/>
+
+蓝图的 `Tick Group` 是高级引脚，默认 `TG_PostUpdateWork`，回调在游戏线程运行。调早或调晚 Tick Group 应有实际时序需求；同一组内消息系统与其他 Actor Tick 的先后不由节点摆放顺序保证。
+
+`Queue Async Message for Broadcast` 的 `Success` 表示消息被加入了相关接收队列。没有对应标签或父级监听时通常返回 `false`；World 不存在、Id 无效或系统关闭时也会失败。它不是目标对象已收到、载荷类型正确、处理成功或网络投递成功的回执，专用 Endpoint 是否匹配还要独立核对。
+
+正常玩法代码由 World 的消息系统自动驱动派发，不手动调用 `ProcessMessageQueueForBinding`。项目专项测试为了确定性验证才直接处理队列。
+
+## 载荷复制到哪一层
+
+入队创建 `FAsyncMessage`，其 `PayloadCopy` 是结构体副本。发送后修改原结构体的数值，不会改掉已经排队的数值；消息系统也会为队列载荷中的反射对象引用提供 GC 引用收集。
+
+副本中的 UObject 字段仍指向原对象，不会深复制 Actor、组件或物品实例，也不冻结对象之后的状态。延迟接收时要检查对象有效性；需要记录事件发生时的数据，就把必要的值直接放进载荷，而不是到回调里再读取已经变化的对象。
+
+C++ 回调的 `GetPayloadView()` 和结构体指针属于当前消息，不跨回调保存指针或引用。确需后续使用时，复制需要的数据，并由自己的生命周期管理对象引用。
+
+插件支持多生产者入队，以及按 C++ 绑定选项选择命名线程或 `UE::Tasks` 优先级。结构体被复制不代表其中的 UObject 可以在任意线程访问；UI、Actor 与大部分 UObject 操作仍应在游戏线程完成。
+
+## C++ 监听由使用方拥有
+
+组件或界面负责保存监听句柄，并在功能退出、`EndPlay` 或自身明确的停止入口解绑。消息系统的弱对象绑定避免强行延长监听对象寿命，但“对象仍活着、功能已经关闭”仍需主动停止。
+
+下面是**示例组件的接入片段**，`UMyMessageComponent`、成员和回调需要自己定义；它不是项目新增类型。使用公开头文件 `AsyncMessageWorldSubsystem.h`、`AsyncGameplayMessageSystem.h`、`AsyncMessage.h` 与 `AsyncMessageHandle.h`。
+
+```cpp
+// 由组件保存原消息系统与句柄，退出时配对解绑。
+TWeakPtr<FAsyncGameplayMessageSystem> BoundSystem;
+FAsyncMessageHandle DamageHandle;
+
+// 启动入口：只登记一次，重复打开先停止旧监听。
+if (const auto System =
+    UAsyncMessageWorldSubsystem::GetSharedMessageSystem<FAsyncGameplayMessageSystem>(GetWorld()))
+{
+    BoundSystem = System;
+    DamageHandle = System->BindListener(
+        FAsyncMessageId(FGameplayTag::RequestGameplayTag(TEXT("Starry.Damage.Message"))),
+        MakeWeakObjectPtr(this),
+        &UMyMessageComponent::HandleDamage,
+        FAsyncMessageBindingOptions(TG_PostUpdateWork));
+}
+
+// 停止入口：弱引用指向登记时的系统，切换世界后不从新世界解绑旧句柄。
+if (const auto System = BoundSystem.Pin())
+{
+    System->UnbindListener(DamageHandle);
+}
+DamageHandle = FAsyncMessageHandle::Invalid;
+BoundSystem.Reset();
+```
+
+`HandleDamage(const FAsyncMessage& Message)` 中使用 `Message.GetPayloadView().GetPtr<const FStarryVerbMessage>()`，只有类型正确才读取，再按 `Target` 筛选自己的对象。这个载荷位于项目 `Framework/Messages/StarryVerbMessage.h`。
+
+解绑请求在队列预处理时移除监听，不是跨线程等待屏障，不会撤回已在运行的回调。通常的游戏线程监听在使用方退出时配对停止即可；显式选择后台线程的使用方还要按自己的任务模型协调回调和销毁，不能把保存句柄当作已经解决并发。
+
+蓝图的任务保存与停止见[蓝图收发与解绑](/read/asyncmessage-blueprints)，已有标签和网络边界见[项目消息与排查](/read/asyncmessage-project)。
+
+实现入口：引擎插件内的 `AsyncMessageSystemBase`、`AsyncMessageStore`、`AsyncGameplayMessageSystem`、`AsyncMessageWorldSubsystem`、`AsyncMessage` 与 `AsyncAction_ListenForMessage`。

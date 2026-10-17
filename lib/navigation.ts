@@ -37,6 +37,13 @@ export const articleModules = {
     nodeColor: '#73c9ac',
     overview: 'input-overview',
   },
+  asyncmessage: {
+    label: 'Async Message · 异步消息',
+    shortLabel: 'Async Message',
+    color: '#a36334',
+    nodeColor: '#f2b25e',
+    overview: 'asyncmessage-overview',
+  },
   authoring: {
     label: '手册维护',
     shortLabel: '手册维护',
@@ -116,7 +123,7 @@ export function getReadingNeighbors(module: ModuleNavigation, slug: string) {
 }
 
 export function getArticleLabel(article: Article) {
-  return article.title.replace(/^(AstraAI|HaloDebug|Input) · /, '');
+  return article.title.replace(/^(AstraAI|HaloDebug|Input|Async Message) · /, '');
 }
 
 export function getSectionAnchor(path: string[]) {

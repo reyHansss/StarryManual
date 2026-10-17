@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { attachBlueprintNavigation } from '../public/blueprint/navigation.js';
+import { attachBlueprintNavigation, getBlueprintFitView } from '../public/blueprint/navigation.js';
 
 // 不模拟浏览器布局；直接验证输入监听、缩放锚点和手势生命周期。
 function setup() {
@@ -93,6 +93,7 @@ function setup() {
   };
   const detach = attachBlueprintNavigation(renderer, {
     querySelector: (selector) => elements[selector],
+    querySelectorAll: () => [],
   });
   const flush = () => {
     const pending = [...frames.values()];
@@ -113,6 +114,23 @@ function setup() {
 
 const close = (actual, expected) =>
   assert.ok(Math.abs(actual - expected) < 1e-8, `${actual} != ${expected}`);
+
+test('自动取景包含负坐标节点，保留边距与缩放边界，小图不额外放大', () => {
+  const bounds = [
+    { x: -100, y: -150, width: 250, height: 100 },
+    { x: 1000, y: 400, width: 200, height: 180 },
+  ];
+  const view = getBlueprintFitView(bounds, 700, 420);
+  for (const box of bounds) {
+    assert.ok(box.x * view.scale + view.x >= 24);
+    assert.ok(box.y * view.scale + view.y >= 24);
+    assert.ok((box.x + box.width) * view.scale + view.x <= 676);
+    assert.ok((box.y + box.height) * view.scale + view.y <= 396);
+  }
+  assert.equal(getBlueprintFitView([bounds[0]], 700, 420).scale, 1);
+  assert.equal(getBlueprintFitView(bounds, 280, 380).scale, 0.2);
+  assert.equal(getBlueprintFitView([], 700, 420), null);
+});
 
 test('左键平移，右键不移动画布', () => {
   const env = setup();

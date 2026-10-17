@@ -3,8 +3,30 @@ const MAX_SCALE = 3;
 const CONTROLS =
   'a, button, input, textarea, select, [contenteditable="true"], .more, .less, .checkbox';
 
+/** 从节点实际边界自动取景，普通笔记不另外填写画布坐标或初始缩放。 */
+export function getBlueprintFitView(bounds, width, height, padding = 24) {
+  if (!bounds.length || width <= padding * 2 || height <= padding * 2) return null;
+  const left = Math.min(...bounds.map((box) => box.x));
+  const top = Math.min(...bounds.map((box) => box.y));
+  const right = Math.max(...bounds.map((box) => box.x + box.width));
+  const bottom = Math.max(...bounds.map((box) => box.y + box.height));
+  const scale = Math.max(
+    MIN_SCALE,
+    Math.min(
+      1,
+      (width - padding * 2) / Math.max(1, right - left),
+      (height - padding * 2) / Math.max(1, bottom - top),
+    ),
+  );
+  return {
+    x: (width - (right - left) * scale) / 2 - left * scale,
+    y: (height - (bottom - top) * scale) / 2 - top * scale,
+    scale,
+  };
+}
+
 /** 为只读蓝图接入网页手势，返回清理函数，供节点重载时解除监听。 */
-export function attachBlueprintNavigation(renderer, root) {
+export function attachBlueprintNavigation(renderer, root, { fitButton, actualSizeButton } = {}) {
   const layer = root.querySelector('.layer');
   const canvas = root.querySelector('.canvas');
   const zoom = root.querySelector('.frame-header__current-zoom');
@@ -54,6 +76,27 @@ export function attachBlueprintNavigation(renderer, root) {
       scale: nextScale,
     };
     scheduleDraw();
+  }
+
+  function fitView() {
+    syncView();
+    const layerRect = layer.getBoundingClientRect();
+    const bounds = [...root.querySelectorAll('.node')].map((node) => {
+      const rect = node.getBoundingClientRect();
+      return {
+        x: (rect.left - layerRect.left - view.x) / view.scale,
+        y: (rect.top - layerRect.top - view.y) / view.scale,
+        width: rect.width / view.scale,
+        height: rect.height / view.scale,
+      };
+    });
+    const fitted = getBlueprintFitView(bounds, layer.clientWidth, layer.clientHeight);
+    if (!fitted) return;
+    clearPointers();
+    if (animation) cancelAnimationFrame(animation);
+    view = fitted;
+    initialView = { ...fitted };
+    draw();
   }
 
   function gesture() {
@@ -168,6 +211,15 @@ export function attachBlueprintNavigation(renderer, root) {
   on(reset, 'keydown', (event) => {
     if (event.key === 'Enter' || event.key === ' ') resetView(event);
   });
+  if (fitButton) on(fitButton, 'click', fitView);
+  if (actualSizeButton) {
+    on(actualSizeButton, 'click', () => {
+      syncView();
+      const rect = layer.getBoundingClientRect();
+      zoomAt(1, { x: rect.left + layer.clientWidth / 2, y: rect.top + layer.clientHeight / 2 });
+    });
+  }
+  fitView();
   zoom.textContent = `${Math.round(view.scale * 100)}%`;
 
   return () => {

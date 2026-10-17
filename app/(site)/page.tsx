@@ -7,14 +7,20 @@ import {
   BrainCircuit,
   Bug,
   Gamepad2,
+  MessagesSquare,
   Sparkles,
 } from 'lucide-react';
 import { getCatalog } from '@/lib/catalog';
+import { articleModules, buildModuleNavigation } from '@/lib/navigation';
 import { KnowledgeGraph } from '@/components/knowledge-graph';
 import { StarCompanion } from '@/components/star-companion';
 
 export default async function HomePage() {
   const articles = await getCatalog();
+  const modules = buildModuleNavigation(articles).filter(
+    (module) => module.key !== 'manual' && module.key !== 'authoring' && module.overview,
+  );
+  const moduleIcons = { astraai: BrainCircuit, halodebug: Bug, input: Gamepad2 };
   const previewSlugs = new Set([
     'start-here',
     'architecture',
@@ -87,48 +93,38 @@ export default async function HomePage() {
           <span>按项目系统持续补充</span>
         </div>
         <div className="entry-grid">
-          <Link href="/read/astraai-overview" className="entry-card">
-            <div className="entry-card-top">
-              <span className="entry-icon">
-                <BrainCircuit size={20} />
-              </span>
-              <span>01 / ASTRA AI</span>
-              <ArrowUpRight size={18} />
-            </div>
-            <h3>AstraAI · AI 决策</h3>
-            <p>从行为组合到机会、评分与执行，配置可扩展的 NPC 决策。</p>
-            <span className="card-link">
-              进入 AstraAI <ArrowRight size={14} />
-            </span>
-          </Link>
-          <Link href="/read/halodebug-overview" className="entry-card">
-            <div className="entry-card-top">
-              <span className="entry-icon">
-                <Bug size={20} />
-              </span>
-              <span>02 / HALO DEBUG</span>
-              <ArrowUpRight size={18} />
-            </div>
-            <h3>HaloDebug · 调试工具</h3>
-            <p>打开场景、日志、AI 与输入工具，沿真实状态定位问题。</p>
-            <span className="card-link">
-              进入 HaloDebug <ArrowRight size={14} />
-            </span>
-          </Link>
-          <Link href="/read/input-overview" className="entry-card">
-            <div className="entry-card-top">
-              <span className="entry-icon">
-                <Gamepad2 size={20} />
-              </span>
-              <span>03 / PLAYER INPUT</span>
-              <ArrowUpRight size={18} />
-            </div>
-            <h3>Input · 玩家输入</h3>
-            <p>接好 Action、配置与 Handler，再处理缓存、改键和玩家偏好。</p>
-            <span className="card-link">
-              进入 Input <ArrowRight size={14} />
-            </span>
-          </Link>
+          {modules.map((module, index) => {
+            const definition = articleModules[module.key];
+            const Icon = moduleIcons[module.key as keyof typeof moduleIcons] ?? MessagesSquare;
+            return (
+              <Link
+                href={module.overview!.url}
+                className="entry-card"
+                key={module.key}
+                style={
+                  {
+                    '--card-color': definition.color,
+                    '--card-soft': `color-mix(in srgb, ${definition.nodeColor} 16%, var(--surface))`,
+                  } as React.CSSProperties
+                }
+              >
+                <div className="entry-card-top">
+                  <span className="entry-icon">
+                    <Icon size={20} />
+                  </span>
+                  <span>
+                    {String(index + 1).padStart(2, '0')} / {definition.shortLabel.toUpperCase()}
+                  </span>
+                  <ArrowUpRight size={18} />
+                </div>
+                <h3>{definition.label}</h3>
+                <p>{module.overview!.description}</p>
+                <span className="card-link">
+                  进入 {definition.shortLabel} <ArrowRight size={14} />
+                </span>
+              </Link>
+            );
+          })}
         </div>
       </section>
       <section className="reading-path">

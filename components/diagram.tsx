@@ -35,13 +35,29 @@ export function Diagram({ title, source }: { title: string; source: string }) {
         if (disposed) return;
         const theme = getComputedStyle(target);
         const color = (name: string) => theme.getPropertyValue(name).trim();
+        const palette = [
+          ['--diagram-pink', '--coral'],
+          ['--diagram-blue', '--blue'],
+          ['--diagram-peach', '--peach'],
+          ['--diagram-mint', '--success'],
+        ].map(([fill, border]) => ({ fill: color(fill), border: color(border) }));
         mermaid.initialize({
           startOnLoad: false,
           securityLevel: 'strict',
           suppressErrorRendering: true,
-          theme: 'base',
+          // 原生多色主题处理分组与参与者，保持时序图中同一参与者的颜色一致。
+          theme: 'redux-color',
+          look: 'classic',
+          htmlLabels: false,
           fontFamily: color('--font-sans'),
           themeVariables: {
+            fontFamily: color('--font-sans'),
+            fontSize: '16px',
+            background: color('--surface'),
+            nodeShadow: false,
+            THEME_COLOR_LIMIT: palette.length,
+            bkgColorArray: palette.map(({ fill }) => fill),
+            borderColorArray: palette.map(({ border }) => border),
             primaryColor: color('--accent-soft'),
             primaryTextColor: color('--text'),
             primaryBorderColor: color('--accent'),
@@ -51,17 +67,24 @@ export function Diagram({ title, source }: { title: string; source: string }) {
             tertiaryColor: color('--blue-soft'),
             tertiaryTextColor: color('--text'),
             tertiaryBorderColor: color('--blue'),
-            lineColor: color('--accent'),
+            lineColor: color('--muted'),
+            arrowheadColor: color('--muted'),
             textColor: color('--text'),
+            nodeTextColor: color('--text'),
+            titleColor: color('--text'),
+            classText: color('--text'),
             mainBkg: color('--accent-soft'),
             nodeBorder: color('--accent'),
+            stateBorder: color('--accent'),
+            stateLabelColor: color('--text'),
+            transitionLabelColor: color('--text'),
             clusterBkg: color('--surface-soft'),
             clusterBorder: color('--border'),
             edgeLabelBackground: color('--surface'),
             actorBkg: color('--accent-soft'),
             actorBorder: color('--accent'),
             actorTextColor: color('--text'),
-            signalColor: color('--accent'),
+            signalColor: color('--muted'),
             signalTextColor: color('--text'),
             labelBoxBkgColor: color('--pink-soft'),
             labelBoxBorderColor: color('--coral'),
@@ -82,13 +105,29 @@ export function Diagram({ title, source }: { title: string; source: string }) {
           sequence: { useMaxWidth: true, wrap: true, actorMargin: 65 },
         });
         const result = await mermaid.render(id, source);
-        const viewBox = new DOMParser()
-          .parseFromString(result.svg, 'image/svg+xml')
-          .documentElement.getAttribute('viewBox')
-          ?.split(/\s+/)
-          .map(Number);
+        const svg = new DOMParser().parseFromString(result.svg, 'image/svg+xml');
+        // Mermaid 的普通流程与状态节点没有原生色组；只补默认轮廓，不触及文字、连线或起止符号。
+        // 原生色组和作者的显式样式优先，避免自动配色覆盖图表原有语义。
+        let tone = 0;
+        svg.querySelectorAll('.node:not([data-color-id])').forEach((node) => {
+          const shapes = Array.from(node.querySelectorAll<SVGElement>(':scope > .label-container'));
+          if (!shapes.length || shapes.some((shape) => shape.style.fill || shape.style.stroke))
+            return;
+          const { fill, border } = palette[tone++ % palette.length];
+          shapes.forEach((shape) => {
+            shape.style.fill = fill;
+            shape.style.stroke = border;
+          });
+        });
+        const viewBox = svg.documentElement.getAttribute('viewBox')?.split(/\s+/).map(Number);
         const size = { width: viewBox?.[2] || 580, height: viewBox?.[3] || 320 };
-        if (!disposed) setRendered({ source, svg: result.svg, size, error: false });
+        if (!disposed)
+          setRendered({
+            source,
+            svg: new XMLSerializer().serializeToString(svg.documentElement),
+            size,
+            error: false,
+          });
       } catch {
         if (!disposed)
           setRendered({ source, svg: '', size: { width: 580, height: 320 }, error: true });

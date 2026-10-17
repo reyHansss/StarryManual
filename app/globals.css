@@ -8,7 +8,7 @@
   --bg: #faf8f8;
   --surface: #ffffff;
   --surface-soft: #f8f3f3;
-  --reading-bg: #fffdfd;
+  --reading-bg: var(--bg);
   --border: #e5dcdc;
   --text: #4b4447;
   --muted: #776b6e;
@@ -27,6 +27,11 @@
   --success-soft: var(--mint-soft);
   --warning: #946133;
   --warning-soft: #fff2e3;
+  /* 图表使用更清楚的彩色填充，文字与轮廓仍复用较深的主题色。 */
+  --diagram-pink: #ffe1e8;
+  --diagram-blue: #e1f1ff;
+  --diagram-peach: #ffead6;
+  --diagram-mint: #def3e7;
   --brand-star-sky: #79b8d2;
   --brand-star-pink: #ef9b9d;
   --companion-light: #fff7c4;

@@ -86,8 +86,8 @@
   content: '';
   position: absolute;
   inset: -5px;
-  border: 5px solid #c9f17b08;
-  border-radius: 11px;
+  border: 5px solid var(--selection-halo);
+  border-radius: 17px;
   pointer-events: none;
   opacity: 0;
   transition: opacity var(--motion-state) var(--ease-out);
@@ -136,13 +136,13 @@
 }
 
 .demo-state[data-result='consumed'] {
-  background: #c9f17b0b;
-  border-color: #668449;
+  background: var(--success-soft);
+  border-color: var(--success);
 }
 
 .demo-state[data-result='expired'] {
-  background: #ce91630a;
-  border-color: #7a5942;
+  background: var(--warning-soft);
+  border-color: var(--warning);
 }
 
 .result-icon {

@@ -110,7 +110,7 @@ export function KnowledgeGraph({
           target,
           type: 'default',
           style: {
-            stroke: highlighted ? '#a9cc7d' : '#384144',
+            stroke: highlighted ? 'var(--graph-edge-active)' : 'var(--graph-edge)',
             strokeWidth: highlighted ? 1.5 : 1,
             opacity: highlighted ? 0.85 : 0.5,
           },
@@ -179,7 +179,7 @@ export function KnowledgeGraph({
               proOptions={{ hideAttribution: false }}
               aria-label="文章关系图谱"
             >
-              <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#343a38" />
+              <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#bed4e8" />
               {!compact && <Controls showInteractive={false} />}
             </ReactFlow>
           ) : (

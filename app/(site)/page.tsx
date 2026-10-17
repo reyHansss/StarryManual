@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { getCatalog } from '@/lib/catalog';
 import { KnowledgeGraph } from '@/components/knowledge-graph';
+import { StarCompanion } from '@/components/star-companion';
 
 export default async function HomePage() {
   const articles = await getCatalog();
@@ -17,19 +18,19 @@ export default async function HomePage() {
     <main id="main" className="home-main">
       <div className="home-kicker">
         <span>
-          <i className="status-dot" /> STARRY / FIELD MANUAL
+          <i className="status-dot" /> STARRY / 你的探索手册
         </span>
         <span>READ. CONNECT. EXPERIMENT.</span>
       </div>
       <section className="hero">
         <div className="hero-copy">
           <span className="edition-label">
-            <Sparkles size={13} /> 一张可以探索的知识地图
+            <Sparkles size={15} /> 今天，也发现一点新东西
           </span>
           <h1>
-            读懂系统。
+            读懂系统，
             <br />
-            <span>连接</span>每个灵感。
+            点亮<span>每个灵感。</span>
           </h1>
           <p>
             从第一份配置到系统间的协作，
@@ -44,17 +45,20 @@ export default async function HomePage() {
             </Link>
           </div>
           <div className="hero-footnote">
-            <span>为人而写</span>
+            <span>✦ 为好奇心而写</span>
             <i />
             让架构可见，让使用直观
           </div>
         </div>
         <div className="hero-visual">
+          <div className="hero-sticker">
+            <StarCompanion />
+          </div>
           <div className="visual-heading">
             <span className="eyebrow">
-              <Orbit size={14} /> CONNECTED KNOWLEDGE
+              <Orbit size={17} /> 知识星图 <span>CONNECT THE DOTS</span>
             </span>
-            <span className="visual-coordinate">MAP / 01</span>
+            <span className="visual-coordinate">✦ LIVE MAP</span>
           </div>
           <KnowledgeGraph articles={articles} compact />
           <div className="hero-graph-hint">

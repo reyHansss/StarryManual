@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="zh-CN" className="dark" data-scroll-behavior="smooth" suppressHydrationWarning>
+    <html lang="zh-CN" className="light" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body>
         <RootProvider theme={{ enabled: false }}>{children}</RootProvider>
       </body>

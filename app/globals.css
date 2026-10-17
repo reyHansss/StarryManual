@@ -2392,9 +2392,10 @@ button {
     gap: 4px;
   }
   .blueprint-footer {
-    font-size: 8px;
+    flex-direction: column;
+    font-size: 10px;
     padding: 10px;
-    gap: 8px;
+    gap: 6px;
   }
   .blueprint-explainer {
     grid-template-columns: 1fr;

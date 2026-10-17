@@ -26,6 +26,29 @@
       .bue-render .frame-header {
         background: #20242b !important;
       }
+      .bue-render .layer {
+        cursor: grab;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+        overscroll-behavior: contain;
+      }
+      .bue-render .layer.is-panning {
+        cursor: grabbing;
+      }
+      .bue-render .layer .canvas,
+      .bue-render .layer .node {
+        cursor: inherit !important;
+      }
+      .bue-render .layer [contenteditable='true'] {
+        cursor: text;
+        user-select: text;
+        -webkit-user-select: text;
+      }
+      .bue-render .frame-header__buttons-reset:focus-visible {
+        outline: 2px solid #80c4ff;
+        outline-offset: -2px;
+      }
       .bue-render .frame-header__buttons-fullscreen,
       .bue-render .frame-header__buttons-panel,
       .bue-render .frame-header__buttons-separator {
@@ -52,8 +75,11 @@
     <div id="playground"></div>
     <div id="message">正在绘制节点…</div>
     <script src="../vendor/blueprintue/render.js"></script>
-    <script>
+    <script type="module">
+      import { attachBlueprintNavigation } from './navigation.js';
+
       let renderer;
+      let detachNavigation;
       let currentText;
       const playground = document.getElementById('playground');
       const message = document.getElementById('message');
@@ -61,6 +87,8 @@
         try {
           if (typeof text !== 'string' || text.length > 200000)
             throw new Error('节点文本超过示例限制。');
+          detachNavigation?.();
+          detachNavigation = undefined;
           if (renderer) renderer.stop();
           playground.replaceChildren();
           renderer = new window.blueprintUE.render.Main(text, playground, {
@@ -72,6 +100,7 @@
               message.hidden = false;
               return;
             }
+            detachNavigation = attachBlueprintNavigation(renderer, playground);
             currentText = text;
             message.hidden = true;
           });

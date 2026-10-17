@@ -12,6 +12,7 @@
     "start": "next start --hostname 127.0.0.1 --port 3210",
     "typecheck": "next typegen && tsc --noEmit",
     "check:content": "node scripts/check-content.mjs",
+    "test:blueprint": "node --test tests/blueprint-navigation.test.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

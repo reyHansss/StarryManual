@@ -93,7 +93,7 @@ export function BlueprintDemo() {
         <span>
           <i className="status-dot" /> blueprintUE · 本地渲染
         </span>
-        <span>右键拖动平移 · Ctrl + 滚轮缩放</span>
+        <span>左键拖动 · 滚轮缩放 · 触屏单指平移、双指缩放</span>
       </div>
     </section>
   );

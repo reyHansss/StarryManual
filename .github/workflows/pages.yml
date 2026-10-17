@@ -47,11 +47,12 @@ jobs:
       - name: 安装锁定的依赖
         run: pnpm install --frozen-lockfile
 
-      - name: 检查格式、内容和类型
+      - name: 检查格式、内容、类型和蓝图手势
         run: |
           pnpm format:check
           pnpm check:content
           pnpm typecheck
+          pnpm test:blueprint
 
       - name: 生成并检查静态文件
         env:

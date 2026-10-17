@@ -60,7 +60,7 @@ export function StarCompanion() {
           rx="76"
           ry="58"
           transform="rotate(-23 88 89)"
-          stroke="#c5b7e8"
+          stroke="#b4cedd"
           strokeWidth="2"
           strokeDasharray="4 8"
         />
@@ -114,14 +114,14 @@ export function StarCompanion() {
       />
       <path
         d="M90 135v25m-28-20 15 1m27-1 14-2m-55 9 12 1m30-1 11-2"
-        stroke="#AFBCDD"
+        stroke="#a8c4d6"
         strokeWidth="3"
         strokeLinecap="round"
       />
       <path
         className="companion-spark companion-spark-lines"
         d="m138 30 3-8m7 16 8-2"
-        stroke="#b399d8"
+        stroke="#d8a0b0"
         strokeWidth="3"
         strokeLinecap="round"
       />

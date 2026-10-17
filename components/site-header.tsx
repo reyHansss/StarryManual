@@ -14,7 +14,7 @@ export function StarMark() {
       <defs>
         <linearGradient id={gradient} x1="3" y1="2" x2="29" y2="30" gradientUnits="userSpaceOnUse">
           <stop stopColor="var(--brand-star-sky)" />
-          <stop offset="1" stopColor="var(--brand-star-pink)" />
+          <stop offset="0.65" stopColor="var(--brand-star-pink)" />
         </linearGradient>
       </defs>
       <path

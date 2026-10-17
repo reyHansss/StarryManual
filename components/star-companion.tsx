@@ -60,7 +60,7 @@ export function StarCompanion() {
           rx="76"
           ry="58"
           transform="rotate(-23 88 89)"
-          stroke="#b4cedd"
+          stroke="#e4b2b4"
           strokeWidth="2"
           strokeDasharray="4 8"
         />
@@ -73,7 +73,7 @@ export function StarCompanion() {
       <path
         className="companion-spark companion-spark-pink"
         d="m151 112 3-9 4 9 9 4-9 3-4 9-3-9-9-3 9-4Z"
-        fill="#e9a5c7"
+        fill="#eea4aa"
       />
       <path
         d="m54 123-8 22 27-8m39-13 10 21-28-9"
@@ -89,13 +89,13 @@ export function StarCompanion() {
         strokeWidth="4"
         strokeLinejoin="round"
       />
-      <path d="m85 42 10 15m-54 7 22-2" stroke="#FBFAFF" strokeWidth="5" strokeLinecap="round" />
+      <path d="m85 42 10 15m-54 7 22-2" stroke="#fffefd" strokeWidth="5" strokeLinecap="round" />
       <g className="companion-eyes">
-        <ellipse cx="65" cy="86" rx="5.5" ry="9" fill="#596481" />
-        <ellipse cx="97" cy="86" rx="5.5" ry="9" fill="#596481" />
+        <ellipse cx="65" cy="86" rx="5.5" ry="9" fill="#675457" />
+        <ellipse cx="97" cy="86" rx="5.5" ry="9" fill="#675457" />
         <circle cx="66.5" cy="82" r="2.2" fill="#F8FAFF" />
         <circle cx="98.5" cy="82" r="2.2" fill="#F8FAFF" />
-        <path d="m63 90 4 0m28 0 4 0" stroke="#9CAFD7" strokeWidth="2" strokeLinecap="round" />
+        <path d="m63 90 4 0m28 0 4 0" stroke="#b88d93" strokeWidth="2" strokeLinecap="round" />
       </g>
       <path
         d="M74 101c4 5 9 5 13 0"
@@ -103,8 +103,8 @@ export function StarCompanion() {
         strokeWidth="2.5"
         strokeLinecap="round"
       />
-      <ellipse cx="53" cy="99" rx="9" ry="4.5" fill="#e8a1c1" opacity="0.8" />
-      <ellipse cx="109" cy="99" rx="9" ry="4.5" fill="#e8a1c1" opacity="0.8" />
+      <ellipse cx="53" cy="99" rx="9" ry="4.5" fill="#eea4aa" opacity="0.8" />
+      <ellipse cx="109" cy="99" rx="9" ry="4.5" fill="#eea4aa" opacity="0.8" />
       <path
         d="M51 132c16-7 28-6 39 2 12-8 26-9 40-3l-3 27c-14-5-26-3-37 3-11-7-24-8-38-3l-1-26Z"
         fill="#ffffff"
@@ -114,14 +114,14 @@ export function StarCompanion() {
       />
       <path
         d="M90 135v25m-28-20 15 1m27-1 14-2m-55 9 12 1m30-1 11-2"
-        stroke="#a8c4d6"
+        stroke="#b69ba1"
         strokeWidth="3"
         strokeLinecap="round"
       />
       <path
         className="companion-spark companion-spark-lines"
         d="m138 30 3-8m7 16 8-2"
-        stroke="#d8a0b0"
+        stroke="#df9b9e"
         strokeWidth="3"
         strokeLinecap="round"
       />

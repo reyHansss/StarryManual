@@ -5,8 +5,16 @@ import { source } from '@/lib/source';
 import { getCatalog } from '@/lib/catalog';
 import { categories } from '@/lib/types';
 import { getMDXComponents } from '@/components/mdx';
+import { isStaticExport } from '@/lib/site-config';
 
 type Props = { params: Promise<{ slug: string }> };
+
+export function generateStaticParams() {
+  return source.getPages().map((page) => ({ slug: page.slugs[0] }));
+}
+
+export const dynamicParams = false;
+
 export async function generateMetadata({ params }: Props) {
   const { slug } = await params;
   const page = source.getPage([slug]);
@@ -75,10 +83,12 @@ export default async function ArticlePage({ params }: Props) {
         <p className="article-description">{page.data.description}</p>
         <div className="article-meta">
           <span>STARRY / MANUAL</span>
-          <a href={`/keystatic/collection/articles/item/${slug}`}>
-            <Pencil size={13} />
-            编辑本页 <ArrowUpRight size={12} />
-          </a>
+          {!isStaticExport && (
+            <a href={`/keystatic/collection/articles/item/${slug}`}>
+              <Pencil size={13} />
+              编辑本页 <ArrowUpRight size={12} />
+            </a>
+          )}
         </div>
         <div className="prose article-prose">
           <MDX components={getMDXComponents()} />

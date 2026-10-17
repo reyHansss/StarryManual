@@ -1,6 +1,7 @@
 node_modules/
 .next/
 .source/
+out/
 .verification/
 public/vendor/
 public/blueprint/samples/

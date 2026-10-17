@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, Search, X, Pencil, ArrowRight } from 'lucide-react';
 import { categories, type Article } from '@/lib/types';
+import { isStaticExport } from '@/lib/site-config';
 
 export function StarMark() {
   return (
@@ -74,11 +75,13 @@ export function SiteHeader({ articles }: { articles: Article[] }) {
             <span>搜索</span>
             <kbd>Ctrl K</kbd>
           </button>
-          <a href="/keystatic" className="editor-link">
-            <Pencil size={14} />
-            <span>编辑内容</span>
-            <ArrowUpRight size={13} />
-          </a>
+          {!isStaticExport && (
+            <a href="/keystatic" className="editor-link">
+              <Pencil size={14} />
+              <span>编辑内容</span>
+              <ArrowUpRight size={13} />
+            </a>
+          )}
         </div>
       </header>
       <dialog

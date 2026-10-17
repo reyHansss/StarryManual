@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { Clipboard, Code2, RotateCcw, X } from 'lucide-react';
+import { assetUrl } from '@/lib/site-config';
 
 export function BlueprintDemo() {
   const [revision, setRevision] = useState(0);
@@ -56,7 +57,7 @@ export function BlueprintDemo() {
         <iframe
           key={revision}
           ref={frame}
-          src="/blueprint/viewer.html"
+          src={assetUrl('/blueprint/viewer.html')}
           title="可缩放的 UE 蓝图节点"
           sandbox="allow-scripts allow-same-origin"
         />

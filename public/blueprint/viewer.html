@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Starry手册 · 蓝图画布</title>
-    <link rel="stylesheet" href="/vendor/blueprintue/render.css" />
+    <link rel="stylesheet" href="../vendor/blueprintue/render.css" />
     <style>
       html,
       body {
@@ -51,7 +51,7 @@
   <body>
     <div id="playground"></div>
     <div id="message">正在绘制节点…</div>
-    <script src="/vendor/blueprintue/render.js"></script>
+    <script src="../vendor/blueprintue/render.js"></script>
     <script>
       let renderer;
       let currentText;
@@ -97,7 +97,7 @@
           if (currentText) render(currentText);
         }, 150);
       });
-      fetch('/blueprint/samples/begin-play.txt')
+      fetch('./samples/begin-play.txt')
         .then((response) => {
           if (!response.ok) throw new Error('资源读取失败');
           return response.text();

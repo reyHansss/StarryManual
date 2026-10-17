@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1 --port 3210",
     "build": "next build",
+    "build:pages": "node scripts/build-pages.mjs",
+    "preview:pages": "node scripts/preview-pages.mjs",
+    "check:pages": "node scripts/check-pages.mjs",
     "start": "next start --hostname 127.0.0.1 --port 3210",
     "typecheck": "next typegen && tsc --noEmit",
     "check:content": "node scripts/check-content.mjs",

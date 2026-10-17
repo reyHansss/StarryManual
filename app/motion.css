@@ -17,7 +17,8 @@
 .dot-actions :is(button, a),
 .graph-layout-tools button,
 .graph-up,
-.filter-tabs button,
+.graph-picker-trigger,
+.graph-display-toggle button,
 .presets button {
   transition:
     transform var(--motion-press) var(--ease-out),
@@ -37,7 +38,8 @@
     .dot-actions :is(button, a),
     .graph-layout-tools button,
     .graph-up,
-    .filter-tabs button,
+    .graph-picker-trigger,
+    .graph-display-toggle button,
     .presets button
   ):active:not(:disabled):not(:focus-visible) {
   transform: scale(0.97);
@@ -47,6 +49,21 @@
   transition:
     color var(--motion-press) ease,
     background-color var(--motion-state) ease;
+}
+
+.graph-module-menu,
+.graph-section-menu {
+  transition:
+    opacity var(--motion-press) ease,
+    transform var(--motion-press) var(--ease-out);
+}
+
+@starting-style {
+  .graph-module-menu,
+  .graph-section-menu {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
 }
 
 .main-nav a:after {
@@ -163,7 +180,13 @@
 .knowledge-graph:has(:focus-visible) .atlas-node:before,
 .knowledge-graph:has(:focus-visible) .react-flow__edge-path,
 .knowledge-graph:has(:focus-visible) :is(.node-point > i, .dot-title),
-:is(.button, .icon-button, .text-button, .filter-tabs button):focus-visible {
+:is(
+  .button,
+  .icon-button,
+  .text-button,
+  .graph-picker-trigger,
+  .graph-display-toggle button
+):focus-visible {
   transition: none;
 }
 
@@ -312,6 +335,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .graph-module-menu,
+  .graph-section-menu {
+    transition: opacity var(--motion-press) ease;
+  }
   .main-nav a:after {
     transform: none;
     transition: opacity var(--motion-press) ease;
@@ -328,7 +355,8 @@
     .dot-actions :is(button, a),
     .graph-layout-tools button,
     .graph-up,
-    .filter-tabs button,
+    .graph-picker-trigger,
+    .graph-display-toggle button,
     .presets button
   ):active,
   .entry-card :is(.card-link > svg, .entry-card-top > svg:last-child),

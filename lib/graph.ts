@@ -1,17 +1,36 @@
 import type { Article } from './types';
-import type { ModuleKey } from './navigation';
+import type { articleModules, ModuleKey } from './navigation';
 
 export type GraphRelation = { id: string; source: string; target: string };
+export type GraphModule = {
+  kind: 'module';
+  slug: string;
+  title: string;
+  description: string;
+  module: ModuleKey;
+  articleCount: number;
+  url?: string;
+  section?: never;
+  links: string[];
+};
+export type GraphItem = (Article & { kind?: 'article' }) | GraphModule;
 export type GraphView = {
   module: ModuleKey | 'all';
   section: string[];
   center: string | null;
   query: string;
+  display: 'modules' | 'articles';
 };
-export const globalGraphView: GraphView = { module: 'all', section: [], center: null, query: '' };
+export const globalGraphView: GraphView = {
+  module: 'all',
+  section: [],
+  center: null,
+  query: '',
+  display: 'modules',
+};
 
 // 阅读关系不分方向；反向链接合并，自引用和目录外的目标不进入图谱。
-export function getGraphRelations(articles: Article[]): GraphRelation[] {
+export function getGraphRelations(articles: Pick<GraphItem, 'slug' | 'links'>[]): GraphRelation[] {
   const slugs = new Set(articles.map((article) => article.slug));
   const relations = new Map<string, GraphRelation>();
   for (const article of articles) {
@@ -25,13 +44,46 @@ export function getGraphRelations(articles: Article[]): GraphRelation[] {
   return [...relations.values()];
 }
 
-export function getLocalArticles(articles: Article[], center: string): Article[] {
+export function getLocalArticles<T extends Pick<GraphItem, 'slug' | 'links'>>(
+  articles: T[],
+  center: string,
+): T[] {
   const connected = new Set([center]);
   for (const relation of getGraphRelations(articles)) {
     if (relation.source === center) connected.add(relation.target);
     if (relation.target === center) connected.add(relation.source);
   }
   return articles.filter((article) => connected.has(article.slug));
+}
+
+/** 模块节点聚合全部文章的跨模块阅读链接，模块内链接不生成自环。 */
+export function getModuleGraph(articles: Article[], modules: typeof articleModules): GraphModule[] {
+  const bySlug = new Map(articles.map((article) => [article.slug, article]));
+  return (Object.keys(modules) as ModuleKey[]).flatMap((key) => {
+    const pages = articles.filter((article) => article.module === key);
+    if (!pages.length) return [];
+    const module = modules[key];
+    const overview = pages.find((article) => article.slug === module.overview);
+    const links = new Set<string>();
+    for (const article of pages) {
+      for (const slug of article.links) {
+        const target = bySlug.get(slug);
+        if (target && target.module !== key) links.add(`module:${target.module}`);
+      }
+    }
+    return [
+      {
+        kind: 'module' as const,
+        slug: `module:${key}`,
+        title: module.shortLabel,
+        description: overview?.description ?? `${module.label}的功能说明与关联页面。`,
+        module: key,
+        articleCount: pages.length,
+        url: overview?.url,
+        links: [...links],
+      },
+    ];
+  });
 }
 
 /** 功能分区沿用文章层级，包含每一层祖先，不维护额外的子图清单。 */
@@ -60,6 +112,7 @@ export function readGraphView(params: URLSearchParams, articles: Article[]): Gra
       ) ?? [],
     center: articles.some((article) => article.slug === center) ? center : null,
     query: params.get('q') ?? '',
+    display: params.get('display') === 'articles' ? 'articles' : 'modules',
   };
 }
 
@@ -80,7 +133,7 @@ export function getGraphArticles(articles: Article[], view: GraphView): Article[
 
 // 自动布局只产生当前视图的初始位置，之后由读者拖动，不写回文章内容。
 export function getGraphPositions(
-  articles: Article[],
+  articles: Pick<GraphItem, 'slug' | 'module'>[],
   relations: GraphRelation[],
   layout: 'connections' | 'modules',
   center: string | null,

@@ -30,23 +30,26 @@ import {
   X,
 } from 'lucide-react';
 import type { Article } from '@/lib/types';
-import { articleModules, type ModuleKey } from '@/lib/navigation';
+import { articleModules, buildModuleNavigation } from '@/lib/navigation';
 import { useGraphMotion } from './use-graph-motion';
+import { GraphModulePicker, GraphSectionPicker } from './graph-scope-picker';
 import {
   getGraphPositions,
   getGraphRelations,
   getGraphArticles,
   getGraphSections,
+  getModuleGraph,
   getLocalArticles,
   globalGraphView,
   readGraphView,
   type GraphRelation,
   type GraphView,
+  type GraphItem,
 } from '@/lib/graph';
 import '@xyflow/react/dist/style.css';
 
 type ArticleNode = Node<{
-  article: Article;
+  article: GraphItem;
   focused: boolean;
   center: boolean;
   compact: boolean;
@@ -57,6 +60,7 @@ type ArticleNode = Node<{
 
 function ArticlePoint({ data }: NodeProps<ArticleNode>) {
   const module = articleModules[data.article.module];
+  const isModule = data.article.kind === 'module';
   const zoom = useStore((state) => state.transform[2]);
   // 远景只保留节点与连线；缩放直接驱动透明度，不改变节点尺寸或布局。
   const labelOpacity = Math.max(0, Math.min(1, (zoom - 0.22) / 0.14));
@@ -84,13 +88,15 @@ function ArticlePoint({ data }: NodeProps<ArticleNode>) {
         >
           {data.article.title}
         </button>
-        <Link
-          href={data.article.url}
-          className="node-open nodrag nopan"
-          aria-label={`打开${data.article.title}`}
-        >
-          <ArrowRight size={13} />
-        </Link>
+        {data.article.url && (
+          <Link
+            href={data.article.url}
+            className="node-open nodrag nopan"
+            aria-label={`打开${data.article.title}`}
+          >
+            <ArrowRight size={13} />
+          </Link>
+        )}
         <Handle type="source" position={Position.Right} />
       </div>
     );
@@ -102,7 +108,7 @@ function ArticlePoint({ data }: NodeProps<ArticleNode>) {
         {
           '--node-color': module.nodeColor,
           '--node-ink': module.color,
-          '--node-size': `${16 + Math.min(data.degree, 6) * 2}px`,
+          '--node-size': `${(isModule ? 26 : 16) + Math.min(data.degree, 6) * 2}px`,
           '--graph-label-size': `${Math.min(data.focused ? 42 : 30, Math.max(15, 13 / zoom))}px`,
         } as React.CSSProperties
       }
@@ -119,6 +125,9 @@ function ArticlePoint({ data }: NodeProps<ArticleNode>) {
         onClick={() => data.select(data.article.slug)}
       >
         {data.article.title}
+        {data.article.kind === 'module' && (
+          <span className="graph-module-count">{data.article.articleCount} 篇文档</span>
+        )}
       </button>
       {data.focused && (
         <div className="dot-actions nodrag nopan">
@@ -127,14 +136,22 @@ function ArticlePoint({ data }: NodeProps<ArticleNode>) {
               event.stopPropagation();
               data.explore(data.article.slug);
             }}
-            aria-label={`进入${data.article.title}的局部图谱`}
-            title="进入局部图谱"
+            aria-label={
+              isModule ? `进入${data.article.title}模块图谱` : `进入${data.article.title}的局部图谱`
+            }
+            title={isModule ? '进入模块图谱' : '进入局部图谱'}
           >
             <Network size={14} />
           </button>
-          <Link href={data.article.url} aria-label={`打开${data.article.title}`} title="阅读文章">
-            <ArrowRight size={14} />
-          </Link>
+          {data.article.url && (
+            <Link
+              href={data.article.url}
+              aria-label={`打开${data.article.title}`}
+              title={isModule ? '阅读模块说明' : '阅读文章'}
+            >
+              <ArrowRight size={14} />
+            </Link>
+          )}
         </div>
       )}
       <Handle type="source" position={Position.Right} />
@@ -167,7 +184,7 @@ function GraphCanvas({
   select,
   explore,
 }: {
-  articles: Article[];
+  articles: GraphItem[];
   relations: GraphRelation[];
   activeSlug: string | undefined;
   center: string | null;
@@ -249,7 +266,7 @@ function GraphCanvas({
       panOnScroll={false}
       zoomOnScroll={!compact}
       preventScrolling={!compact}
-      aria-label="文章关系图谱"
+      aria-label="知识关系图谱"
     >
       <FitGraphView compact={compact} />
       <Background variant={BackgroundVariant.Dots} gap={26} size={1} color="var(--graph-grid)" />
@@ -269,25 +286,45 @@ function GraphExplorer({
   view?: GraphView;
   navigate?: (view: GraphView, replace?: boolean) => void;
 }) {
-  const scopeKey = JSON.stringify([view.module, view.section, view.center, view.query]);
+  const scopeKey = JSON.stringify([
+    view.module,
+    view.section,
+    view.center,
+    view.query,
+    view.display,
+  ]);
   const [selection, setSelection] = useState({
     scope: scopeKey,
     slug: view.center ?? 'architecture',
   });
   const [layout, setLayout] = useState<'connections' | 'modules'>('connections');
   const [revision, setRevision] = useState(0);
-  const visible = useMemo(() => getGraphArticles(articles, view), [articles, scopeKey]);
-  const modules = (Object.keys(articleModules) as ModuleKey[]).filter((key) =>
-    articles.some((article) => article.module === key),
-  );
+  const moduleGraph = useMemo(() => getModuleGraph(articles, articleModules), [articles]);
+  const modules = moduleGraph.map((item) => ({ key: item.module, count: item.articleCount }));
+  const moduleOnly =
+    !compact && view.module === 'all' && !view.center && view.display === 'modules';
+  const visible: GraphItem[] = useMemo(() => {
+    if (!moduleOnly) return getGraphArticles(articles, view);
+    const query = view.query.trim().toLowerCase();
+    return moduleGraph.filter((item) =>
+      `${item.title} ${item.description} ${item.module}`.toLowerCase().includes(query),
+    );
+  }, [articles, scopeKey, moduleOnly, moduleGraph]);
   const sections = getGraphSections(articles, view.module);
+  const moduleNavigation = useMemo(() => buildModuleNavigation(articles), [articles]);
   const relations = useMemo(() => getGraphRelations(visible), [visible]);
   // 内容更新时重建节点；选择变化不进入 key，保留读者刚刚拖动的位置。
   const canvasKey = JSON.stringify([
     scopeKey,
     layout,
     revision,
-    visible.map((article) => [article.slug, article.title, article.module, article.links]),
+    visible.map((article) => [
+      article.slug,
+      article.title,
+      article.module,
+      article.links,
+      article.kind === 'module' ? article.articleCount : null,
+    ]),
   ]);
   const centerArticle = articles.find((article) => article.slug === view.center);
   const current =
@@ -296,16 +333,25 @@ function GraphExplorer({
     ) ??
     visible.find((article) => article.slug === view.center) ??
     visible[0];
-  const neighbors = current
-    ? getLocalArticles(articles, current.slug).filter((article) => article.slug !== current.slug)
+  const neighbors: GraphItem[] = current
+    ? (moduleOnly
+        ? getLocalArticles(moduleGraph, current.slug)
+        : getLocalArticles(articles, current.slug)
+      ).filter((article) => article.slug !== current.slug)
     : [];
   function select(slug: string) {
     setSelection({ scope: scopeKey, slug });
   }
   function explore(slug: string) {
+    const module = moduleGraph.find((item) => item.slug === slug);
+    if (module) {
+      navigate?.({ ...view, module: module.module, section: [], center: null, query: '' });
+      return;
+    }
     navigate?.({ ...view, center: slug, query: '' });
   }
   const parentView = { ...view, center: null, query: '' };
+  const rootView = { ...globalGraphView, display: view.display };
   return (
     <div className={`knowledge-graph ${compact ? 'compact' : ''}`}>
       {!compact && (
@@ -313,7 +359,7 @@ function GraphExplorer({
           <div className="graph-navigation">
             <nav className="graph-breadcrumbs" aria-label="图谱路径">
               <button
-                onClick={() => navigate?.(globalGraphView)}
+                onClick={() => navigate?.(rootView)}
                 aria-current={!centerArticle && view.module === 'all' ? 'page' : undefined}
               >
                 <Network size={15} /> 全局图
@@ -360,7 +406,7 @@ function GraphExplorer({
                       ? parentView
                       : view.section.length
                         ? { ...parentView, section: view.section.slice(0, -1) }
-                        : globalGraphView,
+                        : rootView,
                   )
                 }
               >
@@ -376,47 +422,42 @@ function GraphExplorer({
             )}
           </div>
           <div className="graph-toolbar">
-            <div className="filter-tabs" aria-label="图谱模块">
-              {(['all', ...modules] as const).map((module) => (
-                <button
-                  key={module}
-                  style={
-                    {
-                      '--tab-color':
-                        module === 'all' ? 'var(--accent)' : articleModules[module].color,
-                    } as React.CSSProperties
-                  }
-                  onClick={() => navigate?.({ module, section: [], center: null, query: '' })}
-                  className={!view.center && view.module === module ? 'selected' : ''}
-                  aria-pressed={!view.center && view.module === module}
-                >
-                  {module === 'all' ? '全部' : articleModules[module].shortLabel}
-                </button>
-              ))}
+            <div className="graph-scope-controls">
+              <GraphModulePicker
+                modules={modules}
+                current={view.module}
+                onChange={(module) =>
+                  navigate?.({ ...view, module, section: [], center: null, query: '' })
+                }
+              />
+              {!view.center && sections.length > 0 && (
+                <GraphSectionPicker
+                  entries={moduleNavigation.find((module) => module.key === view.module)!.entries}
+                  current={view.section}
+                  onChange={(section) => navigate?.({ ...view, section, query: '' })}
+                />
+              )}
+              {view.module === 'all' && !view.center && (
+                <div className="graph-display-toggle" role="group" aria-label="全局图显示范围">
+                  <button
+                    aria-pressed={view.display === 'modules'}
+                    onClick={() => navigate?.({ ...view, display: 'modules', query: '' })}
+                  >
+                    主模块
+                  </button>
+                  <button
+                    aria-pressed={view.display === 'articles'}
+                    onClick={() => navigate?.({ ...view, display: 'articles', query: '' })}
+                  >
+                    全部文章
+                  </button>
+                </div>
+              )}
             </div>
-            {!view.center && sections.length > 0 && (
-              <label className="graph-section-filter">
-                <span>功能分区</span>
-                <select
-                  aria-label="筛选子模块与功能分区"
-                  value={JSON.stringify(view.section)}
-                  onChange={(event) =>
-                    navigate?.({ ...view, section: JSON.parse(event.target.value), query: '' })
-                  }
-                >
-                  <option value="[]">全部功能</option>
-                  {sections.map((path) => (
-                    <option key={JSON.stringify(path)} value={JSON.stringify(path)}>
-                      {path.join(' / ')}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
             <label className="graph-search">
               <Search size={15} />
               <input
-                aria-label="筛选图谱文章"
+                aria-label="筛选图谱节点"
                 placeholder="在当前图中查找"
                 value={view.query}
                 onChange={(event) => navigate?.({ ...view, query: event.target.value }, true)}
@@ -439,7 +480,9 @@ function GraphExplorer({
             <i className="status-dot" />
             {compact
               ? '文档之间的真实关联'
-              : `${visible.length} 个页面 · ${relations.length} 组关联${view.center ? ' · 含双向链接与跨模块页面' : ''}`}
+              : moduleOnly
+                ? `${visible.length} 个模块 · ${relations.length} 组跨模块阅读关联`
+                : `${visible.length} 个页面 · ${relations.length} 组关联${view.center ? ' · 含双向链接与跨模块页面' : ''}`}
           </div>
           {visible.length ? (
             <GraphCanvas
@@ -456,22 +499,20 @@ function GraphExplorer({
           ) : (
             <div className="empty-graph">
               没有匹配的节点。
-              <button
-                onClick={() => navigate?.(view.query ? { ...view, query: '' } : globalGraphView)}
-              >
+              <button onClick={() => navigate?.(view.query ? { ...view, query: '' } : rootView)}>
                 {view.query ? '清空搜索' : '返回全局图'}
               </button>
             </div>
           )}
           <div className="graph-legend">
-            {modules
-              .filter((key) => visible.some((article) => article.module === key))
-              .map((key) => (
-                <span key={key}>
-                  <i style={{ background: articleModules[key].nodeColor }} />
-                  {articleModules[key].shortLabel}
-                </span>
-              ))}
+            <span>
+              <i
+                style={{
+                  background: current ? articleModules[current.module].nodeColor : 'var(--accent)',
+                }}
+              />
+              颜色表示所属模块
+            </span>
           </div>
           {compact ? (
             <Link className="graph-expand" href="/graph" aria-label="打开完整图谱">
@@ -486,13 +527,15 @@ function GraphExplorer({
               >
                 <RotateCcw size={15} />
               </button>
-              <button
-                onClick={() => setLayout(layout === 'connections' ? 'modules' : 'connections')}
-                title="切换布局"
-              >
-                <Network size={15} />
-                <span>{layout === 'connections' ? '按模块排列' : '按关联排列'}</span>
-              </button>
+              {!moduleOnly && (
+                <button
+                  onClick={() => setLayout(layout === 'connections' ? 'modules' : 'connections')}
+                  title="切换布局"
+                >
+                  <Network size={15} />
+                  <span>{layout === 'connections' ? '按模块排列' : '按关联排列'}</span>
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -507,7 +550,9 @@ function GraphExplorer({
               } as React.CSSProperties
             }
           >
-            <div className="eyebrow">{view.center ? 'LOCAL EXPLORER' : 'EXPLORE A PAGE'}</div>
+            <div className="eyebrow">
+              {moduleOnly ? 'EXPLORE A MODULE' : view.center ? 'LOCAL EXPLORER' : 'EXPLORE A PAGE'}
+            </div>
             <div className="inspector-summary" key={current.slug}>
               <span
                 className="pill"
@@ -521,25 +566,41 @@ function GraphExplorer({
               {current.slug === view.center && <span className="graph-center-label">中心节点</span>}
               <h2>{current.title}</h2>
               <p>{current.description}</p>
+              {current.kind === 'module' && (
+                <p className="graph-module-summary">
+                  包含 {current.articleCount} 篇文档，进入模块图查看功能分区与文章。
+                </p>
+              )}
             </div>
             <div className="inspector-actions">
               {current.slug !== view.center && (
                 <button className="button quiet" onClick={() => explore(current.slug)}>
-                  <Network size={16} /> 进入局部图谱 <ChevronRight size={16} />
+                  <Network size={16} />{' '}
+                  {current.kind === 'module' ? '进入模块图谱' : '进入局部图谱'}{' '}
+                  <ChevronRight size={16} />
                 </button>
               )}
-              <Link href={current.url} className="button primary">
-                阅读这篇文档 <ArrowRight size={16} />
-              </Link>
+              {current.url && (
+                <Link href={current.url} className="button primary">
+                  {current.kind === 'module' ? '阅读模块说明' : '阅读这篇文档'}{' '}
+                  <ArrowRight size={16} />
+                </Link>
+              )}
             </div>
             <div className="inspector-related">
-              <span className="eyebrow">相连的页面 · {neighbors.length}</span>
-              <p className="graph-related-hint">选择一篇，继续探索它的局部图。</p>
+              <span className="eyebrow">
+                {moduleOnly ? '相连的模块' : '相连的页面'} · {neighbors.length}
+              </span>
+              <p className="graph-related-hint">
+                {moduleOnly ? '连线汇总模块之间的文章阅读关联。' : '选择一篇，继续探索它的局部图。'}
+              </p>
               {neighbors.map((article) => (
                 <button
                   key={article.slug}
                   onClick={() => explore(article.slug)}
-                  aria-label={`探索${article.title}的局部图谱`}
+                  aria-label={
+                    moduleOnly ? `探索${article.title}模块图谱` : `探索${article.title}的局部图谱`
+                  }
                 >
                   <BookOpen size={14} />
                   {article.title}
@@ -547,11 +608,13 @@ function GraphExplorer({
                 </button>
               ))}
               {!neighbors.length && (
-                <p className="graph-related-hint">这篇文章暂时没有关联链接。</p>
+                <p className="graph-related-hint">
+                  {moduleOnly ? '该模块暂时没有跨模块阅读关联。' : '这篇文章暂时没有关联链接。'}
+                </p>
               )}
             </div>
             <small>
-              单击选择 · <Network size={11} /> 进入局部图 · 箭头阅读
+              单击选择 · <Network size={11} /> {moduleOnly ? '进入模块图' : '进入局部图'} · 箭头阅读
               <br />
               左键牵引节点 · 空白平移 · 滚轮缩放
               <br />
@@ -560,7 +623,7 @@ function GraphExplorer({
           </aside>
         )}
       </div>
-      {compact && current && (
+      {compact && current?.url && (
         <Link
           className="graph-selected-link"
           href={current.url}
@@ -591,6 +654,7 @@ function NavigableGraph({ articles }: { articles: Article[] }) {
     if (next.section.length) url.searchParams.set('section', JSON.stringify(next.section));
     if (next.center) url.searchParams.set('center', next.center);
     if (next.query) url.searchParams.set('q', next.query);
+    if (next.display !== globalGraphView.display) url.searchParams.set('display', next.display);
     if (url.href === window.location.href) return;
     // 原生 History API 与 Next 路由同步，静态站点也能分享子图及使用前进、后退。
     window.history[replace ? 'replaceState' : 'pushState'](null, '', url.pathname + url.search);

@@ -6,10 +6,12 @@ import {
   getLocalArticles,
   getGraphArticles,
   getGraphSections,
+  getModuleGraph,
   globalGraphView,
   readGraphView,
 } from '../lib/graph.ts';
 import { createGraphMotion } from '../lib/graph-motion.ts';
+import { articleModules } from '../lib/navigation.ts';
 
 const article = (slug, links, module = 'input', section = []) => ({
   slug,
@@ -62,6 +64,7 @@ test('网址恢复模块、完整功能路径、中心和搜索，无效范围�
     section: ['动作处理', '值与触发规则'],
     center: 'a',
     query: '输入',
+    display: 'modules',
   });
   assert.deepEqual(
     readGraphView(new URLSearchParams('module=unknown&section=invalid&center=missing'), articles),
@@ -75,6 +78,49 @@ test('网址恢复模块、完整功能路径、中心和搜索，无效范围�
     readGraphView(new URLSearchParams('category=architecture'), articles),
     globalGraphView,
   );
+  assert.equal(
+    readGraphView(new URLSearchParams('display=articles'), articles).display,
+    'articles',
+  );
+  assert.equal(readGraphView(new URLSearchParams('display=unknown'), articles).display, 'modules');
+  assert.equal(
+    readGraphView(new URLSearchParams('module=input&center=a&display=articles'), articles).display,
+    'articles',
+  );
+});
+
+test('模块总览聚合全部文章的跨模块阅读链接并去重，保留没有关联的模块', () => {
+  const pages = [
+    article('input-overview', [], 'input'),
+    article(
+      'input-detail',
+      ['astraai-detail', 'astraai-overview', 'input-overview', 'missing'],
+      'input',
+    ),
+    article('astraai-overview', ['input-detail'], 'astraai'),
+    article('astraai-detail', [], 'astraai'),
+    article('halodebug-alone', [], 'halodebug'),
+  ];
+  const before = structuredClone(pages);
+  const modules = getModuleGraph(pages, articleModules);
+  assert.equal(modules.length, 3, '空模块不进入图谱');
+  assert.equal(
+    modules.reduce((count, module) => count + module.articleCount, 0),
+    pages.length,
+  );
+  assert.equal(modules.find((module) => module.module === 'input').articleCount, 2);
+  assert.equal(modules.find((module) => module.module === 'input').url, '/read/input-overview');
+  assert.deepEqual(getGraphRelations(modules), [
+    { id: 'module:astraai::module:input', source: 'module:astraai', target: 'module:input' },
+  ]);
+  assert.deepEqual(
+    getLocalArticles(modules, 'module:input').map((module) => module.module),
+    ['astraai', 'input'],
+  );
+  const isolated = modules.find((module) => module.module === 'halodebug');
+  assert.equal(isolated.url, undefined, '没有总览文章时不伪造模块说明链接');
+  assert.deepEqual(isolated.links, []);
+  assert.deepEqual(pages, before);
 });
 
 test('模块与功能筛选沿用文章层级，局部探索仍保留跨模块邻居', () => {

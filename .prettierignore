@@ -1,0 +1,7 @@
+node_modules/
+.next/
+.source/
+.verification/
+public/vendor/
+public/blueprint/samples/
+pnpm-lock.yaml

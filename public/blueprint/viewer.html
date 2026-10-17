@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Starry手册 · 蓝图画布</title>
+    <link rel="stylesheet" href="/vendor/blueprintue/render.css" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #151515;
+        color: #aeb8c8;
+        font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+      }
+      #playground {
+        width: 100%;
+        height: 100%;
+      }
+      .bue-render .frame {
+        border: 0 !important;
+      }
+      .bue-render .frame-header {
+        background: #20242b !important;
+      }
+      .bue-render .frame-header__buttons-fullscreen,
+      .bue-render .frame-header__buttons-panel,
+      .bue-render .frame-header__buttons-separator {
+        display: none !important;
+      }
+      #message {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 25px;
+        text-align: center;
+        font-size: 12px;
+        line-height: 1.8;
+        background: #15191e;
+      }
+      #message[hidden] {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="playground"></div>
+    <div id="message">正在绘制节点…</div>
+    <script src="/vendor/blueprintue/render.js"></script>
+    <script>
+      let renderer;
+      let currentText;
+      const playground = document.getElementById('playground');
+      const message = document.getElementById('message');
+      function render(text) {
+        try {
+          if (typeof text !== 'string' || text.length > 200000)
+            throw new Error('节点文本超过示例限制。');
+          if (renderer) renderer.stop();
+          playground.replaceChildren();
+          renderer = new window.blueprintUE.render.Main(text, playground, {
+            height: window.innerHeight + 'px',
+          });
+          renderer.start(function (success) {
+            if (!success || !playground.querySelector('.node')) {
+              message.textContent = '没有找到可显示的节点，请尝试完整的普通蓝图节点文本。';
+              message.hidden = false;
+              return;
+            }
+            currentText = text;
+            message.hidden = true;
+          });
+        } catch (error) {
+          message.textContent =
+            '这段文本暂时无法显示。请尝试从 UE 复制完整的一组普通蓝图节点，或恢复内置示例。';
+          message.hidden = false;
+        }
+      }
+      window.addEventListener('message', (event) => {
+        if (
+          event.origin !== window.location.origin ||
+          event.source !== window.parent ||
+          event.data?.type !== 'starry-blueprint'
+        )
+          return;
+        render(event.data.text);
+      });
+      let resize;
+      window.addEventListener('resize', () => {
+        clearTimeout(resize);
+        resize = setTimeout(() => {
+          if (currentText) render(currentText);
+        }, 150);
+      });
+      fetch('/blueprint/samples/begin-play.txt')
+        .then((response) => {
+          if (!response.ok) throw new Error('资源读取失败');
+          return response.text();
+        })
+        .then(render)
+        .catch(() => {
+          message.hidden = false;
+          message.textContent = '示例资源读取失败，请刷新重试。';
+        });
+    </script>
+  </body>
+</html>

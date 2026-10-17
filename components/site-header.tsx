@@ -3,10 +3,10 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useId, useRef, useState } from 'react';
-import { ArrowUpRight, Search, X, Pencil, ArrowRight } from 'lucide-react';
+import { ArrowUpRight, Search, X, ArrowRight } from 'lucide-react';
 import type { Article } from '@/lib/types';
 import { articleModules } from '@/lib/navigation';
-import { isStaticExport } from '@/lib/site-config';
+import { EditorLink } from '@/components/editor-link';
 
 export function StarMark() {
   const gradient = `brand-star-${useId().replace(/[^a-zA-Z0-9-]/g, '')}`;
@@ -81,13 +81,7 @@ export function SiteHeader({ articles }: { articles: Article[] }) {
             <span>搜索</span>
             <kbd>Ctrl K</kbd>
           </button>
-          {!isStaticExport && (
-            <a href="/keystatic" className="editor-link">
-              <Pencil size={14} />
-              <span>编辑内容</span>
-              <ArrowUpRight size={13} />
-            </a>
-          )}
+          <EditorLink className="editor-link" />
         </div>
       </header>
       <dialog

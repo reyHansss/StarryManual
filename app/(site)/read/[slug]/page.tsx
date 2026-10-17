@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, ArrowRight, ArrowUpRight, Network, Pencil, Link2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowUpRight, Network, Link2 } from 'lucide-react';
 import { source } from '@/lib/source';
 import { getCatalog } from '@/lib/catalog';
 import {
@@ -12,7 +12,7 @@ import {
 import { ReadingNavigation } from '@/components/reading-navigation';
 import { ModuleContents, ModuleDirectory } from '@/components/module-contents';
 import { getMDXComponents } from '@/components/mdx';
-import { isStaticExport } from '@/lib/site-config';
+import { EditorLink } from '@/components/editor-link';
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -82,12 +82,7 @@ export default async function ArticlePage({ params }: Props) {
         <p className="article-description">{page.data.description}</p>
         <div className="article-meta">
           <span>STARRY / MANUAL</span>
-          {!isStaticExport && (
-            <a href={`/keystatic/collection/articles/item/${slug}`}>
-              <Pencil size={13} />
-              编辑本页 <ArrowUpRight size={12} />
-            </a>
-          )}
+          <EditorLink slug={slug} />
         </div>
         {isDirectory && (
           <ModuleDirectory

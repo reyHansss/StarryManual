@@ -1,202 +1,147 @@
 ---
 title: Async Message · C++ 收发与解绑
-description: 从 World 取得原生消息系统，使用句柄登记监听、读取结构体载荷、发送通知，并在功能退出时配对解绑。
+description: 按取得系统、登记监听、读取载荷、发送与解绑的顺序，查阅原生 C++ 接口用法。
 section:
   - 消息收发
 order: 52
 ---
 
-## 接口与准备
+## 模块与头文件
 
-C++ 直接使用 `UAsyncMessageWorldSubsystem` 提供的原生系统：`BindListener` 监听、`QueueMessageForBroadcast` 发送、`UnbindListener` 解绑。它们与[蓝图节点](/read/asyncmessage-blueprints)共用当前 World 的消息系统，不需要先创建蓝图任务。
+在使用这些接口的模块中加入 `AsyncMessageSystem` 依赖；`StarryGame` 已具备。当前 UE 5.8 的 `FInstancedStruct` 位于 `CoreUObject`，不需要再按图中旧写法添加 `StructUtils` 模块。
 
-下面使用项目已注册的 `Starry.Damage.Message` 和已有 `FStarryVerbMessage`。`UMessageExampleComponent` 是供自己创建的文档示例组件，放在 `StarryGame` 模块中；工程没有预置这个类型。示例只发布与观察通知，不执行扣血或网络转发。
-
-`StarryGame` 已具备依赖。放入其他模块时，确认 `Build.cs` 包含 `Core`、`CoreUObject`、`Engine`、`GameplayTags` 和 `AsyncMessageSystem`；公共头文件暴露消息系统类型时，相应依赖放入公开依赖列表。
-
-| 操作         | 原生接口                                                          | 需要保存或传入的内容                 |
-| ------------ | ----------------------------------------------------------------- | ------------------------------------ |
-| 取得当前系统 | `GetSharedMessageSystem<FAsyncGameplayMessageSystem>(GetWorld())` | 同一个 World                         |
-| 监听         | `BindListener`                                                    | 消息 Id、弱对象、成员回调、接收阶段  |
-| 读取         | `Message.GetPayloadView().GetPtr<const T>()`                      | 与消息约定一致的结构体类型           |
-| 发送         | `QueueMessageForBroadcast`                                        | 消息 Id、`FConstStructView` 载荷视图 |
-| 解绑         | `UnbindListener`                                                  | 登记时的系统和它返回的句柄           |
-
-## 声明组件与监听记录
-
-`MessageExampleComponent.h` 保存这次监听的系统弱引用与句柄，避免组件结束时从另一个 World 解绑。它们是原生 C++ 记录，不需要用 `UPROPERTY` 保活 World 或消息系统。
-
-```cpp
-#pragma once
-
-#include "CoreMinimal.h"
-#include "AsyncMessageHandle.h"
-#include "Components/ActorComponent.h"
-
-#include "MessageExampleComponent.generated.h"
-
-class FAsyncGameplayMessageSystem;
-struct FAsyncMessage;
-
-/** 观察所属 Actor 的伤害通知，并演示默认 World 范围的收发与清理。 */
-UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
-class STARRYGAME_API UMessageExampleComponent : public UActorComponent
+```csharp
+PublicDependencyModuleNames.AddRange(new string[]
 {
-	GENERATED_BODY()
-
-public:
-	/** 开始监听；已有监听先停止，返回本次是否取得有效句柄。 */
-	bool StartListening();
-
-	/** 发布测试通知；Magnitude 为通知数值，返回是否加入相关接收队列。 */
-	bool SendDamageNotification(double Magnitude);
-
-	/** 停止本组件拥有的监听并清空记录，可重复调用。 */
-	void StopListening();
-
-protected:
-	// UActorComponent interface
-	virtual void BeginPlay() override;
-	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-	//~ End of UActorComponent interface
-
-private:
-	/** 在游戏线程核对载荷类型，只处理 Target 为所属 Actor 的通知。 */
-	void HandleDamage(const FAsyncMessage& Message);
-
-	/** 指向登记时的系统，不延长 World 消息系统寿命。 */
-	TWeakPtr<FAsyncGameplayMessageSystem> BoundSystem;
-
-	/** 只用于撤销本组件建立的这一份监听。 */
-	FAsyncMessageHandle DamageHandle;
-};
+	"AsyncMessageSystem"
+});
 ```
 
-以下实现放在同名 `MessageExampleComponent.cpp`，先包含这些头文件，再加入后面的函数：
+相关头文件为：
 
 ```cpp
-#include "MessageExampleComponent.h"
-
 #include "AsyncGameplayMessageSystem.h"
 #include "AsyncMessage.h"
 #include "AsyncMessageBindingOptions.h"
+#include "AsyncMessageHandle.h"
 #include "AsyncMessageWorldSubsystem.h"
-#include "Framework/Messages/StarryVerbMessage.h"
-#include "GameFramework/Actor.h"
 #include "GameplayTagContainer.h"
-#include "StructUtils/StructView.h"
+#include "StructUtils/InstancedStruct.h"
 ```
 
-## 登记监听并接收
+下面按图示展示接口片段。`AMyClass`、`FMyCustomStruct`、`PlayerName`、`Level` 与 `Message.Player.LevelUp` 都沿用图中的示例名称，不是 Starry 已有类型、字段或消息；使用时替换为实际内容，不需要另建消息组件。项目已有消息与载荷见[项目消息](/read/asyncmessage-project)。
 
-先取得当前 World 的系统，指定消息 Id 和成员回调，并保存 `BindListener` 返回的句柄。`MakeWeakObjectPtr(this)` 使用引擎提供的 UObject 弱绑定，不以裸 `this` 捕获跨越对象寿命。
+## 取得系统
+
+以下两种方式任选一种，均取得当前 World 的 `FAsyncGameplayMessageSystem`。调用时需要有效的 World，取得后检查系统是否有效。
 
 ```cpp
-bool UMessageExampleComponent::StartListening()
-{
-	StopListening();
-
-	const auto System =
-		UAsyncMessageWorldSubsystem::GetSharedMessageSystem<FAsyncGameplayMessageSystem>(GetWorld());
-	if (!System)
-	{
-		return false;
-	}
-
-	const FAsyncMessageId MessageId(
-		FGameplayTag::RequestGameplayTag(TEXT("Starry.Damage.Message")));
-	BoundSystem = System;
-	DamageHandle = System->BindListener(
-		MessageId,
-		MakeWeakObjectPtr(this),
-		&UMessageExampleComponent::HandleDamage,
-		FAsyncMessageBindingOptions(TG_PostUpdateWork));
-	return DamageHandle.IsValid();
-}
-
-void UMessageExampleComponent::HandleDamage(const FAsyncMessage& Message)
-{
-	const auto* Payload = Message.GetPayloadView().GetPtr<const FStarryVerbMessage>();
-	if (!Payload || Payload->Target != GetOwner())
-	{
-		return;
-	}
-
-	UE_LOG(LogTemp, Display, TEXT("%s 收到伤害通知：%g"),
-		*GetNameSafe(GetOwner()), Payload->Magnitude);
-}
+// 方式一：使用静态辅助函数。
+TSharedPtr<FAsyncGameplayMessageSystem> GameplayMessageSystem =
+	UAsyncMessageWorldSubsystem::GetSharedMessageSystem<FAsyncGameplayMessageSystem>(GetWorld());
 ```
-
-这里显式选择游戏线程的 `TG_PostUpdateWork`，便于安全访问 Actor 和表现数据。回调先检查载荷类型，再筛选自己的 `Target`；默认 Endpoint 会接收同一 World 的相应消息，不能只因标签正确就更新所有角色。
-
-`GetPtr` 返回的指针只在当前消息回调内使用，不跨回调保存。需要稍后使用时复制必要字段；UObject 字段不会深复制。若改为监听父标签，先检查 `Message.GetMessageSourceId()`，不同子消息可能使用不同载荷。
-
-## 发送结构体载荷
-
-发送方构造业务结构体，用 `FConstStructView::Make(Payload)` 传给系统即可，C++ 不需要先调用蓝图的 `Make Instanced Struct`。系统会在入队过程中复制结构体，因此这里的局部变量可以在函数返回后销毁。
 
 ```cpp
-bool UMessageExampleComponent::SendDamageNotification(double Magnitude)
-{
-	const auto System =
-		UAsyncMessageWorldSubsystem::GetSharedMessageSystem<FAsyncGameplayMessageSystem>(GetWorld());
-	if (!System)
-	{
-		return false;
-	}
-
-	FStarryVerbMessage Payload;
-	Payload.Verb = FGameplayTag::RequestGameplayTag(TEXT("Starry.Damage.Message"));
-	Payload.Instigator = GetOwner();
-	Payload.Target = GetOwner();
-	Payload.Magnitude = Magnitude;
-
-	return System->QueueMessageForBroadcast(
-		FAsyncMessageId(Payload.Verb),
-		FConstStructView::Make(Payload));
-}
+// 方式二：先取得 World Subsystem。
+auto* Subsystem = GetWorld()->GetSubsystem<UAsyncMessageWorldSubsystem>();
+TSharedPtr<FAsyncGameplayMessageSystem> GameplayMessageSystem =
+	Subsystem->GetSharedMessageSystem<FAsyncGameplayMessageSystem>();
 ```
 
-这段发送不依赖发送方也登记监听；取得当前 World 的系统后，其他组件同样可以直接入队。此处为了让示例自身观察到消息，把 `Target` 设为所属 Actor。
+## 设置消息与接收选项
 
-返回 `true` 只说明进入了相关接收队列，不能代表自己的回调已经处理或网络传递成功。监听必须先启动；没有相关监听时通常返回 `false`。正式伤害处理已经发送通知，不再额外调用本测试方法发布一份。
-
-## 解绑并接入宿主生命周期
-
-使用**原系统与原句柄**配对解绑，再清空两份记录。解绑不会自动清空调用方保存的句柄；只重置句柄也不会撤销系统中的监听。
+保存系统和返回的 `ListenerHandle`，用于之后配对解绑。示例消息 `Message.Player.LevelUp` 需要先注册为 Gameplay Tag；用名称构造 Id 也会查找这个标签。
 
 ```cpp
-void UMessageExampleComponent::StopListening()
+FAsyncMessageHandle ListenerHandle;
+FAsyncMessageBindingOptions Options;
+
+// 默认在游戏线程 TG_PostUpdateWork 接收。
+// Options.SetTickGroup(TG_PostUpdateWork);
+
+// 也可指定后台接收；该回调必须遵守相应线程约束。
+// Options.SetNamedThreads(ENamedThreads::AnyBackgroundThread);
+
+const FAsyncMessageId MessageId(TEXT("Message.Player.LevelUp"));
+// 也可直接传入已有的 Gameplay Tag：FAsyncMessageId MessageId(GameplayTag);
+```
+
+## 监听：成员函数
+
+将 `AMyClass` 替换为当前类名，在该类声明 `void OnMessageReceived(const FAsyncMessage& Message);`，然后登记：
+
+```cpp
+ListenerHandle = GameplayMessageSystem->BindListener(
+	MessageId,
+	MakeWeakObjectPtr(this),
+	&AMyClass::OnMessageReceived,
+	Options);
+
+void AMyClass::OnMessageReceived(const FAsyncMessage& Message)
 {
-	if (const auto System = BoundSystem.Pin())
+	if (const FMyCustomStruct* Payload =
+		Message.GetPayloadView().GetPtr<const FMyCustomStruct>())
 	{
-		System->UnbindListener(DamageHandle);
+		UE_LOG(LogTemp, Log, TEXT("%s Level up! New value: %d"),
+			*Payload->PlayerName, Payload->Level);
 	}
-	DamageHandle = FAsyncMessageHandle::Invalid;
-	BoundSystem.Reset();
-}
-
-void UMessageExampleComponent::BeginPlay()
-{
-	Super::BeginPlay();
-	StartListening();
-}
-
-void UMessageExampleComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
-{
-	StopListening();
-	Super::EndPlay(EndPlayReason);
 }
 ```
 
-可反复开关的功能还应在每次关闭时调用 `StopListening`，重新打开时调用 `StartListening`，不必等到对象销毁。弱对象绑定避免调用已失效对象，但不能代替“对象仍活着、功能已经关闭”时的退订。
+绑定代码放在现有宿主的初始化逻辑中，成员函数实现放在对应 `.cpp`。图中接收指针与 `GetPtr` 的结构体名称不一致，这里统一为 `FMyCustomStruct`。`GetPtr` 在类型不匹配时返回空；载荷指针只在当前回调内使用。
 
-解绑请求在队列预处理阶段移除监听，不是跨线程等待屏障，不能撤回已经开始运行的回调。本例保持在游戏线程；显式使用后台线程时，需要按自己的任务生命周期协调退出，详细约束见[标签、时机与生命周期](/read/asyncmessage-routing)。
+## 监听：Lambda
 
-## 核对收发与清理
+也可以使用 Lambda，与上面的成员函数方式二选一。需要访问宿主时，用捕获的弱引用检查其是否仍有效。
 
-将自建组件放到测试 Actor，进入 PIE 后由明确的测试入口调用 `SendDamageNotification(25.0)`，预期在接收阶段输出一次数值。再调用 `StopListening()` 后发送，自己的回调不再输出；重新 `StartListening()` 后应只收到一份，重复开始不能叠加监听。
+```cpp
+ListenerHandle = GameplayMessageSystem->BindListener(
+	MessageId,
+	[WeakThis = MakeWeakObjectPtr(this)](const FAsyncMessage& Message)
+	{
+		if (!WeakThis.IsValid())
+		{
+			return;
+		}
 
-以上代码已按本机 UE 5.8 的公开接口核对，本轮未将示例加入工程或执行编译、PIE。现有项目消息、状态复制与显式 RPC 的实际接入见[项目消息与排查](/read/asyncmessage-project)。
+		if (const FMyCustomStruct* Payload =
+			Message.GetPayloadView().GetPtr<const FMyCustomStruct>())
+		{
+			// 读取实际载荷字段；通过 WeakThis 访问宿主。
+		}
+	},
+	Options);
+```
 
-实现入口：引擎插件公开的 `AsyncMessageSystemBase.h`、`AsyncGameplayMessageSystem.h`、`AsyncMessageWorldSubsystem.h`、`AsyncMessage.h`、`AsyncMessageHandle.h` 与 `AsyncMessageBindingOptions.h`。
+两种绑定形式均可在最后额外传入 `BindingEndpoint`；省略时使用默认 World 范围。路由与接收线程见[标签、时机与生命周期](/read/asyncmessage-routing)。
+
+## 发送
+
+先填写自己的结构体，再用 `FInstancedStruct::Make` 复制为载荷并入队。发送与接收需要约定同一个消息 Id 和载荷类型。
+
+```cpp
+FMyCustomStruct Data;
+Data.PlayerName = TEXT("Jack");
+Data.Level = 3;
+
+FInstancedStruct Payload = FInstancedStruct::Make(Data);
+GameplayMessageSystem->QueueMessageForBroadcast(MessageId, Payload);
+```
+
+`FInstancedStruct::Make` 创建结构体副本。系统在处理对应接收队列时分发，不在发送这一行同步执行监听回调。
+
+## 解绑
+
+对登记时的系统调用 `UnbindListener`，再清空保存的句柄。只把句柄设为无效不会移除监听。
+
+```cpp
+if (ListenerHandle.IsValid())
+{
+	GameplayMessageSystem->UnbindListener(ListenerHandle);
+	ListenerHandle = FAsyncMessageHandle::Invalid;
+}
+```
+
+这段代码在功能关闭或宿主退出时执行，前提是登记时的系统仍有效。重复开始前先解绑已有监听，避免覆盖旧句柄；弱对象检查不能代替主动解绑。蓝图任务的保存和停止接线见[蓝图收发与解绑](/read/asyncmessage-blueprints)。
+
+实现入口：引擎插件的 `AsyncMessageSystemBase.h`、`AsyncGameplayMessageSystem.h`、`AsyncMessageWorldSubsystem.h`、`AsyncMessage.h`、`AsyncMessageHandle.h` 与 `AsyncMessageBindingOptions.h`。以上为原生接口片段，未向项目新增类型或运行 PIE。

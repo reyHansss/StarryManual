@@ -59,7 +59,12 @@ function ArticlePoint({ data }: NodeProps<ArticleNode>) {
     return (
       <div
         className={`atlas-node ${data.focused ? 'focused' : ''}`}
-        style={{ '--node-color': category.color } as React.CSSProperties}
+        style={
+          {
+            '--node-color': category.nodeColor,
+            '--node-ink': category.color,
+          } as React.CSSProperties
+        }
       >
         <Handle type="target" position={Position.Left} />
         <div className="node-category">
@@ -90,7 +95,8 @@ function ArticlePoint({ data }: NodeProps<ArticleNode>) {
       className={`atlas-dot-node ${data.focused ? 'focused' : ''} ${data.center ? 'is-center' : ''}`}
       style={
         {
-          '--node-color': category.color,
+          '--node-color': category.nodeColor,
+          '--node-ink': category.color,
           '--node-size': `${16 + Math.min(data.degree, 6) * 2}px`,
           '--graph-label-size': `${Math.min(data.focused ? 42 : 30, Math.max(15, 13 / zoom))}px`,
         } as React.CSSProperties
@@ -410,7 +416,7 @@ function GraphExplorer({
           <div className="graph-legend">
             {Object.entries(categories).map(([key, category]) => (
               <span key={key}>
-                <i style={{ background: category.color }} />
+                <i style={{ background: category.nodeColor }} />
                 {category.label}
               </span>
             ))}
@@ -442,11 +448,19 @@ function GraphExplorer({
           <aside
             className="graph-inspector"
             aria-label="节点详情"
-            style={{ '--node-color': categories[current.category].color } as React.CSSProperties}
+            style={
+              {
+                '--node-color': categories[current.category].nodeColor,
+                '--node-ink': categories[current.category].color,
+              } as React.CSSProperties
+            }
           >
             <div className="eyebrow">{view.center ? 'LOCAL EXPLORER' : 'EXPLORE A PAGE'}</div>
             <div className="inspector-summary" key={current.slug}>
-              <span className="pill" style={{ color: categories[current.category].color }}>
+              <span
+                className="pill"
+                style={{ color: 'color-mix(in srgb, var(--node-ink) 70%, var(--text))' }}
+              >
                 {categories[current.category].label}
               </span>
               {current.slug === view.center && <span className="graph-center-label">中心节点</span>}
@@ -495,7 +509,12 @@ function GraphExplorer({
         <Link
           className="graph-selected-link"
           href={current.url}
-          style={{ '--node-color': categories[current.category].color } as React.CSSProperties}
+          style={
+            {
+              '--node-color': categories[current.category].nodeColor,
+              '--node-ink': categories[current.category].color,
+            } as React.CSSProperties
+          }
         >
           <span>
             <i className="status-dot" /> 正在探索 <strong>{current.title}</strong>

@@ -33,7 +33,6 @@
   --companion-gold: #ffe58a;
   --companion-shade: #f6cf72;
   --companion-ink: #8b744f;
-  --selection-halo: color-mix(in srgb, var(--coral) 15%, transparent);
   --graph-edge: #c4b8ba;
   --graph-edge-active: #b9828a;
   --graph-grid: #e3d8d9;
@@ -945,33 +944,37 @@ p {
   font-size: 11px;
   letter-spacing: 0.3px;
 }
+.atlas-node,
+.atlas-dot-node {
+  --selection-halo: color-mix(in srgb, var(--node-color) 25%, transparent);
+}
 .atlas-node {
   position: relative;
   width: 190px;
   padding: 14px 16px;
-  border: 1px solid color-mix(in srgb, var(--node-color) 30%, var(--surface));
+  border: 1.5px solid color-mix(in srgb, var(--node-color) 72%, var(--surface));
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--node-color) 5%, var(--surface));
+  background: color-mix(in srgb, var(--node-color) 18%, var(--surface));
   color: var(--text);
-  box-shadow: 0 4px 0 color-mix(in srgb, var(--node-color) 12%, var(--surface));
+  box-shadow: 0 4px 0 color-mix(in srgb, var(--node-color) 25%, var(--surface));
 }
 .atlas-node.focused {
   border-color: var(--node-color);
-  background: color-mix(in srgb, var(--node-color) 14%, var(--surface));
+  background: color-mix(in srgb, var(--node-color) 30%, var(--surface));
 }
 .node-category {
   display: flex;
   align-items: center;
   gap: 5px;
   margin-bottom: 8px;
-  color: var(--node-color);
+  color: color-mix(in srgb, var(--node-ink) 70%, var(--text));
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 1.1px;
 }
 .node-category i {
-  width: 4px;
-  height: 4px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: var(--node-color);
 }
@@ -1033,18 +1036,18 @@ p {
   border: 3px solid var(--reading-bg);
   border-radius: 50%;
   background: var(--node-color);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--node-color) 45%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--node-ink) 60%, transparent);
 }
 .atlas-dot-node.focused .node-point > i {
   box-shadow:
-    0 0 0 1px var(--node-color),
-    0 0 0 7px var(--selection-halo);
+    0 0 0 2px var(--node-ink),
+    0 0 0 8px var(--selection-halo);
 }
 .atlas-dot-node.is-center .node-point:after {
   content: '';
   position: absolute;
   inset: -8px;
-  border: 1px dashed var(--node-color);
+  border: 1px dashed var(--node-ink);
   border-radius: 50%;
   pointer-events: none;
 }
@@ -1060,8 +1063,8 @@ p {
   text-align: center;
 }
 .focused .dot-title {
-  color: color-mix(in srgb, var(--node-color) 85%, var(--text));
-  background: color-mix(in srgb, var(--node-color) 11%, var(--surface));
+  color: color-mix(in srgb, var(--node-ink) 70%, var(--text));
+  background: color-mix(in srgb, var(--node-color) 18%, var(--surface));
   font-weight: 700;
 }
 .atlas-dot-node .react-flow__handle {
@@ -1144,8 +1147,8 @@ p {
   gap: 6px;
 }
 .graph-legend i {
-  width: 5px;
-  height: 5px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
 }
 .graph-expand {
@@ -1208,7 +1211,7 @@ p {
 }
 .graph-selected-link strong {
   margin-left: 5px;
-  color: var(--node-color);
+  color: color-mix(in srgb, var(--node-ink) 70%, var(--text));
   font-weight: 700;
 }
 .graph-inspector {

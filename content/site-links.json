@@ -4,6 +4,11 @@
       "title": "UE-Book",
       "description": "Unreal Engine 内置插件文档、开源库与技术更新。",
       "url": "https://kisspread.github.io/UE-Book/"
+    },
+    {
+      "title": "Game AI Pro",
+      "description": "游戏 AI 编程书籍与技术文章。",
+      "url": "http://www.gameaipro.com/"
     }
   ]
 }

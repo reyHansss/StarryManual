@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
 import type { Node, NodeChange } from '@xyflow/react';
 import { createGraphMotion } from '@/lib/graph-motion';
 import type { GraphRelation } from '@/lib/graph';
@@ -49,6 +49,7 @@ export function useGraphMotion<T extends Node>(
           // 被拖动节点由 React Flow 直接跟随指针，不能被物理帧覆盖而产生迟滞。
           if (node.dragging) return node;
           const position = positions.get(node.id)!;
+          if (node.position.x === position.x && node.position.y === position.y) return node;
           return { ...node, position: { x: position.x, y: position.y } };
         }),
       );
@@ -86,5 +87,5 @@ export function useGraphMotion<T extends Node>(
     };
   }, [initialNodes, relations, layout, compact, setNodes]);
 
-  return (changes: NodeChange<T>[]) => controller.current?.update(changes);
+  return useCallback((changes: NodeChange<T>[]) => controller.current?.update(changes), []);
 }

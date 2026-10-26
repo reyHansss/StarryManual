@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { memo, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -16,6 +16,7 @@ import {
   useStore,
   type NodeProps,
   type Node,
+  type NodeChange,
   type Edge,
 } from '@xyflow/react';
 import {
@@ -169,7 +170,7 @@ function ArticlePoint({ data }: NodeProps<ArticleNode>) {
   );
 }
 
-const nodeTypes = { article: ArticlePoint };
+const nodeTypes = { article: memo(ArticlePoint, (previous, next) => previous.data === next.data) };
 
 function FitGraphView({ compact }: { compact: boolean }) {
   const { fitView } = useReactFlow();
@@ -233,33 +234,53 @@ function GraphCanvas({
   });
   const [nodes, setNodes, onNodesChange] = useNodesState<ArticleNode>(initialNodes);
   const updateMotion = useGraphMotion(initialNodes, relations, layout, compact, setNodes);
-  // 选择状态独立于位置，单击节点或更新详情不会抹掉读者的拖动结果。
-  const displayNodes = nodes.map((node) => ({
-    ...node,
-    data: { ...node.data, focused: node.id === activeSlug, select, explore },
-  }));
-  const edges: Edge[] = relations.map((relation) => {
-    const highlighted = relation.source === activeSlug || relation.target === activeSlug;
-    return {
-      ...relation,
-      type: compact ? 'default' : 'straight',
-      selectable: false,
-      focusable: false,
-      style: {
-        stroke: highlighted ? 'var(--graph-edge-active)' : 'var(--graph-edge)',
-        strokeWidth: highlighted ? 1.5 : 1,
-        opacity: highlighted ? 0.9 : 0.4,
-      },
-    };
-  });
+  // 选择变化才更新节点数据；物理帧只更新位置，保留标题、操作和连线的引用。
+  useEffect(() => {
+    setNodes((current) =>
+      current.map((node) => {
+        const focused = node.id === activeSlug;
+        if (
+          node.data.focused === focused &&
+          node.data.select === select &&
+          node.data.explore === explore
+        ) {
+          return node;
+        }
+        return { ...node, data: { ...node.data, focused, select, explore } };
+      }),
+    );
+  }, [activeSlug, select, explore, setNodes]);
+  const edges = useMemo<Edge[]>(
+    () =>
+      relations.map((relation) => {
+        const highlighted = relation.source === activeSlug || relation.target === activeSlug;
+        return {
+          ...relation,
+          type: compact ? 'default' : 'straight',
+          selectable: false,
+          focusable: false,
+          style: {
+            stroke: highlighted ? 'var(--graph-edge-active)' : 'var(--graph-edge)',
+            strokeWidth: highlighted ? 1.5 : 1,
+            opacity: highlighted ? 0.9 : 0.4,
+          },
+        };
+      }),
+    [relations, activeSlug, compact],
+  );
+  const handleNodesChange = useCallback(
+    (changes: NodeChange<ArticleNode>[]) => {
+      onNodesChange(changes);
+      updateMotion(changes);
+    },
+    [onNodesChange, updateMotion],
+  );
+  const selectNode = useCallback((_: unknown, node: ArticleNode) => select(node.id), [select]);
   return (
     <ReactFlow
-      nodes={displayNodes}
+      nodes={nodes}
       edges={edges}
-      onNodesChange={(changes) => {
-        onNodesChange(changes);
-        updateMotion(changes);
-      }}
+      onNodesChange={handleNodesChange}
       nodeTypes={nodeTypes}
       fitView
       fitViewOptions={{ padding: compact ? 0.25 : 0.18, maxZoom: 1.3 }}
@@ -267,8 +288,8 @@ function GraphCanvas({
       maxZoom={GRAPH_MAX_ZOOM}
       nodesDraggable={!compact}
       nodesConnectable={false}
-      onNodeClick={(_, node) => select(node.id)}
-      onNodeDragStart={(_, node) => select(node.id)}
+      onNodeClick={selectNode}
+      onNodeDragStart={selectNode}
       deleteKeyCode={null}
       nodeDragThreshold={5}
       panOnDrag={[0]}
@@ -349,17 +370,23 @@ function GraphExplorer({
         : getLocalArticles(articles, current.slug)
       ).filter((article) => article.slug !== current.slug)
     : [];
-  function select(slug: string) {
-    setSelection({ scope: scopeKey, slug });
-  }
-  function explore(slug: string) {
-    const module = moduleGraph.find((item) => item.slug === slug);
-    if (module) {
-      navigate?.({ ...view, module: module.module, section: [], center: null, query: '' });
-      return;
-    }
-    navigate?.({ ...view, center: slug, query: '' });
-  }
+  const select = useCallback(
+    (slug: string) => {
+      setSelection({ scope: scopeKey, slug });
+    },
+    [scopeKey],
+  );
+  const explore = useCallback(
+    (slug: string) => {
+      const module = moduleGraph.find((item) => item.slug === slug);
+      if (module) {
+        navigate?.({ ...view, module: module.module, section: [], center: null, query: '' });
+        return;
+      }
+      navigate?.({ ...view, center: slug, query: '' });
+    },
+    [moduleGraph, navigate, view],
+  );
   const parentView = { ...view, center: null, query: '' };
   const rootView = { ...globalGraphView, display: view.display };
   return (
@@ -658,7 +685,7 @@ function GraphExplorer({
 function NavigableGraph({ articles }: { articles: Article[] }) {
   const params = useSearchParams();
   const view = readGraphView(new URLSearchParams(params.toString()), articles);
-  function navigate(next: GraphView, replace = false) {
+  const navigate = useCallback((next: GraphView, replace = false) => {
     const url = new URL(window.location.href);
     url.search = '';
     if (next.module !== 'all') url.searchParams.set('module', next.module);
@@ -669,7 +696,7 @@ function NavigableGraph({ articles }: { articles: Article[] }) {
     if (url.href === window.location.href) return;
     // 原生 History API 与 Next 路由同步，静态站点也能分享子图及使用前进、后退。
     window.history[replace ? 'replaceState' : 'pushState'](null, '', url.pathname + url.search);
-  }
+  }, []);
   return <GraphExplorer articles={articles} view={view} navigate={navigate} />;
 }
 

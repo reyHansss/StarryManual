@@ -52,7 +52,9 @@ function useParticleCanvas(kind: 'portrait' | 'background') {
     let frame = 0;
     let previous = 0;
     let elapsed = 0;
-    let pointerTime = 0;
+    let pointerMoved = false;
+    let previousPointerX = 0;
+    let previousPointerY = 0;
     let touchTimer: ReturnType<typeof setTimeout> | undefined;
     const animated = () => enabledRef.current && !preference.matches;
     const allowed = () => visible && !document.hidden;
@@ -69,7 +71,19 @@ function useParticleCanvas(kind: 'portrait' | 'background') {
       previous = now;
       const delta = Math.min(milliseconds / 1000, 1 / 30);
       elapsed += delta;
-      pointer.speed *= Math.exp(-delta * 7);
+      if (pointerMoved) {
+        // 按绘制帧合并输入，避免高采样率或同坐标事件把有效移动速度覆盖成零。
+        pointer.speed = Math.min(
+          2400,
+          Math.hypot(pointer.x - previousPointerX, pointer.y - previousPointerY) /
+            (milliseconds / 1000),
+        );
+        pointerMoved = false;
+      } else {
+        pointer.speed *= Math.exp(-delta * 7);
+      }
+      previousPointerX = pointer.x;
+      previousPointerY = pointer.y;
       const moving = scene.draw(elapsed, delta, pointer, animated());
       canvas.dataset.motion = animated() ? (moving ? 'running' : 'idle') : 'paused';
       if (animated() && moving) frame = requestAnimationFrame(draw);
@@ -100,18 +114,15 @@ function useParticleCanvas(kind: 'portrait' | 'background') {
       const rect = canvas.getBoundingClientRect();
       const x = input.clientX - rect.left;
       const y = input.clientY - rect.top;
-      const now = performance.now();
-      const seconds = Math.max((now - pointerTime) / 1000, 0.016);
-      pointer.speed =
-        input.pointerType === 'touch'
-          ? 600
-          : pointer.active
-            ? Math.min(2400, Math.hypot(x - pointer.x, y - pointer.y) / seconds)
-            : 0;
+      if (!pointer.active) {
+        previousPointerX = x;
+        previousPointerY = y;
+      }
+      pointerMoved = input.pointerType !== 'touch';
+      if (input.pointerType === 'touch') pointer.speed = 600;
       pointer.x = x;
       pointer.y = y;
       pointer.active = true;
-      pointerTime = now;
       // 背景静止后不占用 RAF，新的指针输入才唤醒。捕获阶段可接收图谱拖动中的输入。
       if (!frame && animated()) sync();
       // 触摸只在点按时短暂拨动，不阻止页面滚动，也不要求悬停或右键。
@@ -124,6 +135,7 @@ function useParticleCanvas(kind: 'portrait' | 'background') {
     function leave() {
       pointer.active = false;
       pointer.speed = 0;
+      pointerMoved = false;
     }
 
     const visibility = new IntersectionObserver(([entry]) => {

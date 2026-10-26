@@ -54,6 +54,7 @@ jobs:
           pnpm typecheck
           pnpm test:blueprint
           pnpm test:graph
+          pnpm test:particles
 
       - name: 生成并检查静态文件
         env:

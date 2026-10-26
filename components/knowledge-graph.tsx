@@ -105,6 +105,7 @@ function ArticlePoint({ data }: NodeProps<ArticleNode>) {
       </div>
     );
   }
+  const labelSize = isModule ? 18 : 16;
   return (
     <div
       className={`atlas-dot-node ${data.center ? 'is-center' : ''}`}
@@ -116,7 +117,9 @@ function ArticlePoint({ data }: NodeProps<ArticleNode>) {
           '--node-visual-size': `${metrics.visualDiameter}px`,
           '--graph-point-scale': metrics.scale,
           '--graph-inverse-zoom': 1 / zoom,
-          '--graph-label-size': `${isModule ? 13 : 12}px`,
+          '--graph-label-size': `${labelSize}px`,
+          // 当前查看或临时强调的标题至少保留 12 CSS 屏幕像素，整体补偿文字排版。
+          '--graph-label-scale': Math.max(1, 12 / (labelSize * zoom)),
           '--graph-label-opacity': labelOpacity,
           '--graph-label-visibility': labelOpacity === 0 ? 'hidden' : 'visible',
         } as React.CSSProperties
@@ -229,7 +232,7 @@ function GraphCanvas({
     setNodes((current) =>
       current.map((node) => {
         const focused = node.id === selectedId;
-        const className =
+        const emphasisClass =
           compact || !emphasisId
             ? undefined
             : node.id === emphasisId
@@ -237,6 +240,10 @@ function GraphCanvas({
               : neighborsById.get(emphasisId)?.has(node.id)
                 ? 'graph-node-neighbor'
                 : 'graph-node-muted';
+        const readable = !compact && (node.id === emphasisId || node.id === activeSlug);
+        const className = readable
+          ? `${emphasisClass ?? ''} graph-label-readable`.trim()
+          : emphasisClass;
         const data =
           node.data.focused === focused && node.data.select === select
             ? node.data
@@ -246,7 +253,7 @@ function GraphCanvas({
           : { ...node, className, data };
       }),
     );
-  }, [selectedId, emphasisId, neighborsById, compact, select, setNodes]);
+  }, [selectedId, activeSlug, emphasisId, neighborsById, compact, select, setNodes]);
   const emphasisColor = useMemo(() => {
     const article = articles.find((item) => item.slug === emphasisId);
     return article ? articleModules[article.module].nodeColor : 'var(--graph-edge-active)';

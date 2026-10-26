@@ -125,7 +125,7 @@ function inspect(overrides = {}) {
       const [source, target] = id.split('::');
       return { id, source, target };
     }),
-    activeSlug: 'a',
+    activeSlug: undefined,
     center: null,
     layout: 'connections',
     compact: false,
@@ -166,7 +166,8 @@ function find(tree, predicate) {
   }
 }
 const node = (flow, id) => flow.nodes.find((item) => item.id === id);
-const emphasis = (flow) => flow.nodes.find((item) => item.className === 'graph-node-active')?.id;
+const hasClass = (item, name) => item.className?.split(' ').includes(name) ?? false;
+const emphasis = (flow) => flow.nodes.find((item) => hasClass(item, 'graph-node-active'))?.id;
 const enter = (flow, id, pointerType = 'mouse') =>
   flow.onPointerOver({ target: new ElementStub(id), relatedTarget: null, pointerType });
 
@@ -310,7 +311,8 @@ test('完整图只有圆点命中与拖动，标签仅显示并随画布缩放�
   const flow = scene.flow();
   const point = inspect({ zoom: 0.5 });
   let tree = point.render('ArticlePoint', { data: node(flow, 'a').data });
-  assert.equal(tree.props.style['--graph-label-size'], '12px');
+  assert.equal(tree.props.style['--graph-label-size'], '16px');
+  assert.equal(tree.props.style['--graph-label-scale'], 1.5);
   assert.ok(!tree.props.className.includes('focused'));
   const title = find(tree, (item) => item.props?.className === 'dot-title');
   assert.equal(title.type, 'span');
@@ -322,12 +324,13 @@ test('完整图只有圆点命中与拖动，标签仅显示并随画布缩放�
   assert.equal(find(tree, (item) => item.type?.name === 'Handle').props.isConnectable, false);
   point.props.zoom = 2;
   tree = point.render('ArticlePoint', { data: node(flow, 'a').data });
-  assert.equal(tree.props.style['--graph-label-size'], '12px');
+  assert.equal(tree.props.style['--graph-label-size'], '16px');
+  assert.equal(tree.props.style['--graph-label-scale'], 1);
   tree = point.render('ArticlePoint', {
     data: { ...node(flow, 'a').data, article: { ...scene.props.articles[0], kind: 'module' } },
   });
-  assert.equal(tree.props.style['--graph-label-size'], '13px');
-  const compact = inspect({ compact: true });
+  assert.equal(tree.props.style['--graph-label-size'], '18px');
+  const compact = inspect({ compact: true, activeSlug: 'a' });
   let preview = compact.flow();
   assert.equal(node(preview, 'a').data.focused, true);
   assert.equal(node(preview, 'a').dragHandle, undefined);
@@ -337,6 +340,52 @@ test('完整图只有圆点命中与拖动，标签仅显示并随画布缩放�
   assert.equal(node(preview, 'b').data.focused, true);
   assert.equal(node(preview, 'a').data.focused, false);
   assert.equal(getEventListeners(compact.window, 'blur').length, 0);
+});
+
+test('当前查看与临时强调共用标题下限，移开不固定节点高亮，清空详情恢复常态', () => {
+  const scene = inspect();
+  let flow = scene.flow();
+  assert.ok(flow.nodes.every((item) => !hasClass(item, 'graph-label-readable')));
+  scene.props.activeSlug = 'a';
+  flow = scene.flow();
+  assert.ok(hasClass(node(flow, 'a'), 'graph-label-readable'));
+  assert.equal(emphasis(flow), undefined);
+  enter(flow, 'd');
+  flow = scene.flow();
+  assert.ok(hasClass(node(flow, 'a'), 'graph-label-readable'));
+  assert.ok(hasClass(node(flow, 'd'), 'graph-label-readable'));
+  assert.equal(emphasis(flow), 'd');
+  flow.onPointerLeave();
+  flow = scene.flow();
+  assert.ok(hasClass(node(flow, 'a'), 'graph-label-readable'));
+  assert.ok(!hasClass(node(flow, 'd'), 'graph-label-readable'));
+  assert.equal(emphasis(flow), undefined);
+  scene.props.activeSlug = undefined;
+  assert.ok(scene.flow().nodes.every((item) => !hasClass(item, 'graph-label-readable')));
+});
+
+test('标题下限在全部缩放范围连续，低于下限保持 12 屏幕像素，常态保留远景渐隐', () => {
+  const scene = inspect();
+  const data = node(scene.flow(), 'a').data;
+  for (const module of [false, true]) {
+    const point = inspect();
+    const threshold = 12 / (module ? 18 : 16);
+    const article = { ...data.article, kind: module ? 'module' : 'article' };
+    let previous;
+    for (const zoom of [0.08, 0.22, 0.29, 0.36, threshold - 0.0001, threshold, 1, 2, 4]) {
+      point.props.zoom = zoom;
+      const style = point.render('ArticlePoint', { data: { ...data, article } }).props.style;
+      const normal = parseFloat(style['--graph-label-size']) * zoom;
+      const readable = normal * style['--graph-label-scale'];
+      assert.ok(Math.abs(readable - Math.max(normal, 12)) < 0.0001);
+      if (previous !== undefined) assert.ok(readable + 0.00000001 >= previous);
+      previous = readable;
+      if (zoom <= 0.22) {
+        assert.equal(style['--graph-label-opacity'], 0);
+        assert.equal(style['--graph-label-visibility'], 'hidden');
+      }
+    }
+  }
 });
 
 test('移除文字按钮后节点仍支持键盘打开详情，不拦截原生方向键', () => {

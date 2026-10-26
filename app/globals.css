@@ -843,6 +843,10 @@ p {
   align-items: center;
   width: 172px;
   transform: translateX(-50%);
+  transform-origin: top center;
+}
+.graph-label-readable .dot-content {
+  transform: translateX(-50%) scale(var(--graph-label-scale));
 }
 .dot-title {
   max-width: 100%;
@@ -857,6 +861,8 @@ p {
 }
 .graph-node-active .dot-title {
   color: color-mix(in srgb, var(--node-ink) 70%, var(--text));
+}
+.graph-label-readable .dot-title {
   opacity: 1;
   visibility: visible;
 }

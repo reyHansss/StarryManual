@@ -18,6 +18,7 @@ import {
   type Node,
   type NodeChange,
   type Edge,
+  type OnNodeDrag,
 } from '@xyflow/react';
 import {
   ArrowLeft,
@@ -57,8 +58,7 @@ type ArticleNode = Node<{
   center: boolean;
   compact: boolean;
   degree: number;
-  select: (slug: string) => void;
-  explore: (slug: string) => void;
+  select: (slug?: string) => void;
 }>;
 
 function ArticlePoint({ data }: NodeProps<ArticleNode>) {
@@ -79,7 +79,7 @@ function ArticlePoint({ data }: NodeProps<ArticleNode>) {
           } as React.CSSProperties
         }
       >
-        <Handle type="target" position={Position.Left} />
+        <Handle type="target" position={Position.Left} isConnectable={false} />
         <div className="node-module">
           <i />
           {module.shortLabel}
@@ -101,13 +101,13 @@ function ArticlePoint({ data }: NodeProps<ArticleNode>) {
             <ArrowRight size={13} />
           </Link>
         )}
-        <Handle type="source" position={Position.Right} />
+        <Handle type="source" position={Position.Right} isConnectable={false} />
       </div>
     );
   }
   return (
     <div
-      className={`atlas-dot-node ${data.focused ? 'focused' : ''} ${data.center ? 'is-center' : ''}`}
+      className={`atlas-dot-node ${data.center ? 'is-center' : ''}`}
       style={
         {
           '--node-color': module.nodeColor,
@@ -116,20 +116,20 @@ function ArticlePoint({ data }: NodeProps<ArticleNode>) {
           '--node-visual-size': `${metrics.visualDiameter}px`,
           '--graph-point-scale': metrics.scale,
           '--graph-inverse-zoom': 1 / zoom,
-          '--graph-label-size': `${(data.focused ? 15 : 13) / zoom}px`,
+          '--graph-label-size': `${(isModule ? 13 : 12) / zoom}px`,
+          '--graph-label-opacity': labelOpacity,
+          '--graph-label-visibility': labelOpacity === 0 ? 'hidden' : 'visible',
         } as React.CSSProperties
       }
     >
-      <Handle type="target" position={Position.Left} />
+      <Handle type="target" position={Position.Left} isConnectable={false} />
       <span className="node-point" aria-hidden="true" title={`${data.degree} 条连接`}>
         <i />
       </span>
       <div className="dot-content">
         <button
           className="dot-title nodrag nopan"
-          style={{ opacity: labelOpacity, visibility: labelOpacity === 0 ? 'hidden' : 'visible' }}
-          aria-label={`选择${data.article.title}`}
-          aria-pressed={data.focused}
+          aria-label={`查看${data.article.title}详情`}
           onClick={() => data.select(data.article.slug)}
         >
           {data.article.title}
@@ -137,40 +137,20 @@ function ArticlePoint({ data }: NodeProps<ArticleNode>) {
             <span className="graph-module-count">{data.article.articleCount} 篇文档</span>
           )}
         </button>
-        {data.focused && (
-          <div className="dot-actions nodrag nopan">
-            <button
-              onClick={(event) => {
-                event.stopPropagation();
-                data.explore(data.article.slug);
-              }}
-              aria-label={
-                isModule
-                  ? `进入${data.article.title}模块图谱`
-                  : `进入${data.article.title}的局部图谱`
-              }
-              title={isModule ? '进入模块图谱' : '进入局部图谱'}
-            >
-              <Network size={14} />
-            </button>
-            {data.article.url && (
-              <Link
-                href={data.article.url}
-                aria-label={`打开${data.article.title}`}
-                title={isModule ? '阅读模块说明' : '阅读文章'}
-              >
-                <ArrowRight size={14} />
-              </Link>
-            )}
-          </div>
-        )}
       </div>
-      <Handle type="source" position={Position.Right} />
+      <Handle type="source" position={Position.Right} isConnectable={false} />
     </div>
   );
 }
 
 const nodeTypes = { article: memo(ArticlePoint, (previous, next) => previous.data === next.data) };
+
+/** 标题、圆点与节点容器共用同一身份，内部元素之间移动不切换强调。 */
+function graphNodeId(target: EventTarget | null) {
+  return target instanceof Element
+    ? (target.closest<HTMLElement>('.react-flow__node')?.dataset.id ?? null)
+    : null;
+}
 
 function FitGraphView({ compact }: { compact: boolean }) {
   const { fitView } = useReactFlow();
@@ -193,7 +173,6 @@ function GraphCanvas({
   layout,
   compact,
   select,
-  explore,
 }: {
   articles: GraphItem[];
   relations: GraphRelation[];
@@ -201,9 +180,23 @@ function GraphCanvas({
   center: string | null;
   layout: 'connections' | 'modules';
   compact: boolean;
-  select: (slug: string) => void;
-  explore: (slug: string) => void;
+  select: (slug?: string) => void;
 }) {
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [keyboardId, setKeyboardId] = useState<string | null>(null);
+  const selectedId = compact ? activeSlug : undefined;
+  const emphasisId = compact ? selectedId : (draggedId ?? hoveredId ?? keyboardId);
+  const neighborsById = useMemo(() => {
+    const neighbors = new Map<string, Set<string>>();
+    for (const { source, target } of relations) {
+      if (!neighbors.has(source)) neighbors.set(source, new Set());
+      if (!neighbors.has(target)) neighbors.set(target, new Set());
+      neighbors.get(source)!.add(target);
+      neighbors.get(target)!.add(source);
+    }
+    return neighbors;
+  }, [relations]);
   const [initialNodes] = useState(() => {
     const positions = getGraphPositions(articles, relations, layout, center);
     return articles.map((article, index): ArticleNode => {
@@ -223,50 +216,58 @@ function GraphCanvas({
           focused: false,
           center: article.slug === center,
           compact,
-          degree: relations.filter(
-            (relation) => relation.source === article.slug || relation.target === article.slug,
-          ).length,
+          degree: neighborsById.get(article.slug)?.size ?? 0,
           select,
-          explore,
         },
       };
     });
   });
   const [nodes, setNodes, onNodesChange] = useNodesState<ArticleNode>(initialNodes);
   const updateMotion = useGraphMotion(initialNodes, relations, layout, compact, setNodes);
-  // 选择变化才更新节点数据；物理帧只更新位置，保留标题、操作和连线的引用。
+  // 临时强调只修改外层样式，位置帧继续复用标题数据、连线与手势回调。
   useEffect(() => {
     setNodes((current) =>
       current.map((node) => {
-        const focused = node.id === activeSlug;
-        if (
-          node.data.focused === focused &&
-          node.data.select === select &&
-          node.data.explore === explore
-        ) {
-          return node;
-        }
-        return { ...node, data: { ...node.data, focused, select, explore } };
+        const focused = node.id === selectedId;
+        const className =
+          compact || !emphasisId
+            ? undefined
+            : node.id === emphasisId
+              ? 'graph-node-active'
+              : neighborsById.get(emphasisId)?.has(node.id)
+                ? 'graph-node-neighbor'
+                : 'graph-node-muted';
+        const data =
+          node.data.focused === focused && node.data.select === select
+            ? node.data
+            : { ...node.data, focused, select };
+        return node.className === className && node.data === data
+          ? node
+          : { ...node, className, data };
       }),
     );
-  }, [activeSlug, select, explore, setNodes]);
+  }, [selectedId, emphasisId, neighborsById, compact, select, setNodes]);
+  const emphasisColor = useMemo(() => {
+    const article = articles.find((item) => item.slug === emphasisId);
+    return article ? articleModules[article.module].nodeColor : 'var(--graph-edge-active)';
+  }, [articles, emphasisId]);
   const edges = useMemo<Edge[]>(
     () =>
       relations.map((relation) => {
-        const highlighted = relation.source === activeSlug || relation.target === activeSlug;
+        const highlighted = relation.source === emphasisId || relation.target === emphasisId;
         return {
           ...relation,
           type: compact ? 'default' : 'straight',
           selectable: false,
           focusable: false,
           style: {
-            stroke: highlighted ? 'var(--graph-edge-active)' : 'var(--graph-edge)',
-            strokeWidth: highlighted ? 1.5 : 1,
-            opacity: highlighted ? 0.9 : 0.4,
+            stroke: highlighted ? emphasisColor : 'var(--graph-edge)',
+            strokeWidth: highlighted ? 1.25 : 1,
+            opacity: highlighted ? 0.9 : emphasisId && !compact ? 0.07 : 0.35,
           },
         };
       }),
-    [relations, activeSlug, compact],
+    [relations, emphasisId, emphasisColor, compact],
   );
   const handleNodesChange = useCallback(
     (changes: NodeChange<ArticleNode>[]) => {
@@ -276,6 +277,53 @@ function GraphCanvas({
     [onNodesChange, updateMotion],
   );
   const selectNode = useCallback((_: unknown, node: ArticleNode) => select(node.id), [select]);
+  const clearEmphasis = useCallback(() => {
+    setHoveredId(null);
+    setDraggedId(null);
+    setKeyboardId(null);
+  }, []);
+  useEffect(() => {
+    if (compact) return;
+    const hide = () => {
+      if (document.hidden) clearEmphasis();
+    };
+    window.addEventListener('blur', clearEmphasis);
+    document.addEventListener('visibilitychange', hide);
+    return () => {
+      window.removeEventListener('blur', clearEmphasis);
+      document.removeEventListener('visibilitychange', hide);
+    };
+  }, [compact, clearEmphasis]);
+  const pointerOver = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (compact || draggedId || event.pointerType === 'touch') return;
+      const id = graphNodeId(event.target);
+      if (id !== graphNodeId(event.relatedTarget)) setHoveredId(id);
+    },
+    [compact, draggedId],
+  );
+  const pointerOut = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (compact || draggedId || event.pointerType === 'touch') return;
+      const id = graphNodeId(event.relatedTarget);
+      if (id !== graphNodeId(event.target)) setHoveredId(id);
+    },
+    [compact, draggedId],
+  );
+  const startDrag = useCallback<OnNodeDrag<ArticleNode>>((_, node) => {
+    setDraggedId(node.id);
+    setHoveredId(null);
+    setKeyboardId(null);
+  }, []);
+  const stopDrag = useCallback<OnNodeDrag<ArticleNode>>((event) => {
+    setDraggedId(null);
+    // 松手后按实际命中恢复悬停；拖出画布或触摸结束不会留下过期的拖动强调。
+    setHoveredId(
+      'clientX' in event
+        ? graphNodeId(document.elementFromPoint(event.clientX, event.clientY))
+        : null,
+    );
+  }, []);
   return (
     <ReactFlow
       nodes={nodes}
@@ -289,7 +337,27 @@ function GraphCanvas({
       nodesDraggable={!compact}
       nodesConnectable={false}
       onNodeClick={selectNode}
-      onNodeDragStart={selectNode}
+      onNodeDragStart={startDrag}
+      onNodeDragStop={stopDrag}
+      onPointerOver={pointerOver}
+      onPointerOut={pointerOut}
+      onPointerLeave={() => setHoveredId(null)}
+      onPointerCancel={clearEmphasis}
+      onPointerDownCapture={(event) => {
+        setKeyboardId(null);
+        if (event.pointerType === 'touch') setHoveredId(null);
+      }}
+      onFocusCapture={(event) => {
+        if (!compact && event.target.matches(':focus-visible')) {
+          setHoveredId(null);
+          setKeyboardId(graphNodeId(event.target));
+        }
+      }}
+      onBlurCapture={() => setKeyboardId(null)}
+      onPaneClick={() => {
+        clearEmphasis();
+        if (!compact) select();
+      }}
       deleteKeyCode={null}
       nodeDragThreshold={5}
       panOnDrag={[0]}
@@ -326,7 +394,7 @@ function GraphExplorer({
   ]);
   const [selection, setSelection] = useState({
     scope: scopeKey,
-    slug: view.center ?? 'architecture',
+    slug: compact ? 'architecture' : undefined,
   });
   const [layout, setLayout] = useState<'connections' | 'modules'>('connections');
   const [revision, setRevision] = useState(0);
@@ -360,10 +428,8 @@ function GraphExplorer({
   const centerArticle = articles.find((article) => article.slug === view.center);
   const current =
     visible.find(
-      (article) => article.slug === (selection.scope === scopeKey ? selection.slug : view.center),
-    ) ??
-    visible.find((article) => article.slug === view.center) ??
-    visible[0];
+      (article) => article.slug === (selection.scope === scopeKey ? selection.slug : undefined),
+    ) ?? (compact ? visible[0] : undefined);
   const neighbors: GraphItem[] = current
     ? (moduleOnly
         ? getLocalArticles(moduleGraph, current.slug)
@@ -371,7 +437,7 @@ function GraphExplorer({
       ).filter((article) => article.slug !== current.slug)
     : [];
   const select = useCallback(
-    (slug: string) => {
+    (slug?: string) => {
       setSelection({ scope: scopeKey, slug });
     },
     [scopeKey],
@@ -389,6 +455,14 @@ function GraphExplorer({
   );
   const parentView = { ...view, center: null, query: '' };
   const rootView = { ...globalGraphView, display: view.display };
+  const scopeTitle = centerArticle
+    ? `${centerArticle.title}的局部图`
+    : (view.section.at(-1) ??
+      (view.module !== 'all'
+        ? articleModules[view.module].shortLabel
+        : moduleOnly
+          ? '主模块总览'
+          : '全部文章'));
   return (
     <div className={`knowledge-graph ${compact ? 'compact' : ''}`}>
       {!compact && (
@@ -532,7 +606,6 @@ function GraphExplorer({
               layout={layout}
               compact={compact}
               select={select}
-              explore={explore}
             />
           ) : (
             <div className="empty-graph">
@@ -577,86 +650,111 @@ function GraphExplorer({
             </div>
           )}
         </div>
-        {!compact && current && (
+        {!compact && (
           <aside
             className="graph-inspector"
             aria-label="节点详情"
             style={
-              {
-                '--node-color': articleModules[current.module].nodeColor,
-                '--node-ink': articleModules[current.module].color,
-              } as React.CSSProperties
+              current
+                ? ({
+                    '--node-color': articleModules[current.module].nodeColor,
+                    '--node-ink': articleModules[current.module].color,
+                  } as React.CSSProperties)
+                : undefined
             }
           >
-            <div className="eyebrow">
-              {moduleOnly ? 'EXPLORE A MODULE' : view.center ? 'LOCAL EXPLORER' : 'EXPLORE A PAGE'}
-            </div>
-            <div className="inspector-summary" key={current.slug}>
-              <span
-                className="pill"
-                style={{ color: 'color-mix(in srgb, var(--node-ink) 70%, var(--text))' }}
-              >
-                {articleModules[current.module].label}
-              </span>
-              {!!current.section?.length && (
-                <div className="graph-node-path">{current.section.join(' / ')}</div>
-              )}
-              {current.slug === view.center && <span className="graph-center-label">中心节点</span>}
-              <h2>{current.title}</h2>
-              <p>{current.description}</p>
-              {current.kind === 'module' && (
-                <p className="graph-module-summary">
-                  包含 {current.articleCount} 篇文档，进入模块图查看功能分区与文章。
+            {current ? (
+              <>
+                <div className="eyebrow">
+                  {moduleOnly
+                    ? 'EXPLORE A MODULE'
+                    : view.center
+                      ? 'LOCAL EXPLORER'
+                      : 'EXPLORE A PAGE'}
+                </div>
+                <div className="inspector-summary" key={current.slug}>
+                  <span
+                    className="pill"
+                    style={{ color: 'color-mix(in srgb, var(--node-ink) 70%, var(--text))' }}
+                  >
+                    {articleModules[current.module].label}
+                  </span>
+                  {!!current.section?.length && (
+                    <div className="graph-node-path">{current.section.join(' / ')}</div>
+                  )}
+                  {current.slug === view.center && (
+                    <span className="graph-center-label">中心节点</span>
+                  )}
+                  <h2>{current.title}</h2>
+                  <p>{current.description}</p>
+                  {current.kind === 'module' && (
+                    <p className="graph-module-summary">
+                      包含 {current.articleCount} 篇文档，进入模块图查看功能分区与文章。
+                    </p>
+                  )}
+                </div>
+                <div className="inspector-actions">
+                  {current.slug !== view.center && (
+                    <button className="button quiet" onClick={() => explore(current.slug)}>
+                      <Network size={16} />{' '}
+                      {current.kind === 'module' ? '进入模块图谱' : '进入局部图谱'}{' '}
+                      <ChevronRight size={16} />
+                    </button>
+                  )}
+                  {current.url && (
+                    <Link href={current.url} className="button primary">
+                      {current.kind === 'module' ? '阅读模块说明' : '阅读这篇文档'}{' '}
+                      <ArrowRight size={16} />
+                    </Link>
+                  )}
+                </div>
+                <div className="inspector-related">
+                  <span className="eyebrow">
+                    {moduleOnly ? '相连的模块' : '相连的页面'} · {neighbors.length}
+                  </span>
+                  <p className="graph-related-hint">
+                    {moduleOnly
+                      ? '连线汇总模块之间的文章阅读关联。'
+                      : '选择一篇，继续探索它的局部图。'}
+                  </p>
+                  {neighbors.map((article) => (
+                    <button
+                      key={article.slug}
+                      onClick={() => explore(article.slug)}
+                      aria-label={
+                        moduleOnly
+                          ? `探索${article.title}模块图谱`
+                          : `探索${article.title}的局部图谱`
+                      }
+                    >
+                      <BookOpen size={14} />
+                      {article.title}
+                      <ChevronRight size={14} />
+                    </button>
+                  ))}
+                  {!neighbors.length && (
+                    <p className="graph-related-hint">
+                      {moduleOnly ? '该模块暂时没有跨模块阅读关联。' : '这篇文章暂时没有关联链接。'}
+                    </p>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="inspector-summary">
+                <span className="eyebrow">图谱概览</span>
+                <h2>{scopeTitle}</h2>
+                <p>
+                  {visible.length} 个{moduleOnly ? '模块' : '页面'} · {relations.length} 组阅读关联
                 </p>
-              )}
-            </div>
-            <div className="inspector-actions">
-              {current.slug !== view.center && (
-                <button className="button quiet" onClick={() => explore(current.slug)}>
-                  <Network size={16} />{' '}
-                  {current.kind === 'module' ? '进入模块图谱' : '进入局部图谱'}{' '}
-                  <ChevronRight size={16} />
-                </button>
-              )}
-              {current.url && (
-                <Link href={current.url} className="button primary">
-                  {current.kind === 'module' ? '阅读模块说明' : '阅读这篇文档'}{' '}
-                  <ArrowRight size={16} />
-                </Link>
-              )}
-            </div>
-            <div className="inspector-related">
-              <span className="eyebrow">
-                {moduleOnly ? '相连的模块' : '相连的页面'} · {neighbors.length}
-              </span>
-              <p className="graph-related-hint">
-                {moduleOnly ? '连线汇总模块之间的文章阅读关联。' : '选择一篇，继续探索它的局部图。'}
-              </p>
-              {neighbors.map((article) => (
-                <button
-                  key={article.slug}
-                  onClick={() => explore(article.slug)}
-                  aria-label={
-                    moduleOnly ? `探索${article.title}模块图谱` : `探索${article.title}的局部图谱`
-                  }
-                >
-                  <BookOpen size={14} />
-                  {article.title}
-                  <ChevronRight size={14} />
-                </button>
-              ))}
-              {!neighbors.length && (
-                <p className="graph-related-hint">
-                  {moduleOnly ? '该模块暂时没有跨模块阅读关联。' : '这篇文章暂时没有关联链接。'}
-                </p>
-              )}
-            </div>
+                <p>停留在节点上查看直接关联，单击查看详情，再打开文章或进入子图。</p>
+              </div>
+            )}
             <small>
-              单击选择 · <Network size={11} /> {moduleOnly ? '进入模块图' : '进入局部图'} · 箭头阅读
+              悬停或键盘聚焦查看关联 · 单击查看详情
               <br />
               左键牵引节点 · 空白平移 · 滚轮缩放
               <br />
-              触屏可单指拖动、双指缩放
+              触屏点按查看详情 · 单指拖动、双指缩放
             </small>
           </aside>
         )}

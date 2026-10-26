@@ -781,7 +781,8 @@ p {
   position: relative;
   width: 172px;
   height: 112px;
-  color: var(--text);
+  color: var(--muted);
+  opacity: 1;
 }
 .node-point {
   position: absolute;
@@ -817,10 +818,21 @@ p {
   background: var(--node-color);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--node-ink) 60%, transparent);
 }
-.atlas-dot-node.focused .node-point > i {
+.graph-node-active .node-point > i {
   box-shadow:
-    0 0 0 2px var(--node-ink),
-    0 0 0 8px var(--selection-halo);
+    0 0 0 1px var(--node-ink),
+    0 0 0 4px var(--selection-halo);
+}
+.graph-node-active .atlas-dot-node,
+.graph-node-neighbor .atlas-dot-node {
+  color: var(--text);
+}
+.graph-node-muted .atlas-dot-node {
+  opacity: 0.24;
+}
+.graph-node-muted .node-point > i {
+  background: var(--graph-edge);
+  box-shadow: none;
 }
 .atlas-dot-node.is-center .node-point:after {
   content: '';
@@ -844,16 +856,18 @@ p {
   max-width: 100%;
   padding: calc(2px * var(--graph-inverse-zoom)) calc(6px * var(--graph-inverse-zoom));
   border-radius: calc(var(--radius-sm) * var(--graph-inverse-zoom));
-  background: color-mix(in srgb, var(--reading-bg) 92%, transparent);
+  background: transparent;
   font-size: var(--graph-label-size);
-  font-weight: 550;
+  font-weight: 400;
   line-height: 1.5;
   text-align: center;
+  opacity: var(--graph-label-opacity);
+  visibility: var(--graph-label-visibility);
 }
-.focused .dot-title {
+.graph-node-active .dot-title {
   color: color-mix(in srgb, var(--node-ink) 70%, var(--text));
-  background: color-mix(in srgb, var(--node-color) 18%, var(--surface));
-  font-weight: 700;
+  opacity: 1;
+  visibility: visible;
 }
 .atlas-dot-node .react-flow__handle {
   top: 26px;
@@ -866,30 +880,6 @@ p {
   transform: translate(-50%, -50%);
   opacity: 0;
   pointer-events: none;
-}
-.dot-actions {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: calc(6px * var(--graph-inverse-zoom));
-  margin-top: calc(6px * var(--graph-inverse-zoom));
-}
-.dot-actions :is(button, a) {
-  display: grid;
-  place-items: center;
-  width: calc(34px * var(--graph-inverse-zoom));
-  height: calc(32px * var(--graph-inverse-zoom));
-  border: calc(1px * var(--graph-inverse-zoom)) solid var(--border);
-  border-radius: calc(var(--radius-sm) * var(--graph-inverse-zoom));
-  background: var(--surface);
-  color: var(--accent-hover);
-}
-.dot-actions svg {
-  width: calc(14px * var(--graph-inverse-zoom));
-  height: calc(14px * var(--graph-inverse-zoom));
-}
-.dot-actions :is(button, a):hover {
-  background: var(--accent-soft);
 }
 .knowledge-graph:not(.compact) .react-flow__node {
   cursor: grab;
@@ -1006,6 +996,8 @@ p {
   font-weight: 700;
 }
 .graph-inspector {
+  --node-color: var(--accent);
+  --node-ink: var(--accent-hover);
   display: flex;
   flex-direction: column;
   align-items: flex-start;

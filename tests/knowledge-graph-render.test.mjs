@@ -23,8 +23,8 @@ class ElementStub {
   closest() {
     return this.dataset.id ? this : null;
   }
-  matches() {
-    return this.focusVisible;
+  matches(selector) {
+    return selector === ':focus-visible' ? this.focusVisible : Boolean(this.dataset.id);
   }
 }
 
@@ -305,26 +305,53 @@ test('详情初始显示范围概览，点击与清空独立于画布强调，�
   assert.equal(canvas(tree).props.activeSlug, undefined);
 });
 
-test('完整图标签为固定屏幕小字号，紧凑卡片保留原有选择能力', () => {
+test('完整图只有圆点命中与拖动，标签仅显示并随画布缩放，紧凑卡片保留选择', () => {
   const scene = inspect();
   const flow = scene.flow();
   const point = inspect({ zoom: 0.5 });
   let tree = point.render('ArticlePoint', { data: node(flow, 'a').data });
-  assert.equal(tree.props.style['--graph-label-size'], '24px');
+  assert.equal(tree.props.style['--graph-label-size'], '12px');
   assert.ok(!tree.props.className.includes('focused'));
-  const title = find(tree, (item) => item.props?.className === 'dot-title nodrag nopan');
-  assert.equal(title.props['aria-pressed'], undefined);
+  const title = find(tree, (item) => item.props?.className === 'dot-title');
+  assert.equal(title.type, 'span');
+  assert.equal(title.props.onClick, undefined);
+  assert.equal(title.props.tabIndex, undefined);
+  assert.equal(node(flow, 'a').style.pointerEvents, 'none');
+  assert.equal(node(flow, 'a').dragHandle, '.node-point');
+  assert.equal(node(flow, 'a').ariaRole, 'button');
   assert.equal(find(tree, (item) => item.type?.name === 'Handle').props.isConnectable, false);
+  point.props.zoom = 2;
+  tree = point.render('ArticlePoint', { data: node(flow, 'a').data });
+  assert.equal(tree.props.style['--graph-label-size'], '12px');
   tree = point.render('ArticlePoint', {
     data: { ...node(flow, 'a').data, article: { ...scene.props.articles[0], kind: 'module' } },
   });
-  assert.equal(tree.props.style['--graph-label-size'], '26px');
+  assert.equal(tree.props.style['--graph-label-size'], '13px');
   const compact = inspect({ compact: true });
   let preview = compact.flow();
   assert.equal(node(preview, 'a').data.focused, true);
+  assert.equal(node(preview, 'a').dragHandle, undefined);
+  assert.equal(node(preview, 'a').style, undefined);
   compact.props.activeSlug = 'b';
   preview = compact.flow();
   assert.equal(node(preview, 'b').data.focused, true);
   assert.equal(node(preview, 'a').data.focused, false);
   assert.equal(getEventListeners(compact.window, 'blur').length, 0);
+});
+
+test('移除文字按钮后节点仍支持键盘打开详情，不拦截原生方向键', () => {
+  const scene = inspect();
+  const flow = scene.flow();
+  let prevented = 0;
+  for (const key of ['Enter', ' ']) {
+    flow.onKeyDown({
+      target: new ElementStub('b'),
+      key,
+      preventDefault: () => prevented++,
+    });
+  }
+  flow.onKeyDown({ target: new ElementStub('b'), key: 'ArrowLeft' });
+  flow.onKeyDown({ target: new ElementStub(), key: 'Enter' });
+  assert.deepEqual(scene.selections, ['b', 'b']);
+  assert.equal(prevented, 2);
 });

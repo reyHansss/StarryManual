@@ -25,7 +25,7 @@ export default function HomePage() {
               开始阅读 <ArrowRight size={16} />
             </Link>
             <Link href="/graph" className="button quiet">
-              知识图谱 <ArrowUpRight size={16} />
+              关系图谱 <ArrowUpRight size={16} />
             </Link>
           </div>
         </div>

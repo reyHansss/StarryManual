@@ -41,7 +41,7 @@ export function SiteHeader() {
           阅读文档
         </Link>
         <Link href="/graph" className={path.startsWith('/graph') ? 'active' : ''}>
-          知识图谱
+          关系图谱
         </Link>
       </nav>
       <div className="header-actions">

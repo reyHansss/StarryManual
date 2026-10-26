@@ -116,7 +116,7 @@ function ArticlePoint({ data }: NodeProps<ArticleNode>) {
           '--node-visual-size': `${metrics.visualDiameter}px`,
           '--graph-point-scale': metrics.scale,
           '--graph-inverse-zoom': 1 / zoom,
-          '--graph-label-size': `${(isModule ? 13 : 12) / zoom}px`,
+          '--graph-label-size': `${isModule ? 13 : 12}px`,
           '--graph-label-opacity': labelOpacity,
           '--graph-label-visibility': labelOpacity === 0 ? 'hidden' : 'visible',
         } as React.CSSProperties
@@ -127,16 +127,12 @@ function ArticlePoint({ data }: NodeProps<ArticleNode>) {
         <i />
       </span>
       <div className="dot-content">
-        <button
-          className="dot-title nodrag nopan"
-          aria-label={`查看${data.article.title}详情`}
-          onClick={() => data.select(data.article.slug)}
-        >
+        <span className="dot-title">
           {data.article.title}
           {data.article.kind === 'module' && (
             <span className="graph-module-count">{data.article.articleCount} 篇文档</span>
           )}
-        </button>
+        </span>
       </div>
       <Handle type="source" position={Position.Right} isConnectable={false} />
     </div>
@@ -145,7 +141,7 @@ function ArticlePoint({ data }: NodeProps<ArticleNode>) {
 
 const nodeTypes = { article: memo(ArticlePoint, (previous, next) => previous.data === next.data) };
 
-/** 标题、圆点与节点容器共用同一身份，内部元素之间移动不切换强调。 */
+/** 圆点与键盘聚焦共用节点身份；文字和透明容器不参与指针命中。 */
 function graphNodeId(target: EventTarget | null) {
   return target instanceof Element
     ? (target.closest<HTMLElement>('.react-flow__node')?.dataset.id ?? null)
@@ -210,7 +206,11 @@ function GraphCanvas({
         id: article.slug,
         type: 'article',
         position: compact ? previewPosition : positions.get(article.slug)!,
-        ariaLabel: article.title,
+        ariaLabel: compact ? article.title : `查看${article.title}详情`,
+        ariaRole: compact ? undefined : 'button',
+        dragHandle: compact ? undefined : '.node-point',
+        // 外层仍负责键盘操作与布局测量，指针仅由圆点重新开启命中。
+        style: compact ? undefined : { pointerEvents: 'none' },
         data: {
           article,
           focused: false,
@@ -354,6 +354,17 @@ function GraphCanvas({
         }
       }}
       onBlurCapture={() => setKeyboardId(null)}
+      onKeyDown={(event) => {
+        if (
+          !compact &&
+          event.target instanceof Element &&
+          event.target.matches('.react-flow__node') &&
+          (event.key === 'Enter' || event.key === ' ')
+        ) {
+          event.preventDefault();
+          select(graphNodeId(event.target) ?? undefined);
+        }
+      }}
       onPaneClick={() => {
         clearEmphasis();
         if (!compact) select();
@@ -365,7 +376,7 @@ function GraphCanvas({
       panOnScroll={false}
       zoomOnScroll={!compact}
       preventScrolling={!compact}
-      aria-label="知识关系图谱"
+      aria-label="关系图谱"
     >
       <FitGraphView compact={compact} />
       <Background variant={BackgroundVariant.Dots} gap={26} size={1} color="var(--graph-grid)" />
@@ -810,7 +821,7 @@ export function KnowledgeGraph({
     <Suspense
       fallback={
         <div className="graph-loading" role="status">
-          正在展开知识图谱…
+          正在展开关系图谱…
         </div>
       }
     >

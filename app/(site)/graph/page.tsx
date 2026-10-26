@@ -1,13 +1,13 @@
 import { getCatalog } from '@/lib/catalog';
 import { KnowledgeGraph } from '@/components/knowledge-graph';
 
-export const metadata = { title: '知识图谱' };
+export const metadata = { title: '关系图谱' };
 export default async function GraphPage() {
   return (
     <main id="main" className="wide-page graph-page">
       <div className="page-heading">
         <div>
-          <span className="eyebrow">THE KNOWLEDGE MAP</span>
+          <span className="eyebrow">THE RELATIONSHIP MAP</span>
           <h1>顺着联系，发现下一页。</h1>
           <p>按模块与功能查找内容，再沿文章之间的真实链接继续探索。</p>
         </div>

@@ -776,32 +776,24 @@ p {
   background: var(--accent-soft);
   color: var(--accent-hover);
 }
-/* 完整图用轻量圆点呈现关系空间，按钮与拖动区域分别处理输入。 */
+/* 完整图只有圆点接收指针输入；文字与透明容器让事件穿透到画布。 */
 .atlas-dot-node {
   position: relative;
   width: 172px;
   height: 112px;
   color: var(--muted);
   opacity: 1;
+  pointer-events: none;
 }
 .node-point {
   position: absolute;
   top: 26px;
   left: 50%;
-  width: 32px;
-  height: 32px;
-  transform: translate(-50%, -50%);
-}
-/* 视觉补偿不移动连线中心，远景仍保留可点击、可左键拖动的圆形命中区域。 */
-.node-point:before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
   width: max(calc(32px * var(--graph-inverse-zoom)), var(--node-visual-size));
   height: max(calc(32px * var(--graph-inverse-zoom)), var(--node-visual-size));
   border-radius: 50%;
   transform: translate(-50%, -50%);
+  pointer-events: all;
 }
 .node-point > i,
 .atlas-dot-node.is-center .node-point:after {
@@ -844,18 +836,17 @@ p {
 }
 .dot-content {
   position: absolute;
-  top: calc(34px + max(16px, var(--node-visual-size) / 2));
+  top: calc(34px + max(16px * var(--graph-inverse-zoom), var(--node-visual-size) / 2));
   left: 50%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: calc(172px * var(--graph-inverse-zoom));
+  width: 172px;
   transform: translateX(-50%);
 }
 .dot-title {
   max-width: 100%;
-  padding: calc(2px * var(--graph-inverse-zoom)) calc(6px * var(--graph-inverse-zoom));
-  border-radius: calc(var(--radius-sm) * var(--graph-inverse-zoom));
+  padding: 2px 6px;
   background: transparent;
   font-size: var(--graph-label-size);
   font-weight: 400;

@@ -237,7 +237,7 @@ function Viewport({
   );
 }
 
-/** 与知识图谱复用现有的平移缩放能力；整张 SVG 作为一个只读画布，不改动图表节点和连线。 */
+/** 与关系图谱复用现有的平移缩放能力；整张 SVG 作为一个只读画布，不改动图表节点和连线。 */
 export function DiagramViewport(props: Parameters<typeof Viewport>[0]) {
   return (
     <ReactFlowProvider>

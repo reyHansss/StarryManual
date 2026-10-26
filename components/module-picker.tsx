@@ -8,7 +8,7 @@ import { articleModules, type ModuleKey } from '@/lib/navigation';
 
 type ModuleChoice = { key: ModuleKey; count: number };
 
-/** 阅读目录与知识图谱共用模块搜索菜单，只由已有模块数据生成。 */
+/** 阅读目录与关系图谱共用模块搜索菜单，只由已有模块数据生成。 */
 export function ModulePicker({
   modules,
   current,

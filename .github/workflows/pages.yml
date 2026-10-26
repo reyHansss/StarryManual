@@ -55,6 +55,7 @@ jobs:
           pnpm test:blueprint
           pnpm test:graph
           pnpm test:particles
+          pnpm test:search
 
       - name: 生成并检查静态文件
         env:

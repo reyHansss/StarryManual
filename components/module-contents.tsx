@@ -1,6 +1,7 @@
 import Link from 'next/link';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import {
+  articleModules,
   getArticleLabel,
   getSectionAnchor,
   type ModuleNavigation,
@@ -16,7 +17,7 @@ function ContentsEntries({ entries }: { entries: NavigationEntry[] }) {
             <>
               <Link href={entry.article.url}>
                 <span>{getArticleLabel(entry.article)}</span>
-                <ArrowUpRight size={13} aria-hidden="true" />
+                <ArrowRight size={14} aria-hidden="true" />
               </Link>
               <p>{entry.article.description}</p>
             </>
@@ -38,7 +39,16 @@ export function ModuleContents({ module }: { module: ModuleNavigation }) {
   );
   if (!entries.length) return null;
   return (
-    <section className="module-contents" aria-labelledby="module-contents">
+    <section
+      className="module-contents"
+      aria-labelledby="module-contents"
+      style={
+        {
+          '--module-color': articleModules[module.key].nodeColor,
+          '--module-ink': articleModules[module.key].color,
+        } as React.CSSProperties
+      }
+    >
       <h2 id="module-contents">子模块与功能</h2>
       <p>进入具体功能，查阅使用步骤、运行机制与扩展方法。</p>
       <div className="module-contents-grid">

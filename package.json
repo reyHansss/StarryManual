@@ -17,6 +17,7 @@
     "test:particles": "node --test tests/particle-effects.test.mjs",
     "test:navigation": "node --test tests/navigation.test.mjs",
     "test:diagram": "node --test tests/diagram-viewport.test.mjs",
+    "test:search": "node --test tests/search.test.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

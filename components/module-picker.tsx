@@ -14,15 +14,19 @@ export function ModulePicker({
   current,
   onChange,
   includeAll = false,
+  detailed = false,
 }: {
   modules: ModuleChoice[];
   current: ModuleKey | 'all';
   onChange: (module: ModuleKey | 'all') => void;
   includeAll?: boolean;
+  /** 阅读侧栏显示模块全称与文章数，图谱工具栏保持紧凑名称。 */
+  detailed?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const label = current === 'all' ? '全部模块' : articleModules[current].shortLabel;
+  const count = modules.find((module) => module.key === current)?.count;
   const matches = modules.filter(({ key }) =>
     `${key} ${articleModules[key].label}`.toLowerCase().includes(query.trim().toLowerCase()),
   );
@@ -40,8 +44,13 @@ export function ModulePicker({
     >
       <Popover.Trigger asChild>
         <button className="graph-picker-trigger" aria-label={`选择模块：${label}`}>
-          <Layers3 size={15} />
-          <span>{label}</span>
+          {current === 'all' ? (
+            <Layers3 size={15} />
+          ) : (
+            <i className="picker-dot" style={{ background: articleModules[current].nodeColor }} />
+          )}
+          <span>{detailed && current !== 'all' ? articleModules[current].label : label}</span>
+          {detailed && count !== undefined && <small>{count} 篇</small>}
           <ChevronDown size={14} />
         </button>
       </Popover.Trigger>
@@ -98,6 +107,7 @@ export function ReadingModulePicker({
   return (
     <div className="sidebar-module-picker">
       <ModulePicker
+        detailed
         modules={modules}
         current={current}
         onChange={(key) => {

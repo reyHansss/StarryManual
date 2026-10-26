@@ -2,6 +2,7 @@
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --motion-press: 120ms;
   --motion-state: 160ms;
+  --motion-expand: 200ms;
   --motion-enter: 240ms;
 }
 
@@ -16,8 +17,7 @@
 .graph-layout-tools button,
 .graph-up,
 .graph-picker-trigger,
-.graph-display-toggle button,
-.presets button {
+.graph-display-toggle button {
   transition:
     transform var(--motion-press) var(--ease-out),
     color var(--motion-press) ease,
@@ -36,16 +36,35 @@
     .graph-layout-tools button,
     .graph-up,
     .graph-picker-trigger,
-    .graph-display-toggle button,
-    .presets button
+    .graph-display-toggle button
   ):active:not(:disabled):not(:focus-visible) {
   transform: scale(0.97);
 }
 
-.main-nav a {
+/* 导航与列表项只过渡颜色和底色，悬停时立即可读。 */
+.main-nav a,
+.sidebar-page,
+.sidebar-tree summary,
+.sidebar-links a,
+.relation-list a,
+.open-local-graph,
+.toc-top,
+.module-function-list a,
+.inline-toc nav a,
+.article-breadcrumb a {
   transition:
     color var(--motion-press) ease,
-    background-color var(--motion-state) ease;
+    background-color var(--motion-state) ease,
+    border-color var(--motion-state) ease;
+}
+
+.article-next a,
+.recommended-site,
+.module-function-card {
+  transition:
+    transform var(--motion-state) var(--ease-out),
+    border-color var(--motion-state) ease,
+    box-shadow var(--motion-state) ease;
 }
 
 .graph-module-menu,
@@ -63,13 +82,11 @@
   }
 }
 
-.main-nav a:after {
-  transition:
-    opacity var(--motion-state) ease,
-    transform var(--motion-state) var(--ease-out);
-}
-
-.button > svg {
+.button > svg,
+.module-function-list a > svg,
+.article-next span > svg,
+.recommended-site > svg,
+.sidebar-links a > svg:last-child {
   transition: transform var(--motion-state) var(--ease-out);
 }
 
@@ -78,12 +95,89 @@
     transform: translateY(-1px);
   }
 
-  .button:hover:not(:focus-visible) > svg {
+  .button:hover:not(:focus-visible) > svg,
+  .module-function-list a:hover > svg {
     transform: translateX(3px);
   }
 
-  .main-nav a:hover:after {
-    opacity: 1;
+  .article-next a:hover,
+  .recommended-site:hover {
+    transform: translateY(-2px);
+  }
+
+  .article-next a[rel='prev']:hover span > svg {
+    transform: translateX(-3px);
+  }
+
+  .article-next a[rel='next']:hover span > svg {
+    transform: translateX(3px);
+  }
+
+  .recommended-site:hover {
+    border-color: var(--accent-tint);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .recommended-site:hover > svg,
+  .sidebar-links a:hover > svg:last-child {
+    transform: translate(2px, -2px);
+  }
+}
+
+/* 目录展开按内容高度过渡；收起时内容先随高度裁切，再从无障碍树中移除。 */
+@media (prefers-reduced-motion: no-preference) {
+  .sidebar-tree details,
+  .mobile-doc-menu,
+  .inline-toc,
+  .relation-more {
+    interpolate-size: allow-keywords;
+  }
+
+  :is(.sidebar-tree details, .mobile-doc-menu, .inline-toc, .relation-more)::details-content {
+    block-size: 0;
+    overflow: clip;
+    overflow-clip-margin: 6px;
+    transition:
+      block-size var(--motion-expand) var(--ease-out),
+      content-visibility var(--motion-expand) allow-discrete;
+  }
+
+  :is(.sidebar-tree details, .mobile-doc-menu, .inline-toc, .relation-more)[open]::details-content {
+    block-size: auto;
+  }
+}
+
+/* 页眉阴影与阅读进度直接由页面滚动位置驱动，没有独立的播放时长。 */
+@supports (animation-timeline: scroll()) {
+  .site-header {
+    animation: header-raise linear both;
+    animation-timeline: scroll(root block);
+    animation-range: 0 64px;
+  }
+
+  .reading-progress {
+    animation: reading-progress linear both;
+    animation-timeline: scroll(root block);
+  }
+}
+
+@supports not (animation-timeline: scroll()) {
+  .reading-progress {
+    display: none;
+  }
+}
+
+@keyframes header-raise {
+  from {
+    box-shadow: 0 0 0 transparent;
+  }
+  to {
+    box-shadow: 0 6px 20px -14px #5a2f3a40;
+  }
+}
+
+@keyframes reading-progress {
+  to {
     transform: scaleX(1);
   }
 }
@@ -201,10 +295,6 @@
   .graph-section-menu {
     transition: opacity var(--motion-press) ease;
   }
-  .main-nav a:after {
-    transform: none;
-    transition: opacity var(--motion-press) ease;
-  }
 
   .button:is(:hover, :active),
   :is(
@@ -217,20 +307,19 @@
     .graph-layout-tools button,
     .graph-up,
     .graph-picker-trigger,
-    .graph-display-toggle button,
-    .presets button
+    .graph-display-toggle button
   ):active,
   .button:hover > svg,
-  .result-icon > svg {
+  .module-function-list a:hover > svg,
+  .article-next a:hover,
+  .article-next a:hover span > svg,
+  .recommended-site:hover,
+  .recommended-site:hover > svg,
+  .sidebar-links a:hover > svg:last-child {
     transform: none;
   }
 
-  .result-icon > svg,
   .inspector-summary {
     transition: opacity var(--motion-press) ease;
-  }
-
-  .playhead-track {
-    visibility: hidden;
   }
 }

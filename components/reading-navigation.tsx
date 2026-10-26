@@ -56,21 +56,27 @@ export function ReadingNavigation({
     };
   });
   const navigation = (
-    <nav aria-label="模块与功能目录">
-      <span className="sidebar-module-title">{module.label}</span>
+    <nav aria-label="模块与功能目录" className="sidebar-nav">
       <Entries entries={module.entries} current={current.slug} />
     </nav>
   );
   return (
     <aside className="reading-sidebar" key={current.slug}>
-      <Link href="/" className="sidebar-home">
-        <House size={14} />
-        回到首页
-      </Link>
-      <span className="sidebar-label">模块与功能</span>
+      {/* 侧栏占满视口高度：模块切换在上，目录独立滚动，常用出口固定在底部。 */}
       <div className="desktop-doc-menu">
         <ReadingModulePicker modules={choices} current={active} />
         {navigation}
+        <div className="sidebar-links">
+          <Link href="/">
+            <House size={15} aria-hidden="true" />
+            回到首页
+          </Link>
+          <Link href={`/graph?module=${active}`}>
+            <Network size={15} aria-hidden="true" />
+            模块关系图谱
+            <ArrowUpRight size={13} aria-hidden="true" />
+          </Link>
+        </div>
       </div>
       <details className="mobile-doc-menu">
         <summary>
@@ -82,11 +88,6 @@ export function ReadingNavigation({
         <ReadingModulePicker modules={choices} current={active} />
         {navigation}
       </details>
-      <Link href="/graph" className="sidebar-graph">
-        <Network size={16} />
-        <span>在图谱里探索</span>
-        <ArrowUpRight size={14} />
-      </Link>
     </aside>
   );
 }

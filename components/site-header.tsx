@@ -28,6 +28,7 @@ export function StarMark() {
 
 export function SiteHeader() {
   const path = usePathname();
+  const reading = path.startsWith('/read');
   return (
     <header className="site-header">
       <Link className="brand" href="/" aria-label="Starry手册 首页">
@@ -37,10 +38,18 @@ export function SiteHeader() {
         </span>
       </Link>
       <nav className="main-nav" aria-label="主导航">
-        <Link href="/read/start-here" className={path.startsWith('/read') ? 'active' : ''}>
+        <Link
+          href="/read/start-here"
+          className={reading ? 'active' : ''}
+          aria-current={reading ? 'true' : undefined}
+        >
           阅读文档
         </Link>
-        <Link href="/graph" className={path.startsWith('/graph') ? 'active' : ''}>
+        <Link
+          href="/graph"
+          className={path.startsWith('/graph') ? 'active' : ''}
+          aria-current={path.startsWith('/graph') ? 'true' : undefined}
+        >
           关系图谱
         </Link>
       </nav>
@@ -49,6 +58,8 @@ export function SiteHeader() {
         <EditorLink className="editor-link" />
         <ParticleMotionToggle />
       </div>
+      {/* 阅读进度由滚动时间线直接驱动，不监听滚动事件；浏览器不支持时不显示。 */}
+      {reading && <span className="reading-progress" aria-hidden="true" />}
     </header>
   );
 }

@@ -4,6 +4,7 @@ import path from 'node:path';
 import matter from 'gray-matter';
 import type { Article } from './types';
 import { getArticleModule } from './navigation';
+import { getSearchText } from './search';
 
 // 关系只从本站文章的真实链接提取，正文和图谱共用一个内容来源。
 export async function getCatalog(): Promise<Article[]> {
@@ -28,7 +29,7 @@ export async function getCatalog(): Promise<Article[]> {
             ),
           ),
         ],
-        text: content.replace(/<[^>]*>/g, '').replace(/[#*`\[\]]/g, ''),
+        text: getSearchText(content),
       } satisfies Article;
     }),
   );

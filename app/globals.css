@@ -3091,11 +3091,12 @@ mark {
   font-weight: 850;
   line-height: 1.24;
 }
-/* 品牌字从墨色过渡到暖粉，与页眉星标同一组色彩；斜体留出右侧余量，避免裁切末字母。 */
+/* 渐变绘制范围要包住斜体外伸与字尾下探；底部余量用负边距抵消，不挤动下一行。 */
 .hero-name {
   display: block;
   width: fit-content;
-  padding-right: 0.12em;
+  padding: 0 0.12em 0.16em 0;
+  margin-bottom: -0.16em;
   background: linear-gradient(
     100deg,
     var(--heading) 38%,

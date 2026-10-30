@@ -41,7 +41,6 @@ import {
   getGraphPositions,
   getGraphRelations,
   getGraphArticles,
-  getGraphSections,
   getModuleGraph,
   getLocalArticles,
   globalGraphView,
@@ -437,8 +436,15 @@ function GraphExplorer({
       `${item.title} ${item.description} ${item.module}`.toLowerCase().includes(query),
     );
   }, [articles, scopeKey, moduleOnly, moduleGraph]);
-  const sections = getGraphSections(articles, view.module);
   const moduleNavigation = useMemo(() => buildModuleNavigation(articles), [articles]);
+  const sectionEntries =
+    moduleNavigation.find((module) => module.key === view.module)?.entries ?? [];
+  const sectionDisabledReason =
+    view.module === 'all'
+      ? '请先选择模块'
+      : sectionEntries.some((entry) => entry.kind === 'section')
+        ? undefined
+        : '暂无分区';
   const relations = useMemo(() => getGraphRelations(visible), [visible]);
   // 内容更新时重建节点；选择变化不进入 key，保留读者刚刚拖动的位置。
   const canvasKey = JSON.stringify([
@@ -570,13 +576,12 @@ function GraphExplorer({
                   navigate?.({ ...view, module, section: [], center: null, query: '' })
                 }
               />
-              {!view.center && sections.length > 0 && (
-                <GraphSectionPicker
-                  entries={moduleNavigation.find((module) => module.key === view.module)!.entries}
-                  current={view.section}
-                  onChange={(section) => navigate?.({ ...view, section, query: '' })}
-                />
-              )}
+              <GraphSectionPicker
+                entries={sectionEntries}
+                current={view.section}
+                disabledReason={sectionDisabledReason}
+                onChange={(section) => navigate?.({ ...view, section, center: null, query: '' })}
+              />
               {view.module === 'all' && !view.center && (
                 <div className="graph-display-toggle" role="group" aria-label="全局图显示范围">
                   <button

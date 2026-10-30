@@ -86,15 +86,20 @@ export function GraphSectionPicker({
   entries,
   current,
   onChange,
+  disabledReason,
 }: {
   entries: NavigationEntry[];
   current: string[];
   onChange: (path: string[]) => void;
+  disabledReason?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [narrow, setNarrow] = useState(false);
   const [browsePath, setBrowsePath] = useState<string[]>([]);
   const panelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (disabledReason) setOpen(false);
+  }, [disabledReason]);
   useEffect(() => {
     const media = window.matchMedia('(max-width: 760px)');
     const update = () => setNarrow(media.matches);
@@ -113,7 +118,7 @@ export function GraphSectionPicker({
     if (entry?.kind === 'section') panelEntries = entry.entries;
   }
   const selectedPanel = JSON.stringify(current) === JSON.stringify(panelPath);
-  const label = current.at(-1) ?? '全部功能';
+  const label = disabledReason ?? current.at(-1) ?? '全部功能';
   return (
     <Dropdown.Root
       modal={false}
@@ -127,7 +132,8 @@ export function GraphSectionPicker({
         <button
           className="graph-picker-trigger"
           aria-label={`选择功能分区：${label}`}
-          title={current.length ? current.join(' / ') : undefined}
+          disabled={!!disabledReason}
+          title={disabledReason ?? (current.length ? current.join(' / ') : undefined)}
         >
           <span className="graph-picker-label">分区</span>
           <span>{label}</span>

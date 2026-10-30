@@ -548,10 +548,15 @@ mark {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.graph-picker-trigger:hover,
+.graph-picker-trigger:hover:not(:disabled),
 .graph-picker-trigger[data-state='open'] {
   background: var(--surface-soft);
   border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+}
+.graph-picker-trigger:disabled {
+  color: var(--muted);
+  background: var(--surface-soft);
+  cursor: default;
 }
 .graph-picker-label {
   color: var(--muted);

@@ -104,6 +104,7 @@ function inspect(overrides = {}) {
         };
       if (name === '@xyflow/react') return xyflow;
       if (name === './use-graph-motion') return { useGraphMotion: () => updateMotion };
+      if (name === './graph-scope-picker') return { GraphSectionPicker: () => null };
       if (name === '@/lib/graph') return require('../lib/graph.ts');
       if (name === '@/lib/navigation') return require('../lib/navigation.ts');
       if (name === '@/lib/graph-appearance') return require('../lib/graph-appearance.ts');
@@ -331,6 +332,43 @@ test('详情初始显示范围概览，点击与清空独立于画布强调，�
   tree = scene.render('GraphExplorer');
   assert.equal(heading(tree), 'a的局部图');
   assert.equal(canvas(tree).props.activeSlug, undefined);
+});
+
+test('分区入口在全局、无分区模块和局部图中保留，选择分区退出局部并清空搜索', () => {
+  const navigation = [];
+  const scene = inspect({
+    view: { module: 'all', section: [], center: null, query: '', display: 'modules' },
+    navigate: (view) => navigation.push(view),
+  });
+  const picker = () =>
+    find(scene.render('GraphExplorer'), (item) => item.type?.name === 'GraphSectionPicker').props;
+  assert.equal(picker().disabledReason, '请先选择模块');
+  scene.props.view = { ...scene.props.view, display: 'articles' };
+  assert.equal(picker().disabledReason, '请先选择模块');
+  scene.props.view = { ...scene.props.view, module: 'input' };
+  assert.equal(picker().disabledReason, '暂无分区');
+  scene.props.articles = scene.props.articles.map((article) => ({
+    ...article,
+    section: ['输入', '缓存'],
+  }));
+  assert.equal(picker().disabledReason, undefined);
+  const entries = picker().entries;
+  scene.props.view = { ...scene.props.view, center: 'a', query: '不存在的词' };
+  assert.equal(picker().disabledReason, undefined);
+  assert.equal(picker().entries, entries, '分区来自整个模块目录，不依赖当前局部图或搜索结果');
+  picker().onChange(['输入', '缓存']);
+  const next = navigation.at(-1);
+  assert.equal(next.module, 'input');
+  assert.equal(next.section.join('/'), '输入/缓存');
+  assert.equal(next.center, null);
+  assert.equal(next.query, '');
+  scene.props.view = { ...scene.props.view, module: 'all' };
+  assert.equal(picker().disabledReason, '请先选择模块');
+  scene.props.compact = true;
+  assert.equal(
+    find(scene.render('GraphExplorer'), (item) => item.type?.name === 'GraphSectionPicker'),
+    undefined,
+  );
 });
 
 test('完整图只有圆点命中与拖动，标签仅显示并随画布缩放，紧凑卡片保留选择', () => {

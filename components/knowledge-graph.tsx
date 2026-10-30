@@ -21,7 +21,6 @@ import {
   type OnNodeDrag,
 } from '@xyflow/react';
 import {
-  ArrowLeft,
   ArrowRight,
   ChevronRight,
   Maximize2,
@@ -439,12 +438,9 @@ function GraphExplorer({
   const moduleNavigation = useMemo(() => buildModuleNavigation(articles), [articles]);
   const sectionEntries =
     moduleNavigation.find((module) => module.key === view.module)?.entries ?? [];
-  const sectionDisabledReason =
-    view.module === 'all'
-      ? '请先选择模块'
-      : sectionEntries.some((entry) => entry.kind === 'section')
-        ? undefined
-        : '暂无分区';
+  const sectionDisabledReason = sectionEntries.some((entry) => entry.kind === 'section')
+    ? undefined
+    : '暂无分区';
   const relations = useMemo(() => getGraphRelations(visible), [visible]);
   // 内容更新时重建节点；选择变化不进入 key，保留读者刚刚拖动的位置。
   const canvasKey = JSON.stringify([
@@ -542,29 +538,6 @@ function GraphExplorer({
                 </>
               )}
             </nav>
-            {(centerArticle || view.module !== 'all') && (
-              <button
-                className="graph-up"
-                onClick={() =>
-                  navigate?.(
-                    centerArticle
-                      ? parentView
-                      : view.section.length
-                        ? { ...parentView, section: view.section.slice(0, -1) }
-                        : rootView,
-                  )
-                }
-              >
-                <ArrowLeft size={14} />
-                {view.section.length
-                  ? centerArticle
-                    ? '返回功能图'
-                    : '返回上一级'
-                  : centerArticle && view.module !== 'all'
-                    ? '返回模块图'
-                    : '返回全局图'}
-              </button>
-            )}
           </div>
           <div className="graph-toolbar">
             <div className="graph-scope-controls">
@@ -576,12 +549,14 @@ function GraphExplorer({
                   navigate?.({ ...view, module, section: [], center: null, query: '' })
                 }
               />
-              <GraphSectionPicker
-                entries={sectionEntries}
-                current={view.section}
-                disabledReason={sectionDisabledReason}
-                onChange={(section) => navigate?.({ ...view, section, center: null, query: '' })}
-              />
+              {view.module !== 'all' && (
+                <GraphSectionPicker
+                  entries={sectionEntries}
+                  current={view.section}
+                  disabledReason={sectionDisabledReason}
+                  onChange={(section) => navigate?.({ ...view, section, center: null, query: '' })}
+                />
+              )}
               {view.module === 'all' && !view.center && (
                 <div className="graph-display-toggle" role="group" aria-label="全局图显示范围">
                   <button

@@ -485,8 +485,7 @@ mark {
   font-size: 13px;
   line-height: 1.7;
 }
-.graph-breadcrumbs button,
-.graph-up {
+.graph-breadcrumbs button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -496,19 +495,13 @@ mark {
   color: var(--text);
   font-weight: 650;
 }
-.graph-breadcrumbs button:hover,
-.graph-up:hover {
+.graph-breadcrumbs button:hover {
   color: var(--accent-hover);
 }
 .graph-section-crumb {
   display: inline-flex;
   align-items: center;
   gap: 9px;
-}
-.graph-up {
-  flex-shrink: 0;
-  color: var(--accent);
-  font-size: 12px;
 }
 .graph-toolbar {
   display: flex;
@@ -2751,10 +2744,6 @@ mark {
   }
   .graph-breadcrumbs > span {
     overflow-wrap: anywhere;
-  }
-  .graph-up {
-    margin-left: auto;
-    font-size: 11px;
   }
   .graph-scope-controls {
     gap: 9px;

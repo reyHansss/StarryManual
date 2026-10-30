@@ -15,7 +15,6 @@
 .graph-expand,
 .node-open,
 .graph-layout-tools button,
-.graph-up,
 .graph-picker-trigger,
 .graph-display-toggle button {
   transition:
@@ -34,7 +33,6 @@
     .graph-expand,
     .node-open,
     .graph-layout-tools button,
-    .graph-up,
     .graph-picker-trigger,
     .graph-display-toggle button
   ):active:not(:disabled):not(:focus-visible) {
@@ -305,7 +303,6 @@
     .graph-expand,
     .node-open,
     .graph-layout-tools button,
-    .graph-up,
     .graph-picker-trigger,
     .graph-display-toggle button
   ):active,

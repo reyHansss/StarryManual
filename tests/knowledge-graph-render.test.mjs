@@ -334,17 +334,17 @@ test('详情初始显示范围概览，点击与清空独立于画布强调，�
   assert.equal(canvas(tree).props.activeSlug, undefined);
 });
 
-test('分区入口在全局、无分区模块和局部图中保留，选择分区退出局部并清空搜索', () => {
+test('全局图不显示分区入口，模块和局部图保留，选择分区退出局部并清空搜索', () => {
   const navigation = [];
   const scene = inspect({
     view: { module: 'all', section: [], center: null, query: '', display: 'modules' },
     navigate: (view) => navigation.push(view),
   });
   const picker = () =>
-    find(scene.render('GraphExplorer'), (item) => item.type?.name === 'GraphSectionPicker').props;
-  assert.equal(picker().disabledReason, '请先选择模块');
+    find(scene.render('GraphExplorer'), (item) => item.type?.name === 'GraphSectionPicker')?.props;
+  assert.equal(picker(), undefined);
   scene.props.view = { ...scene.props.view, display: 'articles' };
-  assert.equal(picker().disabledReason, '请先选择模块');
+  assert.equal(picker(), undefined);
   scene.props.view = { ...scene.props.view, module: 'input' };
   assert.equal(picker().disabledReason, '暂无分区');
   scene.props.articles = scene.props.articles.map((article) => ({
@@ -363,12 +363,57 @@ test('分区入口在全局、无分区模块和局部图中保留，选择分�
   assert.equal(next.center, null);
   assert.equal(next.query, '');
   scene.props.view = { ...scene.props.view, module: 'all' };
-  assert.equal(picker().disabledReason, '请先选择模块');
+  assert.equal(picker(), undefined);
+  scene.props.view = { ...scene.props.view, module: 'input' };
   scene.props.compact = true;
-  assert.equal(
-    find(scene.render('GraphExplorer'), (item) => item.type?.name === 'GraphSectionPicker'),
-    undefined,
+  assert.equal(picker(), undefined);
+});
+
+test('主模块与全部文章仅在全局图切换，路径支持逐层返回并保留显示偏好', () => {
+  const navigation = [];
+  const scene = inspect({
+    view: { module: 'all', section: [], center: null, query: '', display: 'articles' },
+    navigate: (view) => navigation.push(view),
+  });
+  const displayToggle = (tree) =>
+    find(tree, (item) => item.props?.['aria-label'] === '全局图显示范围');
+  assert.ok(displayToggle(scene.render('GraphExplorer')));
+  for (const view of [
+    { module: 'input', section: [], center: null },
+    { module: 'input', section: ['输入'], center: null },
+    { module: 'all', section: [], center: 'a' },
+    { module: 'input', section: ['输入', '缓存'], center: 'a' },
+  ]) {
+    scene.props.view = { ...scene.props.view, ...view, query: '查找' };
+    const tree = scene.render('GraphExplorer');
+    assert.equal(displayToggle(tree), undefined);
+    assert.equal(
+      find(tree, (item) => item.props?.className === 'graph-up'),
+      undefined,
+    );
+  }
+  const crumbs = find(
+    scene.render('GraphExplorer'),
+    (item) => item.props?.['aria-label'] === '图谱路径',
   );
+  const root = find(crumbs, (item) => item.type === 'button');
+  root.props.onClick();
+  assert.equal(navigation.at(-1).module, 'all');
+  assert.equal(navigation.at(-1).display, 'articles');
+  assert.equal(navigation.at(-1).center, null);
+  assert.equal(navigation.at(-1).query, '');
+  const module = find(
+    crumbs,
+    (item) => item.type === 'button' && item.props.children === articleModules.input.shortLabel,
+  );
+  module.props.onClick();
+  assert.equal(navigation.at(-1).module, 'input');
+  assert.equal(navigation.at(-1).section.length, 0);
+  assert.equal(navigation.at(-1).center, null);
+  const section = find(crumbs, (item) => item.type === 'button' && item.props.children === '输入');
+  section.props.onClick();
+  assert.equal(navigation.at(-1).section.join('/'), '输入');
+  assert.equal(navigation.at(-1).center, null);
 });
 
 test('完整图只有圆点命中与拖动，标签仅显示并随画布缩放，紧凑卡片保留选择', () => {

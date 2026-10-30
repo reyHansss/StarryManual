@@ -244,13 +244,22 @@ function GraphCanvas({
         const className = readable
           ? `${emphasisClass ?? ''} graph-label-readable`.trim()
           : emphasisClass;
+        const zIndex = compact
+          ? undefined
+          : node.id === emphasisId
+            ? 3
+            : emphasisClass === 'graph-node-neighbor'
+              ? 2
+              : readable
+                ? 1
+                : 0;
         const data =
           node.data.focused === focused && node.data.select === select
             ? node.data
             : { ...node.data, focused, select };
-        return node.className === className && node.data === data
+        return node.className === className && node.zIndex === zIndex && node.data === data
           ? node
-          : { ...node, className, data };
+          : { ...node, className, zIndex, data };
       }),
     );
   }, [selectedId, activeSlug, emphasisId, neighborsById, compact, select, setNodes]);
@@ -343,6 +352,7 @@ function GraphCanvas({
       maxZoom={GRAPH_MAX_ZOOM}
       nodesDraggable={!compact}
       nodesConnectable={false}
+      elevateNodesOnSelect={compact}
       onNodeClick={selectNode}
       onNodeDragStart={startDrag}
       onNodeDragStop={stopDrag}
@@ -484,7 +494,7 @@ function GraphExplorer({
   return (
     <div className={`knowledge-graph ${compact ? 'compact' : ''}`}>
       {!compact && (
-        <>
+        <div className="graph-header">
           <div className="graph-navigation">
             <nav className="graph-breadcrumbs" aria-label="图谱路径">
               <button
@@ -602,7 +612,7 @@ function GraphExplorer({
               )}
             </label>
           </div>
-        </>
+        </div>
       )}
       <div className="graph-body">
         <div className="graph-canvas">

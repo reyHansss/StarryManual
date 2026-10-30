@@ -222,6 +222,33 @@ test('悬停只强调一跳节点与直接连线，节点内部移动不重建�
   assert.ok(restored.edges.every((edge) => edge.style.opacity === 0.35));
 });
 
+test('高亮节点整组置顶，直接关联高于其余节点，历史选中不覆盖当前高亮', () => {
+  const scene = inspect();
+  let flow = scene.flow();
+  assert.equal(flow.elevateNodesOnSelect, false);
+  assert.ok(flow.nodes.every((item) => item.zIndex === 0));
+  flow.onNodesChange([{ id: 'd', type: 'select', selected: true }]);
+  scene.props.activeSlug = 'd';
+  enter(flow, 'a');
+  flow = scene.flow();
+  assert.equal(node(flow, 'd').selected, true);
+  assert.ok(node(flow, 'a').zIndex > node(flow, 'b').zIndex);
+  assert.ok(node(flow, 'b').zIndex > node(flow, 'd').zIndex);
+  assert.equal(node(flow, 'b').zIndex, node(flow, 'c').zIndex);
+  flow.onNodeDragStart({}, node(flow, 'c'));
+  flow = scene.flow();
+  assert.ok(node(flow, 'c').zIndex > node(flow, 'a').zIndex);
+  flow.onPointerCancel();
+  flow = scene.flow();
+  assert.ok(node(flow, 'd').zIndex > node(flow, 'a').zIndex);
+  scene.props.activeSlug = undefined;
+  assert.ok(scene.flow().nodes.every((item) => item.zIndex === 0));
+  const compact = inspect({ compact: true });
+  flow = compact.flow();
+  assert.equal(flow.elevateNodesOnSelect, true);
+  assert.ok(flow.nodes.every((item) => item.zIndex === undefined));
+});
+
 test('拖动锁定强调，松手按实际命中恢复悬停，触摸结束清除且不打开详情', () => {
   const scene = inspect();
   let flow = scene.flow();

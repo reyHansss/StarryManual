@@ -7,11 +7,9 @@ export default async function GraphPage() {
     <main id="main" className="wide-page graph-page">
       <div className="page-heading">
         <div>
-          <span className="eyebrow">THE RELATIONSHIP MAP</span>
-          <h1>顺着联系，发现下一页。</h1>
+          <h1>关系图谱</h1>
           <p>按模块与功能查找内容，再沿文章之间的真实链接继续探索。</p>
         </div>
-        <span className="pill">拖动探索 · 逐层进入模块与功能</span>
       </div>
       <KnowledgeGraph articles={await getCatalog()} />
       <div className="understated-note">

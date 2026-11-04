@@ -11,7 +11,7 @@ order: 21
 ## 第一步：行为配置
 
 1. 在内容浏览器右键 → **AI → StellaAI → Behavior Modifier (AIBM)**，命名为 `AIBM_Example`。
-2. 双击打开。它是一个蓝图资产，编辑器会自动切到 **Behavior Modifier** 页签。
+2. 双击打开。它是一个蓝图资产，编辑器会自动打开 **Behavior Modifier** 页签。
 3. 在 `Normal` 下添加一个 Behavior，路径填 `Idle`：
    - Behavior 类型用基础 Behavior；
    - `ObjectiveClass` 留空，表示不需要任何机会；
@@ -19,10 +19,20 @@ order: 21
 4. 在这个 Behavior 的 `Logic` 中选择原生的 Wait，设置 `Seconds = 1`。
 5. 编译并保存。
 
+<Screenshot
+  src="/images/stellaai/stellaai-aibm-editor.png"
+  title="完成后的样子可以参考项目资产 AIBM_Ecology 的 Behavior Modifier 页签：Critical 与 Normal 两个优先级下挂行为节点，右侧为路径与请求工具"
+/>
+
 ## 第二步：Stack 与 Objective 配置
 
 1. 右键 → **AI → StellaAI → AIBehaviorModifierStack (AIBMS)**，命名为 `AIBMS_Example`，把 `AIBM_Example` 加入列表。打开 Stack 编辑器时，右侧的最终组合预览里应该能看到 `Idle`。
 2. 右键 → **AI → StellaAI → AIObjectiveComponentSetup (AIOCS)**，命名为 `AIOCS_Example`。这次的 Wait 不依赖任何机会，`GeneratorTemplates` 可以留空。
+
+<Screenshot
+  src="/images/stellaai/stellaai-stack-editor.png"
+  title="AIBMS_Ecology 的 Stack 编辑器：左侧为按顺序合成的层，右侧为最终组合的只读预览，节点标出来源层"
+/>
 
 ## 第三步：角色配置
 
@@ -34,6 +44,11 @@ order: 21
 2. 把 AISetup 保存在 `/Game` 下。Asset Manager 只扫描这个范围内的 `StarryAISetupData`。
 3. 选一个 `AStarryAICharacter` 的派生蓝图，在 `AISetup` 中填入刚才的资产。它的默认 Controller 已经是 `AStarryAIController`，不需要改。
 4. 把角色放进关卡。关卡中直接放置的角色会被自动控制；如果角色在运行时生成，把 `Auto Possess AI` 设为 `Placed in World or Spawned`。
+
+<Screenshot
+  src="/images/stellaai/stellaai-aisetup.png"
+  title="AI_Ecology 的配置面板：BrainType 为 Composition，并引用 Modifier Stack、Objective Setup 与感知配置"
+/>
 
 <Note title="资产校验会拦住的配置">
 

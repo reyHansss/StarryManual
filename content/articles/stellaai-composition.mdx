@@ -16,12 +16,17 @@ Modifier 由一组条目组成，每个条目是四种操作之一：`AddGroup`�
 
 ## 在编辑器中配置一层
 
-打开 `AIBM_` 资产后，编辑器自动切到 **Behavior Modifier** 页签：
+打开 `AIBM_` 资产后，编辑器会自动打开 **Behavior Modifier** 页签：
 
 - **添加节点**：先选择 `Critical` 或 `Normal`，再添加根 Group 或根 Behavior。子 Group 和子 Behavior 继承根节点的优先级。
 - **编辑节点**：可以输入完整路径来添加或移除条目，选择 Group／Behavior 的类型，重命名、调整顺序，并直接编辑节点参数。
 - **整理条目**：支持复制粘贴、恢复父类默认值、打开类型、拖拽移动。条目如果引用的是其他层定义的组，会单独归在“外部路径”分组下。
 - **继承 AIBM**：从另一个 AIBM 派生的子蓝图，会用自己的条目列表**整体替换**父类的列表，不做合并。
+
+<Screenshot
+  src="/images/stellaai/stellaai-aibm-editor.png"
+  title="项目资产 AIBM_Ecology 的 Behavior Modifier 页签：Critical 与 Normal 两个优先级下挂行为节点，右侧为路径与请求工具"
+/>
 
 节点的设计说明和颜色只用于编辑时区分用途，不参与评分。
 
@@ -35,6 +40,11 @@ Modifier 由一组条目组成，每个条目是四种操作之一：`AddGroup`�
 打开 `AIBMS_` 资产，只需要选择 Modifier 类型并排列顺序：上面的先应用，下面的后应用。行为内部的 Logic、条件和评分参数都在所属的 AIBM 中修改，Stack 不提供另一套参数覆盖。
 
 Stack 编辑器带有**最终组合**的只读预览：每个节点来自哪一层、哪些条目出错、哪些 Modifier 被重复应用，都会标出来。
+
+<Screenshot
+  src="/images/stellaai/stellaai-stack-editor.png"
+  title="AIBMS_Ecology 的 Stack 编辑器：左侧为按顺序合成的层，右侧为最终组合的只读预览，节点标出来源层"
+/>
 
 ## 后层怎样覆盖前层
 

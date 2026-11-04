@@ -27,7 +27,9 @@ World Subsystem 为每个 World 创建一套 `FAsyncGameplayMessageSystem`，默
 
 Endpoint 进一步隔离**同一个 World 内**的收发组。若使用专用 Endpoint，发送方与监听方必须拿到同一个有效实例；两个 Actor 各自持有一个同类组件，并不代表它们共享 Endpoint。默认监听不会自动旁听专用 Endpoint，Endpoint 也不是网络地址或 Actor 复制通道。
 
-引擎提供 `UAsyncMessageBindingComponent` 与 `IAsyncMessageBindingEndpointInterface` 作为原生接入方式，组件代码在初始化时创建 Endpoint、反初始化时释放。Starry 当前没有查到专用 Endpoint 接入，本轮蓝图示例使用已接入的默认范围。需要对象级隔离时，先确认组件实际走到初始化且返回有效 Endpoint；当前实现遇到空或失效 Endpoint 会退回默认范围，不能把未初始化的组件当成可靠隔离。
+引擎提供 `UAsyncMessageBindingComponent` 与 `IAsyncMessageBindingEndpointInterface` 作为专用 Endpoint 的接入方式，但**直接挂上这个组件不会创建 Endpoint**：它没有开启 `bWantsInitializeComponent`，创建 Endpoint 的初始化代码不会执行。接口标记了 `CannotImplementInterfaceInBlueprint`，蓝图也无法自建 Endpoint。遇到空的或失效的 Endpoint 时，收发都会退回默认范围。
+
+所以需要对象级隔离时，要在 C++ 中派生并确认 Endpoint 实际被创建、返回有效实例。Starry 目前没有使用专用 Endpoint，所有项目消息都走默认范围。
 
 ## 队列什么时候派发
 
@@ -42,7 +44,9 @@ Endpoint 进一步隔离**同一个 World 内**的收发组。若使用专用 En
 
 `Queue Async Message for Broadcast` 的 `Success` 表示消息被加入了相关接收队列。没有对应标签或父级监听时通常返回 `false`；World 不存在、Id 无效或系统关闭时也会失败。它不是目标对象已收到、载荷类型正确、处理成功或网络投递成功的回执，专用 Endpoint 是否匹配还要独立核对。
 
-正常玩法代码由 World 的消息系统自动驱动派发，不手动调用 `ProcessMessageQueueForBinding`。项目专项测试为了确定性验证才直接处理队列。
+同一个接收队列是后进先出：后入队的消息先派发。同一帧里多条消息的先后有意义时，用消息的 `GetSequenceId()` 排序，不要依赖派发顺序。
+
+正常玩法代码由 World 的消息系统自动驱动派发，不手动调用 `ProcessMessageQueueForBinding`。项目专项测试为了确定性验证才直接处理队列。插件的 Project Settings 中有子系统总开关 `bEnableWorldSubsystem`，另有控制台变量 `AsyncMessageSystem.UseTaskSyncManager`。
 
 ## 载荷复制到哪一层
 
@@ -58,7 +62,7 @@ C++ 回调的 `GetPayloadView()` 和结构体指针属于当前消息，不跨�
 
 组件或界面负责保存监听句柄，并在功能退出、`EndPlay` 或自身明确的停止入口解绑。消息系统的弱对象绑定避免强行延长监听对象寿命，但“对象仍活着、功能已经关闭”仍需主动停止。
 
-[C++ 收发与解绑](/read/asyncmessage-cpp)提供组件声明和完整的监听、解包、发送、停止函数：登记时保存原系统的弱引用与句柄，退出时向原系统解绑，再清空记录；回调检查载荷类型与 `Target`。实际用法集中在消息收发分区，这里只说明所有权与并发边界。
+具体写法见 [C++ 收发与解绑](/read/asyncmessage-cpp)：登记时保存原系统的弱指针与句柄，退出时向原系统解绑，再清空记录；回调中检查载荷类型，再按载荷里的目标字段筛选。这里只说明所有权与并发边界。
 
 解绑请求在队列预处理时移除监听，不是跨线程等待屏障，不会撤回已在运行的回调。通常的游戏线程监听在使用方退出时配对停止即可；显式选择后台线程的使用方还要按自己的任务模型协调回调和销毁，不能把保存句柄当作已经解决并发。
 

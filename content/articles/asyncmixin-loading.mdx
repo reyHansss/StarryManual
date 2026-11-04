@@ -193,4 +193,6 @@ StartAsyncLoading();
 3. 结果为空时先确认软路径、资源类型、重定向和打包配置；编辑器里已加载过的资源可能掩盖打包遗漏。需要主资产扫描与 Bundle 时继续读[资源驻留](/read/asyncmixin-preload)。
 4. 资源完成却不回调时，检查本作用域更早的步骤是否仍未完成；界面取消后仍显示旧内容时，检查那是不是已经执行的业务操作，以及是否忘记拆除旧界面。
 
-上面是读者创建样例后的检查步骤，本轮没有创建该组件、编译或运行 PIE。实现入口：`Plugins/EngineExtension/AsyncMixin/Source/Public/AsyncMixin.h` 的加载重载，以及同插件 `Source/Private/AsyncMixin.cpp` 的请求、启动和取消实现；实际项目用法见[指示器接入](/read/asyncmixin-overview)。
+上面的检查步骤针对你按本页创建的示例组件。
+
+代码位置：`Plugins/EngineExtension/AsyncMixin/Source/Public/AsyncMixin.h` 的加载重载，以及同插件 `Source/Private/AsyncMixin.cpp` 的请求、启动和取消实现；实际项目用法见[指示器接入](/read/asyncmixin-overview)。

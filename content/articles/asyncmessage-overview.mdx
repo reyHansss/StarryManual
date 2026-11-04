@@ -1,49 +1,72 @@
 ---
-title: Async Message · 模块总览与接入
-description: 使用 UE 5.8 原生 Async Message System，把事件通知与接收方解耦，查阅消息收发、路由和 Starry 的实际接入。
+title: Async Message · 模块总览
+description: 用 UE 5.8 原生的 Async Message System 在系统之间发布“已经发生了什么”：它适合做什么、接入前要定的四件事，以及默认的派发时机与边界。
 order: 50
 ---
 
-## 它在项目中负责什么
+## 它适合做什么
 
-Async Message System 是 UE 5.8 的原生插件，用标签标识消息、用结构体承载数据，让发送方在不知道具体接收对象的情况下发布通知。接收方提前登记监听，在自己的接收阶段处理消息。
+Async Message System 是 UE 5.8 自带的插件：
 
-Starry 已启用这个插件，`StarryGame` 和 `StarryEditor` 也已加入模块依赖。技能失败、伤害、淘汰、玩家重置、背包堆叠与快捷栏变化已有 C++ 发送入口；具体消息和触发位置见[项目消息与排查](/read/asyncmessage-project)。当前源码扫描中，项目的 C++ 监听示例位于专项测试，不能据此声称所有 UI 消费者已经接完。
+- **消息身份**：用 Gameplay Tag 标识；
+- **消息数据**：用结构体承载；
+- **发送方**：不需要知道谁在接收；
+- **接收方**：提前登记监听，在自己的接收阶段处理消息。
+
+Starry 用它发布“已经发生了什么”，例如技能激活失败、受到伤害、被淘汰、玩家重置、背包与快捷栏变化，供界面刷新、事件提示和解耦的观察者使用。现有消息及其触发位置见[项目消息与排查](/read/asyncmessage-project)。
 
 <Diagram
-  title="同一 World 内的消息收发"
+  title="同一个 World 内的消息收发"
   source={
-    'flowchart LR\n  Sender(技能 / 背包 / 快捷栏) -->|Message Id + 结构体| System(World 的消息系统)\n  World(World Subsystem) -->|创建与关闭| System\n  System --> Queue(按接收选项排队)\n  Queue -->|到达监听的 Tick Group| Listener(蓝图 / C++ 监听者)\n  Listener --> Decode(检查来源与载荷类型)\n  Decode --> Filter(筛选本玩家 / 目标)\n  Filter --> View(刷新表现或领域观察)'
+    'flowchart LR\n  Sender(技能 / 背包 / 快捷栏) -->|Message Id + 结构体| System(World 的消息系统)\n  World(World Subsystem) -->|创建与关闭| System\n  System --> Queue(按接收选项排队)\n  Queue -->|到达监听的 Tick Group| Listener(蓝图 / C++ 监听者)\n  Listener --> Decode(检查来源与载荷类型)\n  Decode --> Filter(筛选自己关心的玩家或目标)\n  Filter --> View(刷新表现)'
   }
 />
 
-消息用于描述“已经发生了什么”。它适合刷新显示、事件提示与解耦观察。需要立即得到返回值、明确调用某个对象，或执行权威玩法命令时，使用对应领域接口；例如 [Input Handler](/read/input-handlers)仍直接调用移动与 GAS，不把消息总线当作输入命令的替代品。
+**它不适合**：
 
-## 从哪一项功能开始
+- 需要立刻拿到返回值；
+- 需要明确调用某个对象；
+- 执行权威的玩法命令。
 
-- **收发消息**：[蓝图收发与解绑](/read/asyncmessage-blueprints)用核心节点说明消息 Id、监听、载荷封装与解包；[C++ 收发与解绑](/read/asyncmessage-cpp)给出原生组件的声明、发送、回调和生命周期清理。
-- **消息路由**：[标签、时机与生命周期](/read/asyncmessage-routing)解释父子标签、World 与 Endpoint、Tick Group、载荷复制以及 C++ 监听所有权。
-- **项目接入**：[项目消息与排查](/read/asyncmessage-project)列出当前标签、载荷、触发点和显式网络转发入口，按现象定位问题。
+这些情况直接调用对应领域的接口。例如 [Input Handler](/read/input-handlers) 直接调用移动和 GAS，不经过消息。
 
-## 接入时先确定四件事
+## 接入前先定四件事
 
-| 决定     | 要填写或确认的内容                                                            |
-| -------- | ----------------------------------------------------------------------------- |
-| 消息身份 | 已注册的 Gameplay Tag，例如 `Starry.Damage.Message`，封装为 `FAsyncMessageId` |
-| 载荷约定 | 标签对应的结构体及字段语义，例如 `FStarryVerbMessage`，发送和读取双方约定一致 |
-| 路由范围 | 同一个 World、同一个有效 Endpoint；项目现有发送使用默认 World Endpoint        |
-| 监听寿命 | 什么时候开始、由谁保存任务或句柄、何时停止，避免每次刷新界面重复登记          |
+| 要定的事 | 内容                                                                              |
+| -------- | --------------------------------------------------------------------------------- |
+| 消息身份 | 一个已注册的 Gameplay Tag，例如 `Starry.Damage.Message`，封装为 `FAsyncMessageId` |
+| 载荷约定 | 这个标签对应的结构体及字段含义，例如 `FStarryVerbMessage`，发送和接收双方保持一致 |
+| 路由范围 | 同一个 World、同一个 Endpoint。项目现有的发送都使用默认的 World Endpoint          |
+| 监听寿命 | 什么时候开始、由谁保存任务或句柄、什么时候停止；避免每次刷新界面都重复登记        |
 
-项目已经启用插件，不需要为普通玩法蓝图手工创建消息子系统。蓝图直接使用 `Start Listening for Async Message` 和 `Queue Async Message for Broadcast`。新增 C++ 模块需要使用插件公开接口时，再在自己的 `Build.cs` 中加入 `AsyncMessageSystem`。
+**启用情况**：插件已经启用，`StarryGame` 与 `StarryEditor` 已加入模块依赖。
 
-## 默认行为与边界
+- **蓝图**：直接使用 `Start Listening for Async Message` 和 `Queue Async Message for Broadcast`，不需要手工创建消息子系统。
+- **C++**：其他 C++ 模块要用插件接口时，在自己的 `Build.cs` 中加入 `AsyncMessageSystem`。
 
-蓝图监听默认在**游戏线程的 `TG_PostUpdateWork`** 接收。入队不会同步执行接收蓝图，实际回调发生在对应队列下一次被处理时；可能在当前帧，也可能在后续帧，不以固定延迟毫秒数或“必定下一帧”作为契约。C++ 可以显式选择其他 Tick Group、命名线程或任务优先级，后台线程绑定需要自行遵守线程约束。
+## 默认的派发时机
 
-每个 World 拥有独立消息系统。PIE 的服务器世界和客户端世界不会因标签相同就互通，插件也不会把消息自动变成 RPC。联网转发必须由项目现有网络入口或状态复制完成，再在接收端的本地 World 内发布。
+- **默认接收时机**：蓝图监听默认在**游戏线程的 `TG_PostUpdateWork`** 接收。
+- **入队不等于派发**：入队时不会同步执行监听者，回调发生在对应队列下一次被处理时：可能是当前帧，也可能是之后的帧，不要依赖固定的延迟或“一定是下一帧”。
+- **C++ 的其他选项**：C++ 可以选择其他 Tick Group（支持 `TG_PrePhysics` 到 `TG_PostUpdateWork`）、命名线程或任务优先级。在后台线程接收时，要自己遵守线程约束。
+- **同一队列中的顺序**：后入队的消息先派发。同一帧多条消息的先后有意义时，用消息的 `GetSequenceId()` 排序。
+- **游戏暂停时**：消息系统的 Tick 没有设置为暂停时也运行。按代码推断，游戏暂停期间不会派发消息，这一点没有经过运行验证。
 
-系统不保存可供后来订阅者回放的业务历史；没有相关监听时，消息不会成为离线收件箱。界面打开后应先登记监听，再从领域接口读取当前状态，用后续消息更新显示。
+## 边界
 
-本机 UE 5.8 的插件描述仍标为 Experimental。这里记录当前源码与 Starry 接入，升级引擎时需复核接口和行为；网页节点展示与站点构建不等于运行过 UE 功能验收。
+- **不跨 World，不联网**：每个 World 有独立的消息系统。PIE 中服务器世界和客户端世界不会因为标签相同就互通，插件也不会把消息变成 RPC。要跨网络，先由状态复制或显式 RPC 把数据送到接收端，再在接收端的 World 内发布。
+- **不保存历史**：没有人监听时，消息不会被留着等后来的订阅者。界面打开时，先登记监听，再从领域接口读取当前状态，之后用消息更新。
+- **插件仍是 Experimental**：本机 UE 5.8 的插件描述中仍标为 Experimental，升级引擎时需要复核接口和行为。
 
-实现入口：引擎 `Engine/Plugins/Experimental/AsyncMessageSystem`，项目 `Starry.uproject`、`Source/StarryGame/StarryGame.Build.cs` 与 `Framework/Messages`。工程分工见[工程分层](/read/arch-overview)。
+## 从哪里开始读
+
+| 你要做的事                          | 阅读                                               |
+| ----------------------------------- | -------------------------------------------------- |
+| 在蓝图中监听、解包、发送与停止      | [蓝图收发与解绑](/read/asyncmessage-blueprints)    |
+| 在 C++ 中取得系统、监听、发送与解绑 | [C++ 收发与解绑](/read/asyncmessage-cpp)           |
+| 理解父子标签、Endpoint、时机与载荷  | [标签、时机与生命周期](/read/asyncmessage-routing) |
+| 查现有消息、网络转发与排查问题      | [项目消息与排查](/read/asyncmessage-project)       |
+
+项目层面的消息用法见[系统怎样协作](/read/arch-collaboration#系统之间发通知)。
+
+代码位置：引擎 `Engine/Plugins/Experimental/AsyncMessageSystem`；项目 `Source/StarryGame/Framework/Messages`。

@@ -1,5 +1,5 @@
 ---
-title: AsyncMixin · 模块总览与项目接入
+title: AsyncMixin · 模块总览
 description: 管理软引用加载、有序回调与任务作用域，了解指示器画布的实际接入，以及加载完成后的资源和宿主生命周期。
 order: 60
 ---
@@ -37,7 +37,7 @@ AsyncMixin 的公开能力是原生 C++ 接口，没有提供可直接摆放的�
 
 这两项检查含义不同：弱引用检查 UObject 是否还存在，集合检查该指示器是否还属于当前画布。即使对象尚未被 GC，移除后的旧请求也不应重新把它显示出来。
 
-删除一个指示器时，画布解除控件绑定、归还控件池、移除插槽并更新集合。它不会因此取消整个画布的加载队列，因为同一队列中还可能有其他指示器。如何划分取消范围见[独立作用域](/read/asyncmixin-scopes)。
+删除一个指示器时，画布解除控件绑定、归还控件池、移除插槽并更新集合。它不会因此取消整个画布的加载队列，因为同一队列中还可能有其他指示器。画布自己也从不调用 `CancelAsyncLoading`：尚未执行的步骤只在画布析构时撤销。如何划分取消范围见[独立作用域](/read/asyncmixin-scopes)。
 
 ## 谁负责生命周期
 
@@ -57,4 +57,6 @@ UObject 的 `EndPlay`、控件移出界面与 C++ 析构发生在不同阶段。
 
 插件不创建 World 子系统，也不提供跨网络的任务同步。它管理本地宿主的步骤；[Async Message System](/read/asyncmessage-overview)则用于发送与监听事件，两者按各自用途接入。
 
-实现入口：`Plugins/EngineExtension/AsyncMixin/Source/Public/AsyncMixin.h`、同插件的 `Source/Private/AsyncMixin.cpp`，以及 `Source/StarryGame/Framework/UI/IndicatorSystem/SActorCanvas.h/.cpp`。这里记录当前源码和实际调用，手册示例没有加入工程或运行 PIE。
+底层细节：加载请求以 `FStreamableManager::AsyncLoadHighPriority` 优先级发出；每个宿主的加载状态存放在一张静态共享表中，按需分配，完成或取消后在下一次 CoreTicker 时释放。
+
+代码位置：`Plugins/EngineExtension/AsyncMixin/Source/Public/AsyncMixin.h`、同插件的 `Source/Private/AsyncMixin.cpp`，以及 `Source/StarryGame/Framework/UI/IndicatorSystem/SActorCanvas.h/.cpp`。

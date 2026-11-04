@@ -8,22 +8,22 @@ order: 54
 
 ## 当前有哪些消息入口
 
-下表依据当前 C++ 调用整理。它确认发送路径与载荷，不表示每个标签都已有完整 UI 消费者，也不把未检查的蓝图资产当作已验证接入。项目当前使用默认 World Endpoint，先按当前 World 接收，再筛选对应玩家、组件或目标。
+下表按当前 C++ 中的发送位置整理。它说明消息从哪里发出、带什么载荷；目前 Content 中还没有蓝图使用异步消息节点，界面侧的消费者需要按功能逐个接入。项目的消息都使用默认 World Endpoint，接收时先按当前 World 接收，再筛选对应的玩家、组件或目标。
 
-| 消息 Id                                        | 载荷                                       | 发送位置与时机                                                 |
-| ---------------------------------------------- | ------------------------------------------ | -------------------------------------------------------------- |
-| `Ability.UserFacingSimpleActivateFail.Message` | `FStarryAbilitySimpleFailureMessage`       | GameplayAbility 处理激活失败，存在匹配的提示文本时发送         |
-| `Ability.PlayMontageOnActivateFail.Message`    | `FStarryAbilityMontageFailureMessage`      | GameplayAbility 处理激活失败，存在匹配的失败 Montage 时发送    |
-| `Starry.Damage.Message`                        | `FStarryVerbMessage`                       | HealthSet 的伤害处理路径，填入本次数值和来源／目标             |
-| `Starry.Elimination.Message`                   | `FStarryVerbMessage`                       | HealthComponent 的死亡处理路径，发布淘汰通知                   |
-| `GameplayEvent.Reset`                          | `FStarryPlayerResetMessage`                | Reset 能力执行重置流程时发布通知，不是请求重置的入口           |
-| `Starry.Inventory.Message.StackChanged`        | `FStarryInventoryChangeMessage`            | 背包 Fast Array 的新增、变化和移除复制回调                     |
-| `Starry.QuickBar.Message.SlotsChanged`         | `FStarryQuickBarSlotsChangedMessage`       | 快捷栏的 `OnRep_Slots`，相关服务器修改路径也显式调用该通知函数 |
-| `Starry.QuickBar.Message.ActiveIndexChanged`   | `FStarryQuickBarActiveIndexChangedMessage` | 快捷栏的 `OnRep_ActiveSlotIndex`，服务器切换时也调用该通知函数 |
+| 消息 Id                                        | 载荷                                       | 发送位置与时机                                                                                                             |
+| ---------------------------------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `Ability.UserFacingSimpleActivateFail.Message` | `FStarryAbilitySimpleFailureMessage`       | GameplayAbility 处理激活失败，存在匹配的提示文本时发送                                                                     |
+| `Ability.PlayMontageOnActivateFail.Message`    | `FStarryAbilityMontageFailureMessage`      | GameplayAbility 处理激活失败，存在匹配的失败 Montage 时发送                                                                |
+| `Starry.Damage.Message`                        | `FStarryVerbMessage`                       | HealthSet 的伤害处理路径，只在本次伤害大于 0 时发送，填入数值和来源／目标                                                  |
+| `Starry.Elimination.Message`                   | `FStarryVerbMessage`                       | HealthComponent 的死亡处理路径，发布淘汰通知                                                                               |
+| `GameplayEvent.Reset`                          | `FStarryPlayerResetMessage`                | Reset 能力执行重置流程时发布通知，不是请求重置的入口                                                                       |
+| `Starry.Inventory.Message.StackChanged`        | `FStarryInventoryChangeMessage`            | 背包 Fast Array 的新增、变化和移除复制回调；服务器端 `ConsumeItemsByDefinition` 也会直接发布                               |
+| `Starry.QuickBar.Message.SlotsChanged`         | `FStarryQuickBarSlotsChangedMessage`       | 快捷栏的 `OnRep_Slots`，相关服务器修改路径也显式调用该通知函数                                                             |
+| `Starry.QuickBar.Message.ActiveIndexChanged`   | `FStarryQuickBarActiveIndexChangedMessage` | 快捷栏的 `OnRep_ActiveSlotIndex`，服务器切换时也调用该通知函数；服务器 `RemoveItemFromSlot` 把活跃索引置为 `-1` 时不发通知 |
 
 能力失败消息中的 `PlayerController` 用于选择接收提示的玩家，简单失败消息提供 `FailureTags` 和 `UserFacingReason`；Montage 失败消息另有 `AvatarActor` 与 `FailureMontage`。
 
-伤害与淘汰共用的 `FStarryVerbMessage` 包含 `Verb`、`Instigator`、`Target`、双方标签、环境标签和 `Magnitude`。伤害路径把 `Magnitude` 设为本次伤害；淘汰路径没有给它写入伤害数值，保留结构体默认值，不能把所有 Verb Message 的 Magnitude 都当作伤害。两条路径的 `Target` 也不同：伤害使用 Avatar，淘汰使用从 Avatar 解析的 PlayerState。
+伤害与淘汰共用的 `FStarryVerbMessage` 包含 `Verb`、`Instigator`、`Target`、双方标签、环境标签和 `Magnitude`。伤害路径把 `Magnitude` 设为本次伤害；淘汰路径没有给它写入伤害数值，保留结构体默认值 1.0，不能把所有 Verb Message 的 Magnitude 都当作伤害。两条路径的 `Target` 也不同：伤害使用 Avatar，淘汰使用从 Avatar 解析的 PlayerState。
 
 背包消息中的 `InventoryOwner` 是组件，另有物品 `Instance`、变化后的 `NewCount` 与正负 `Delta`。快捷栏内容消息带 Actor `Owner` 和整个 `Slots` 快照；选中消息带 `Owner` 和 `ActiveIndex`，`-1` 表示没有活跃插槽。监听默认范围时必须筛选这些字段，否则同一 World 内其他对象的变化也会更新自己的界面。
 
@@ -50,7 +50,9 @@ order: 54
 
 接收实现均检查 `GetNetMode() == NM_Client`，不会为 Standalone、服务器世界或 Listen Server 的主机本地表现额外入队；这些场景应由所属领域明确安排本地通知。不要为了让 UI 出现就同时在发送和接收两端无条件重复发布。
 
-`FStarryVerbMessageReplication` 另有 Fast Array 回调后重新入队的实现，但本轮源码搜索没有查到实际持有并复制该容器的项目成员，暂按可用实现位置记录，不视作当前已装配的通用同步通道。
+`FStarryVerbMessageReplication` 另有在 Fast Array 回调后重新入队的实现，但目前没有项目成员持有并复制这个容器，它不是一条已经接好的通用同步通道。
+
+项目里还定义了暂未使用的 `FStarryNotificationMessage` 与标签 `Starry.AddNotification.Message`，以及辅助类 `UStarryVerbMessageHelpers`。
 
 重置请求仍通过 GAS 的 `GameplayEvent.RequestReset` 触发服务器 Reset 能力；后续 `GameplayEvent.Reset` 消息只是通知。消息总线、GAS Gameplay Event 与 Gameplay Cue 的用途和调用入口不同，不能只因标签名称相似就互换。
 
@@ -68,14 +70,20 @@ order: 54
 | 服务器能收到、客户端没有    | 本地入队不复制；逐段检查领域状态复制或显式 RPC、接收端 World 的重新入队与监听                                        |
 | Listen Server 主机缺提示    | 现有消息 RPC 接收体只处理 `NM_Client`；确认主机本地领域通知，而不是假定广播会再执行一份本地入队                      |
 
-蓝图核心接线见[蓝图收发与解绑](/read/asyncmessage-blueprints)，原生代码见 [C++ 收发与解绑](/read/asyncmessage-cpp)，线程、路由和载荷寿命见[标签、时机与生命周期](/read/asyncmessage-routing)。必要时用 HaloDebug 的[日志与工具入口](/read/stelladebug-overview)观察项目状态，消息本身的调试设置仍在本模块说明。
+蓝图核心接线见[蓝图收发与解绑](/read/asyncmessage-blueprints)，原生代码见 [C++ 收发与解绑](/read/asyncmessage-cpp)，线程、路由和载荷寿命见[标签、时机与生命周期](/read/asyncmessage-routing)。项目状态可以用 [StellaDebug](/read/stelladebug-overview) 的日志与检查工具观察，消息本身的调试设置见下一节。
 
 ## 追查消息从哪里发出
 
-输出日志类别为 `LogAsyncMessageSystem`。插件的 Project Settings 对应 `AsyncMessageDeveloperSettings`，可按具体 Id 开启入队调试、打印蓝图调用栈，或记录消息入队时的调用栈；尽量选少量目标消息，避免全量堆栈记录干扰性能。
+输出日志类别为 `LogAsyncMessageSystem`。插件的 Project Settings 对应 `AsyncMessageDeveloperSettings`：
+
+- **总开关**：按 Id 调试之前，先打开 `bMessageQueueDebugEnabled`。
+- **按 Id 调试**：可以对具体的消息 Id 开启入队调试、打印蓝图调用栈，或记录入队时的调用栈。
+- **断点与全部消息**：另有在入队时触发断点、调试全部消息两个开关。
+
+尽量只选少量目标消息，避免全量记录堆栈影响性能。
 
 `Get Message Native Queue Callstack` 和 `Get Message Blueprint Script Callstack` 可在接收端查看入队来源，前提是已启用 `bShouldRecordQueueCallstackOnMessages` 且当前构建开启 `ENABLE_ASYNC_MESSAGES_DEBUG`。默认编辑器和非 Shipping 构建启用该宏，普通 Shipping 不提供同样信息；不要把缺少堆栈直接判断为没有发生消息。
 
-本机已有 `Starry.Framework.AsyncMessages` 专项，代码覆盖双 World 隔离、父标签保留原来源、延迟回调、入队值副本和派发前解绑。本轮只核对其实现与插件源码，没有重新运行这项 UE 自动化，网页检查结果也不代表联网或运行期验收。
+项目的自动化测试 `Starry.Framework.AsyncMessages` 覆盖了双 World 隔离、父标签保留原始来源、延迟回调、入队时的值副本，以及派发前解绑。改动消息相关代码后可以运行它，方法见[第一次运行](/read/start-first-run#运行自动化测试)。
 
-实现入口：项目 `Framework/AbilitySystem/Abilities/StarryGameplayAbility`、`StarryGameplayAbility_Reset`、`Framework/AbilitySystem/Attributes/StarryHealthSet`、`Framework/Character/StarryHealthComponent`、`Framework/Inventory/StarryInventoryManagerComponent`、`Framework/Equipment/StarryQuickBarComponent`、`Framework/GameModes/StarryGameState`、`Framework/Player/StarryPlayerState` 与 `Framework/Messages`。
+代码位置：项目 `Framework/AbilitySystem/Abilities/StarryGameplayAbility`、`StarryGameplayAbility_Reset`、`Framework/AbilitySystem/Attributes/StarryHealthSet`、`Framework/Character/StarryHealthComponent`、`Framework/Inventory/StarryInventoryManagerComponent`、`Framework/Equipment/StarryQuickBarComponent`、`Framework/GameModes/StarryGameState`、`Framework/Player/StarryPlayerState` 与 `Framework/Messages`。

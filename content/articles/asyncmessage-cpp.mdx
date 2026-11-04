@@ -48,9 +48,15 @@ TSharedPtr<FAsyncGameplayMessageSystem> GameplayMessageSystem =
 	Subsystem->GetSharedMessageSystem<FAsyncGameplayMessageSystem>();
 ```
 
+<Note title="长期保存时用弱指针">
+
+需要把系统保存为成员、留到之后解绑时，保存 `TWeakPtr<FAsyncGameplayMessageSystem>`，使用前再 `Pin()`。World Subsystem 反初始化时会关闭并释放消息系统，成员里存强引用会让一个已经关闭的系统继续存活。需要在系统关闭时得到通知，可以绑定 `UAsyncMessageWorldSubsystem` 的 `OnShutdownMessageSystem`。
+
+</Note>
+
 ## 设置消息与接收选项
 
-保存系统和返回的 `ListenerHandle`，用于之后配对解绑。示例消息 `Message.Player.LevelUp` 需要先注册为 Gameplay Tag；用名称构造 Id 也会查找这个标签。
+保存系统（弱指针）和返回的 `ListenerHandle`，用于之后配对解绑。示例消息 `Message.Player.LevelUp` 需要先注册为 Gameplay Tag；用名称构造 Id 也会查找这个标签。
 
 ```cpp
 FAsyncMessageHandle ListenerHandle;
@@ -113,7 +119,7 @@ ListenerHandle = GameplayMessageSystem->BindListener(
 	Options);
 ```
 
-两种绑定形式均可在最后额外传入 `BindingEndpoint`；省略时使用默认 World 范围。路由与接收线程见[标签、时机与生命周期](/read/asyncmessage-routing)。
+两种绑定形式均可在最后额外传入 `BindingEndpoint`；省略时使用默认 World 范围。宿主不是 UObject 时，还有接收 `TWeakPtr<TOwner>` 的重载，宿主失效后监听会自动解除。路由与接收线程见[标签、时机与生命周期](/read/asyncmessage-routing)。
 
 ## 发送
 
@@ -128,7 +134,9 @@ FInstancedStruct Payload = FInstancedStruct::Make(Data);
 GameplayMessageSystem->QueueMessageForBroadcast(MessageId, Payload);
 ```
 
-`FInstancedStruct::Make` 创建结构体副本。系统在处理对应接收队列时分发，不在发送这一行同步执行监听回调。
+`FInstancedStruct::Make` 会先创建一份结构体副本；而系统入队时还会再复制一次载荷。所以也可以写成 `QueueMessageForBroadcast(MessageId, FConstStructView::Make(Data))`，少一次复制。项目代码统一采用后一种写法，例如 `StarryHealthSet` 发送伤害消息时。
+
+系统在处理对应接收队列时分发，不在发送这一行同步执行监听回调。
 
 ## 解绑
 
@@ -142,6 +150,6 @@ if (ListenerHandle.IsValid())
 }
 ```
 
-这段代码在功能关闭或宿主退出时执行，前提是登记时的系统仍有效。重复开始前先解绑已有监听，避免覆盖旧句柄；弱对象检查不能代替主动解绑。蓝图任务的保存和停止接线见[蓝图收发与解绑](/read/asyncmessage-blueprints)。
+这段代码在功能关闭或宿主退出时执行。保存的是弱指针时，先 `Pin()`，取得有效的系统再调用 `UnbindListener`；系统已经关闭时，监听也已随之失效。重复开始前先解绑已有监听，避免覆盖旧句柄；弱对象检查不能代替主动解绑。蓝图任务的保存和停止接线见[蓝图收发与解绑](/read/asyncmessage-blueprints)。
 
-实现入口：引擎插件的 `AsyncMessageSystemBase.h`、`AsyncGameplayMessageSystem.h`、`AsyncMessageWorldSubsystem.h`、`AsyncMessage.h`、`AsyncMessageHandle.h` 与 `AsyncMessageBindingOptions.h`。以上为原生接口片段，未向项目新增类型或运行 PIE。
+代码位置：引擎插件的 `AsyncMessageSystemBase.h`、`AsyncGameplayMessageSystem.h`、`AsyncMessageWorldSubsystem.h`、`AsyncMessage.h`、`AsyncMessageHandle.h` 与 `AsyncMessageBindingOptions.h`。本页是接口片段，`AMyClass` 等示例名称需要替换为实际类型。

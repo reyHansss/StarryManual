@@ -30,7 +30,7 @@ TSoftObjectPtr<UTexture2D> Icon;
 
 ## 用独立作用域持有预热结果
 
-下面的 `FManualBundlePreload` 是原生 C++ 文档示例，需要自己创建。使用 `FPrimaryAssetId` 数组重载，输入来自已经登记的资产；不硬编码工程不存在的资产 ID。
+下面的 `FManualBundlePreload` 是原生 C++ 示例，需要自己创建。它使用 `FPrimaryAssetId` 数组的重载，输入来自已经登记的主资产；手上已经有资产指针时，也可以用接收 `TArray<T*>` 的重载，它会把指针换成主资产 ID 后调用同一个实现。
 
 `ManualBundlePreload.h`：
 
@@ -116,4 +116,4 @@ void FManualBundlePreload::Release()
 - **关闭预热后内存没马上下降**：检查使用中的控件、强引用与其他加载句柄；释放 Scope 不会强制卸载共享资源或立即触发 GC。
 - **资源一直被本批次保留**：确认在业务退出时调用 `Release`，而不是只检查 `IsAsyncLoadingInProgress()`；加载已结束时该查询可以为 false，句柄仍然存在。
 
-实现入口：插件 `AsyncMixin.cpp` 中的 `AsyncPreloadPrimaryAssetsAndBundles` 与 `CompleteAsyncLoading`，引擎 `Engine/Source/Runtime/Engine/Classes/Engine/AssetManager.h` 中的 `PreloadPrimaryAssets`。本例按接口与句柄语义核对，未创建资产、编译或进行打包运行验收。
+代码位置：插件 `AsyncMixin.cpp` 中的 `AsyncPreloadPrimaryAssetsAndBundles` 与 `CompleteAsyncLoading`，引擎 `Engine/Source/Runtime/Engine/Classes/Engine/AssetManager.h` 中的 `PreloadPrimaryAssets`。

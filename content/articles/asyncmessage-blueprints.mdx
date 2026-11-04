@@ -66,8 +66,8 @@ order: 51
 
 蓝图任务注册在 GameInstance 中，不能仅凭 Actor 或 Widget 离开视野就假定任务停止。World 关闭有兜底清理，但不能代替功能退出时主动解绑。
 
-这三组图依据 UE 5.8 真实类型与引脚整理，用于说明核心接线；本轮未创建工程蓝图资产或运行 PIE。实际验证时，先启动监听，再发送已知载荷，确认只进入一次 `Valid`；停止监听后再次发送，自己的回调应不再执行。
+这三组图按 UE 5.8 的真实节点与引脚整理，展示的是核心接线，项目中没有对应的蓝图资产。自己验证时：先启动监听，再发送一个已知载荷，确认只进入一次 `Valid`；停止监听后再发送一次，回调应该不再执行。
 
 对应原生用法见 [C++ 收发与解绑](/read/asyncmessage-cpp)，路由与线程约束见[标签、时机与生命周期](/read/asyncmessage-routing)。
 
-实现入口：引擎插件 `AsyncAction_ListenForMessage`、`AsyncMessageBlueprintLibrary`、`AsyncMessage`，引擎 `BlueprintInstancedStructLibrary`，项目 `Framework/Messages/StarryVerbMessage.h`。
+代码位置：引擎插件 `AsyncAction_ListenForMessage`、`AsyncMessageBlueprintLibrary`、`AsyncMessage`，引擎 `BlueprintInstancedStructLibrary`，项目 `Framework/Messages/StarryVerbMessage.h`。

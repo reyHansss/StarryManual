@@ -131,6 +131,8 @@ void FManualPreviewLoads::CancelAll()
 | `IsAsyncLoadingInProgress()` | 查询当前步骤是否仍在加载或尚有后续步骤 | 不包含所有“等待回调”的情况，也不表示预加载句柄已经释放 |
 | `CancelAsyncLoading()`       | 撤销本作用域未执行步骤并安排清理       | 不调用完成钩子，不回滚已执行的业务副作用               |
 
+`OnStartedLoading()` 与 `OnFinishedLoading()` 是 `FAsyncMixin` 的受保护虚函数，供继承它的宿主覆写。`FAsyncScope` 只把七个接口公开给持有者：`AsyncLoad`、`AsyncPreloadPrimaryAssetsAndBundles`、`AsyncCondition`、`AsyncEvent`、`CancelAsyncLoading`、`StartAsyncLoading` 与 `IsAsyncLoadingInProgress`。持有 Scope 成员的宿主收不到它的开始与完成钩子，需要时在自己的步骤里排一个 `AsyncEvent`。
+
 `IsAsyncLoadingInProgress()` 可能在最后一个资源已经加载、但其业务回调尚未执行时返回 false；单个纯事件步骤也可能如此。不要用它代替“这批业务结果已经应用”或“所有资源已释放”的标记；需要界面状态时，以自己的开始／完成／主动取消路径维护。
 
 取消后可以排入新批次，示例都先取消再排请求。没有显式启动时，CoreTicker 会自动推进，因此应在入队前完成依赖状态的准备，不把一个尚未调用 Start 的队列当作长期暂停的任务。
@@ -152,4 +154,4 @@ void FManualPreviewLoads::CancelAll()
 - **关闭界面后还有请求**：确认主动退出路径取消了持久成员中的作用域，没有只等 UObject 最终析构，也没有把其他加载系统的请求误认为此 Scope 管理。
 - **定位推进顺序**：启动参数可用 `-LogCmds="LogAsyncMixin Verbose"`，结合请求路径、状态地址和步骤编号查看日志。日志记录请求与推进，不会替你判断业务对象仍否有效。
 
-实现入口：插件 `AsyncMixin.cpp` 的 `TryCompleteAsyncLoading`、`CompleteAsyncLoading`、`FAsyncStep` 和 `FAsyncCondition`。本页按当前源码与现有 DLL 导出核对，没有进行 UE 编译、PIE 或多线程运行验收。
+代码位置：插件 `AsyncMixin.cpp` 的 `TryCompleteAsyncLoading`、`CompleteAsyncLoading`、`FAsyncStep` 和 `FAsyncCondition`。

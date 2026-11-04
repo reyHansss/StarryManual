@@ -1,74 +1,101 @@
 ---
-title: HaloDebug · 模块总览与使用
-description: 了解通用调试工具的操作、远程连接与窗口扩展，再由各模块的排查说明定位具体问题。
+title: StellaDebug · 模块总览
+description: 打开游戏内 ImGui 调试面板，认识菜单、菜单栏小部件、快捷键与控制台命令，了解插件的模块分工和使用边界。
 order: 30
 ---
 
-## 模块职责与功能入口
+## 它是什么
 
-HaloDebug 提供调试窗口与菜单、ImGui 输入、属性检查和场景绘制基础；Starry 在此之上注册项目工具。这里说明工具怎样操作、连接与扩展；具体模块的状态含义、异常原因和排查步骤在所属模块中说明。
+StellaDebug 是项目的游戏内调试工具，源自开源插件 Cog（MIT 许可）。它提供：
 
-文档中的功能分区面向实际用途，插件的 C++ 模块分工见下文；一个功能可能使用多个底层模块，例如远程显示通过 ImGui 传输窗口，场景绘制仍在游戏进程完成。
+- **调试窗口与菜单**：基于 Dear ImGui；
+- **属性检查器**：查看和修改反射属性；
+- **场景绘制**：点、线、形状、碰撞、曲线与指标；
+- **远程显示**：把面板显示到桌面程序（netImgui）。
+
+插件提供通用能力，项目在 `UStarryDebugSubsystem` 中注册自己需要的窗口：引擎通用工具、AI 面板和输入调试。各领域状态的含义和排查步骤写在所属模块中，这里只讲工具本身怎么用。
 
 ## 从 F1 开始
 
-在 PIE 或非 Shipping 游戏中按 `F1`，或执行 `HaloDebug.ToggleInput`，切换调试输入。打开菜单中的所需窗口，完成检查后再切回正常游戏操作。
+在非 Shipping 构建的 PIE 或游戏中，按 **F1** 切换调试输入：鼠标和键盘交给调试面板，从顶部菜单打开需要的窗口。检查完再按 F1 回到游戏操作。
 
-Starry 由 `UStarryDebugSubsystem` 注册项目菜单。HaloDebug 提供窗口、输入、绘制与配置能力，项目决定打开哪些工具以及工具操作哪些领域。
+| 快捷键 | 作用                             |
+| ------ | -------------------------------- |
+| F1     | 切换调试输入                     |
+| F2～F4 | 载入第 1～3 套窗口布局           |
+| F5     | 切换拾取模式（在视口中选 Actor） |
 
-## 常用工具在哪里
+快捷键都可以重新绑定。默认会停用与它们冲突的 UE 调试按键。
 
-| 想做什么                         | 当前菜单                                               |
-| -------------------------------- | ------------------------------------------------------ |
-| 选择 Actor、观察当前选择         | `Engine → Selection`                                   |
-| 查看 Actor 属性                  | `Engine → Actor → Inspector`                           |
-| 调整位置、旋转与缩放             | `Engine → Actor → Transform`                           |
-| 查看骨架                         | `Engine → Actor → Skeleton`                            |
-| 执行 Cheat                       | `Engine → Actor → Cheats`                              |
-| 碰撞查询与碰撞显示               | `Engine → Scene → Collision Tester / Collision Viewer` |
-| 看日志、通知、曲线与指标         | `Engine → Diagnostics`                                 |
-| 时间倍率                         | `Engine → Time Scale`                                  |
-| 网络模拟与画质                   | `Engine → Runtime → Net Emulation / Scalability`       |
-| ImGui、Slate、快捷命令与远程连接 | `Engine → Debug Tools`                                 |
-| AI 决策与后端                    | `AI`                                                   |
-| 手柄与 Action 注入               | `Input → Gamepad / Actions`                            |
+## 菜单里有什么
 
-这些路径对应当前注册代码。查不到旧名称时，先核对项目菜单，不要据此新增同功能窗口。
+| 菜单                 | 窗口                                                                                                                                  |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Engine → Actor       | Inspector（属性）、Transform（位置旋转缩放）、Skeleton（骨架）、Cheats                                                                |
+| Engine → Scene       | Collision Tester、Collision Viewer、Levels、Spawns                                                                                    |
+| Engine → Diagnostics | Log Categories、Output Log、Notifications、Plots、Metrics                                                                             |
+| Engine → Runtime     | Build Info、Debug Settings、Net Emulation、Scalability                                                                                |
+| Engine → Debug Tools | ImGui、Slate、Command Bindings、Net ImGui                                                                                             |
+| AI                   | Agents、StellaBehavior、Objectives、Modifiers、BehaviorTree、StateTree、HTN、Blackboard，见 [StellaAI 调试](/read/stellaai-debugging) |
+| Input                | Gamepad、Actions，见 [Input 调试](/read/input-troubleshooting)                                                                        |
+| Window               | Close All Windows、Layouts（重置布局，载入或保存布局 1～4）、Settings、Spacing 1～4                                                   |
 
-## 操作对象与当前世界
+**菜单栏右侧的小部件**：Selection（当前选择）、Time Scale（时间倍率）、Stats、Console，都显示在菜单栏右侧，可以在 **Window → Settings → Widgets** 中调整显示与顺序。插件自带的 Audio 窗口，项目没有注册。
 
-选择决定 Inspector、Transform 等工具的目标。使用选取模式时在游戏视口左键选择、右键取消。拖动 Gizmo 需要游戏视口里的调试输入已经打开。
+## 选择对象与当前世界
 
-Cheats 默认作用于选中的 Actor；按住 `Ctrl` 点击时改用本地受控 Pawn。控制台形式是 `HaloDebug.Cheat <CheatName> [-Controlled]`。当前没有 Shift／Alt 的阵营批量操作，也没有调试 Possess 菜单。
+**选择**：选择决定 Inspector、Transform 等工具操作哪个 Actor。
 
-面板操作发生在当前连接的游戏进程与世界。它不会自动把客户端的修改变成服务器 RPC；玩法权限与同步仍由对应领域处理。多人 PIE 中先确认正在操作哪个世界。
+- 进入拾取模式（F5，或执行 `StellaDebug.ToggleSelectionMode`）后，在游戏视口中左键选择、右键取消。
+- 拖动 Gizmo 需要游戏视口中的调试输入已经打开。
+
+**Cheats**
+
+- 默认作用于选中的 Actor；按住 `Ctrl` 点击时改为作用于本地控制的 Pawn。
+- 控制台形式为 `StellaDebug.Cheat <CheatName> [-Controlled]`。
+- 标记为 Persistent 的作弊会在下次运行时自动重新应用。
+- Cheats 窗口的条目来自数据资产中的 `CheatCategories`，项目 Content 中目前还没有这个资产，所以默认是空的。
+
+**操作只发生在当前进程与世界**：面板里的操作不会自动变成服务器 RPC，玩法权限与同步仍由对应领域处理。多人 PIE 中，先确认正在操作的是哪个世界。
 
 <Diagram
-  title="面板、领域与游戏视口的关系"
+  title="面板、领域与游戏视口"
   source={
-    'flowchart LR\n  User(调试输入) --> UI(ImGui 窗口)\n  UI --> Domain(当前世界的领域接口)\n  Domain --> State(运行状态)\n  State --> UI\n  UI --> Draw(本进程场景绘制)\n  Draw --> Viewport(游戏视口)\n  UI --> Remote(netImgui 桌面显示)'
+    'flowchart LR\n  User(调试输入) --> UI(ImGui 窗口)\n  UI --> Domain(当前世界的领域接口)\n  Domain --> State(运行状态)\n  State --> UI\n  UI --> Draw(本进程的场景绘制)\n  Draw --> Viewport(游戏视口)\n  UI --> Remote(netImgui 桌面查看器)'
   }
 />
 
-## 插件内部如何分工
+## 控制台命令
 
-| 模块              | 职责                                   |
-| ----------------- | -------------------------------------- |
-| `HaloDebug`       | WorldSubsystem、窗口、菜单、布局与配置 |
-| `HaloDebugCommon` | 公共接口与构建宏                       |
-| `HaloDebugImgui`  | ImGui、输入、Slate 与 netImgui 接入    |
-| `HaloDebugPaint`  | 本进程场景绘制、Gizmo、曲线与指标      |
-| `HaloDebugEngine` | 通用 Engine 工具与反射属性 Inspector   |
-| `HaloDebugInput`  | Gamepad 与 Actions 调试                |
+| 命令                                           | 作用                                                 |
+| ---------------------------------------------- | ---------------------------------------------------- |
+| `StellaDebug.ToggleInput`                      | 切换调试输入（同 F1）                                |
+| `StellaDebug.DisableInput`                     | 关闭调试输入                                         |
+| `StellaDebug.ToggleSelectionMode`              | 切换拾取模式（同 F5）                                |
+| `StellaDebug.LoadLayout <n>`／`SaveLayout <n>` | 载入或保存第 n 套布局                                |
+| `StellaDebug.ResetLayout`                      | 重置窗口布局                                         |
+| `StellaDebug.Cheat <CheatName> [-Controlled]`  | 执行作弊                                             |
+| `StellaDebug.NetImgui.*`                       | 远程连接相关，见[远程面板](/read/stelladebug-remote) |
 
-`ENABLE_HALODEBUG = !UE_BUILD_SHIPPING`。面板和工具代码按构建条件使用；部分运行时反射类型仍需在 Shipping 中存在以便资产加载，不能把这一宏解释为整个插件完全不存在。
+## 插件的模块分工
+
+| 模块                | 职责                                   |
+| ------------------- | -------------------------------------- |
+| `StellaDebug`       | WorldSubsystem、窗口、菜单、布局与配置 |
+| `StellaDebugCommon` | 公共接口与构建宏                       |
+| `StellaDebugImgui`  | ImGui、输入、Slate 与 netImgui 接入    |
+| `StellaDebugPaint`  | 本进程的场景绘制、Gizmo、曲线与指标    |
+| `StellaDebugEngine` | 通用引擎工具窗口与反射属性检查器       |
+| `StellaDebugInput`  | Gamepad 与 Actions 输入调试            |
+
+宏 `ENABLE_STELLADEBUG` 在非 Shipping 构建中为 1。面板和工具代码按这个宏编译；部分运行时反射类型在 Shipping 中仍然存在，以便资产能正常加载，所以不能把它理解为整个插件在 Shipping 中完全消失。插件描述符默认禁用，`Starry.uproject` 显式启用了它。
 
 ## 看不到面板时
 
-先确认当前不是 Shipping、项目已启用插件且 Subsystem 注册了窗口，再检查 F1 调试输入、窗口可见性和当前世界。中文缺字还应检查非 Shipping 字体文件部署：字体由标准文件读取，只有 Cook 到 Pak 并不足以替代相应 NonUFS 文件。
+1. 确认不是 Shipping 构建，并且插件已启用。
+2. 确认 F1 的调试输入已打开，窗口可见，当前世界正确。
+3. 中文显示成方块时，检查非 Shipping 的字体文件是否已部署：字体按普通文件读取，只 Cook 进 Pak 不够。
 
-远程桌面显示见[netImgui 远程面板](/read/stelladebug-remote)，新窗口与绘制复用见[窗口扩展与属性绘制](/read/stelladebug-extension)。
+把面板放到独立窗口显示，见[远程面板](/read/stelladebug-remote)；新增窗口与绘制，见[扩展开发](/read/stelladebug-extension)。
 
-定位具体系统的问题时，从所属模块的排查章节进入：[Input 调试与排查](/read/input-troubleshooting)包含 Gamepad／Actions 操作、模拟范围与输入诊断路线，AI 问题见 [AstraAI 调试与排查](/read/stellaai-debugging)。
-
-实现入口：`Plugins/Toolkit/HaloDebug` 与 `Source/StarryGame/Framework/Development/StarryDebugSubsystem`。插件来源为 Cog，保留 MIT 许可；具体来源与许可记录随项目维护。
+代码位置：插件 `Plugins/Toolkit/StellaDebug`；项目窗口注册 `Source/StarryGame/Framework/Development/StarryDebugSubsystem`。

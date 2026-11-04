@@ -1,62 +1,94 @@
 ---
 title: Input · Handler 与能力分派
-description: 选择正确的输入阶段，把输入交给移动、GAS、GameplayEvent 或 UI，保持共享 Handler 无玩家状态。
+description: Handler 是共享的配置对象：怎样选触发事件、现成的处理器有哪些、移动方向与摇杆行为，以及技能输入与 GameplayEvent 的分派方式。
 section: [动作处理]
-order: 42
+order: 43
 ---
 
-## Handler 是共享配置对象
+## Handler 是共享对象
 
-Setup 中的 `InputHandlers` 直接引用资产内对象，`Instanced` 表示可在资产内编辑，不表示运行时按玩家复制。不要在 Handler 成员中保存当前玩家、按住计时、目标 Actor，或启动依赖本对象身份的 latent 流程。
+Setup 的 `InputHandlers` 直接引用资产里的 Handler 对象。字段标成 `Instanced` 只是为了能在资产里直接编辑，运行时**不会**为每个玩家复制一份。所以：
 
-处理时从传入 `Manager` 取得当前上下文，把持续状态放到所属组件、技能或本次任务。Manager 会在同步调用前设置当前 World，这也不构成独立玩家实例。
+- 不要在 Handler 的成员里保存当前玩家、按住计时、目标 Actor；
+- 不要启动依赖这个对象身份的 latent 流程。
+
+处理时从传入的 `Manager` 取得当前上下文，持续的状态放进所属的组件、技能或本次任务中。Manager 在同步调用前会设置当前 World，这也不代表 Handler 有了独立的玩家实例。
 
 ## 先选对事件
 
-| Enhanced Input 阶段 | 常见含义                                   | Handler 覆写           |
+| Enhanced Input 事件 | 含义                                       | Handler 覆写的函数     |
 | ------------------- | ------------------------------------------ | ---------------------- |
 | `Started`           | 开始评估这次输入                           | `HandleStartedEvent`   |
 | `Triggered`         | 触发条件满足                               | `HandleTriggeredEvent` |
-| `Ongoing`           | 触发器仍在评估，尚不等于成功触发           | `HandleOngoingEvent`   |
-| `Completed`         | 已触发输入的完成                           | `HandleCompletedEvent` |
-| `Canceled`          | 未完成触发或取消，例如短按未达到 Hold 阈值 | `HandleCancelledEvent` |
+| `Ongoing`           | 触发器仍在评估，还不等于触发成功           | `HandleOngoingEvent`   |
+| `Completed`         | 已触发的输入完成                           | `HandleCompletedEvent` |
+| `Canceled`          | 没有完成触发就结束，例如短按没达到长按阈值 | `HandleCancelledEvent` |
 
-持续移动与视角通常使用 Triggered。短按、长按、释放要结合 Action 的 Trigger 规则选择事件，不能把 Ongoing 当成“每帧成功触发”。
+**选事件的规则**
 
-`InputActions` 与 `TriggerEvents` 决定登记组合。`CanHandle` 适合静态匹配，不用于登记后不断变化的玩法许可；能否移动、能否转视角等动态条件放在实际处理函数或 `CanMove / CanLook` 等领域判断中。
+- **持续输入**：现成的 Move 与 Look 处理器默认同时登记 `Triggered` 和 `Ongoing`。
+- **短按、长按、释放**：要结合 Action 上的触发器来选事件。不能把 Ongoing 当成“每帧都成功触发”。
 
-## 已有处理器按能力选择
+**登记与动态条件**
 
-| 需求                            | 当前处理器或类型                                               |
-| ------------------------------- | -------------------------------------------------------------- |
-| 移动、鼠标视角、手柄视角        | `Move`、`Look`、`Look_Gamepad`                                 |
-| 跳跃、蹲伏与自动奔跑            | `CharacterJump`、`CharacterCrouch`、`AutoRun`                  |
-| 按动态 InputTag 分派 GAS 输入   | `AbilityInputTag`                                              |
-| 按 Class／Tag／输入身份定位技能 | `AbilityClass`、`AbilityTag`、`AbilityInput`                   |
-| 技能中断                        | `AbilityInterruption` 与对应 InterruptAbility 类型             |
-| 技能目标确认、取消              | `AbilityTargeting` 中的相关类型                                |
-| 项目事件、HUD 与连招            | `GameplayEvent`、`HUDEvent`、`CombatCombo`、`DefaultHoldCombo` |
+- **登记**：`InputActions` 与 `TriggerEvents` 决定 Handler 登记到哪些动作和事件。
+- **`CanHandle`**：适合做静态匹配。
+- **动态条件**：能不能移动、能不能转视角这类会变化的条件，放在处理函数里，或者 `CanMove`、`CanLook` 这样的领域判断中。
 
-移动与角色动作沿项目 Mover 接入。Traversal 通过角色接口提供能力，不表示输入层本身已实现完整攀爬、翻越等动作。
+## 现成的处理器
 
-## 明确移动参考方向
+| 需求                               | 处理器                                                                 |
+| ---------------------------------- | ---------------------------------------------------------------------- |
+| 移动、鼠标视角、手柄视角           | `Move`、`Look`、`Look_Gamepad`                                         |
+| 冲刺、步行、横移、瞄准             | `Locomotion`（显示名 Character: Locomotion，`IS_Locomotion` 正在使用） |
+| 跳跃、蹲伏、自动奔跑               | `CharacterJump`、`CharacterCrouch`、`AutoRun`                          |
+| 按技能的动态 InputTag 分派输入     | `AbilityInputTag`                                                      |
+| 按类、标签或输入身份找技能并激活   | `AbilityClass`、`AbilityTag`、`AbilityInput`                           |
+| 中断技能                           | `AbilityInterruption` 与 `InterruptAbilityClass`／`Tag`／`Input`       |
+| 技能目标的确认与取消               | `AbilityTargeting`                                                     |
+| 发送 GameplayEvent、HUD 事件、连招 | `GameplayEvent`、`HUDEvent`、`CombatCombo`、`DefaultHoldCombo`         |
+| 在屏幕上打印调试文字               | `ShowDebugString`                                                      |
 
-使用 `SetForwardReference(USceneComponent*)` 指定方向来源组件，或 `SetForwardReferenceRotation(FRotator)` 指定旋转；后者覆盖当前显式来源。读取接口只保留 Yaw，不把 Pitch／Roll 传进平面移动。
+移动与角色动作经由项目的 Mover 接入。Traversal（翻越）通过角色接口提供，输入层本身不实现攀爬、翻越等动作。
 
-没有有效显式来源时使用 Controller 方向。组件来源可用 nullptr 清除，切换 Pawn 不会自动替提供者清理所有显式方向引用；创建来源的一方应配对设置与撤销。
+## 移动方向与摇杆行为
 
-## GAS 输入与 GameplayEvent
+**移动参考方向**
 
-`AbilityInputTag` 使用 ASC 上技能 Spec 的动态 InputTag 进入输入队列。它与“找一个技能类立刻激活”是不同入口，按技能的输入协议选用。
+- **指定组件**：用 `SetForwardReference(USceneComponent*)` 指定方向来源组件，传 nullptr 可以清除。
+- **指定旋转**：用 `SetForwardReferenceRotation(FRotator)` 直接指定旋转，它会覆盖当前的组件来源。
+- **只取 Yaw**：读取接口只保留 Yaw，不会把 Pitch、Roll 带进平面移动。
+- **默认方向**：没有有效的显式来源时，使用 Controller 的方向。
+- **谁设置谁撤销**：切换角色不会自动清理所有显式方向引用，设置方向来源的一方要负责成对地设置和撤销。
 
-GameplayEvent 通过 `Manager.SendGameplayEventToOwner` 请求。默认可包含本地与服务器路径，Listen Server 本地只执行一次；远端 Controller 使用对应 RPC。技能实际运行位置仍受 GAS 的 `NetExecutionPolicy` 约束。
+**摇杆行为**：摇杆偏转怎样换算成速度与步态，由 `EStarryInputAnalogStickBehavior` 决定，可以用 `SetAnalogStickBehavior` 修改：
 
-同步返回值只反映当前调用已经发生的激活，不能用来判断服务器稍后通过 RPC 执行的最终结果。技能失败、取消与完成仍由 GAS 通知或实际任务处理。
+| 值                              | 行为                                     |
+| ------------------------------- | ---------------------------------------- |
+| `FixedSpeed_SingleGait`（默认） | 固定速度，移动强度不随摇杆偏转变化       |
+| `FixedSpeed_WalkRun`            | 轻推为固定步行速度，推满为固定跑步速度   |
+| `VariableSpeed_SingleGait`      | 偏转量控制速度，步行或跑步由步态输入选择 |
+| `VariableSpeed_WalkRun`         | 偏转量控制速度，并按偏转量切换步行与跑步 |
 
-## 新增 Handler 的最短路线
+Move 处理器的 `BlockMovementTags` 默认包含 `Input.Block.Movement`，带有其中任一标签时不移动角色。它还有一个最小输入幅度阈值，但对玩家角色几乎不起作用：玩家角色只要求输入幅度大于一个极小值。
 
-先找上表中已有能力，再决定是否派生。自定义处理器设置动作与事件，在对应 Handle 方法里调用领域接口，避免重复做按键映射、持有玩家实例或另建输入调度。
+## 技能输入与 GameplayEvent
 
-输入值变换见[修饰器与双击](/read/input-triggers)，需要延迟执行时看[通道输入缓存](/read/input-buffer)，跨 IMC 的一次分派规则见[绑定与生命周期](/read/input-binding)。
+- **`AbilityInputTag`**：把输入按 ASC 上技能 Spec 的动态 InputTag 送进输入队列。它和“找到一个技能类立刻激活”是两个入口，按技能的输入协议选用。
+- **GameplayEvent**：通过 `Manager.SendGameplayEventToOwner` 发出。可以同时走本地与服务器两条路径，Listen Server 上本地只执行一次，远端 Controller 使用对应的 RPC。技能实际在哪一端运行，仍受 GAS 的 `NetExecutionPolicy` 约束。
 
-实现入口：`Framework/Input/StarryInputHandler`、`Handlers` 目录与 `StarryInputTypes`。
+同步返回值只反映这次调用当场发生的激活，不能用来判断服务器稍后通过 RPC 执行的结果。技能的失败、取消与完成，仍由 GAS 的通知或实际任务处理。
+
+## 自定义一个 Handler
+
+先在上表里找现成的能力，确实没有再派生：
+
+1. 在内容浏览器 **Starry → Input** 下创建 Input Handler 蓝图，或在 C++ 中派生 `UStarryInputHandler`。
+2. 设置它处理的动作与事件。
+3. 在对应的 Handle 函数里调用领域接口。
+
+不要在 Handler 中重复做按键映射、保存玩家实例，或另建一套输入调度。
+
+输入值的变换见[修饰器与触发器](/read/input-triggers)，需要延后执行时见[通道输入缓存](/read/input-buffer)，多份 Setup 之间的分派规则见[配置与生命周期](/read/input-binding)。
+
+代码位置：`Framework/Input/StarryInputHandler`、`Framework/Input/Handlers`、`Framework/Input/StarryInputTypes.h`。

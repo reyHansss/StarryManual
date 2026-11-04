@@ -1,0 +1,69 @@
+---
+title: Input · 快速上手
+description: 新增一个玩家动作的完整步骤：创建 Action 与映射、组织 Input Setup、选择 Handler、挑一个配置拥有者，并在调试面板中确认。
+order: 41
+---
+
+以给玩家角色加一个“闪避”动作为例。下面的 `IA_Dodge`、`IS_Dodge` 等是示例名称，需要你自己创建。
+
+## 第一步：Action 与按键映射
+
+1. 在 `Content/Blueprints/Input/Actions` 创建 Input Action `IA_Dodge`，`Value Type` 选 `Digital (bool)`。按需要配置动作自身的触发器与修饰器，例如 Pressed。
+2. 在一个 IMC 中把按键映射到 `IA_Dodge`。按键条目上的修饰器只影响这一条映射。
+
+共用的 Action 放在 `Content/Blueprints/Input/Actions`，共用的 Setup 和 IMC 放在 `Content/Blueprints/Input/Setups`。只服务某个功能的输入资源，跟随功能放在它自己的目录下。
+
+## 第二步：Input Setup 与 Handler
+
+1. 在内容浏览器右键 → **Starry → Input** 创建 Input Setup `IS_Dodge`。
+2. 填写 Setup：
+   - `InputMappingContext`：上一步的 IMC；
+   - `Priority`：默认 0，数值越大越优先；
+   - `InputHandlers`：处理这个动作的 Handler。
+3. 选择或创建 Handler：
+   - 闪避如果是一个技能，优先使用现成的技能类 Handler，例如按 InputTag 分派的 `AbilityInputTag`，见 [Handler 与能力分派](/read/input-handlers)。
+   - 需要自定义逻辑时，在 **Starry → Input** 下创建 Input Handler 蓝图。
+4. 给 Handler 指定 `InputActions = IA_Dodge`，以及 `TriggerEvents`。单次触发的动作通常选 `Triggered`。
+
+保存时，Setup 的资产校验会检查这些问题：
+
+- 缺少 IMC；
+- Handler 为空；
+- Handler 没有配置动作或事件；
+- IMC 中的某个动作没有任何 Handler 处理。
+
+先把校验报告的问题解决，再排查运行时。
+
+## 第三步：选一个配置拥有者
+
+同一份 Setup 只由一个地方负责添加和移除：
+
+| 想让它什么时候生效     | 放在哪里                                                         |
+| ---------------------- | ---------------------------------------------------------------- |
+| 只要是这个角色就能用   | 角色 CharacterData 的 `InputSetups` 数组                         |
+| 不管控制哪个角色都能用 | PlayerController 上 Manager 的 `InputHandlerSetup`               |
+| 某个功能开启期间才能用 | 该功能 Experience 中的 `AddInputBinding` Action 的 `InputSetups` |
+
+这个例子放进玩家角色的 CharacterData。之后 Hero 组件在角色数据就绪时请求刷新，Manager 自动应用它；切换角色时自动移除。
+
+## 第四步：运行并确认
+
+1. 运行 PIE，按 F1 打开调试输入，打开 **Input → Actions**。
+2. 在列表中找到 `IA_Dodge`：
+   - 按下按键，`Current` 列应该出现值；
+   - 点击 `Inject` 列可以在不按实际按键的情况下模拟它。
+3. 确认闪避被执行。
+
+<Note title="刚加配置时按键没反应">
+
+配置刚添加时，已经按住的键需要先松开再按下才会触发新动作。这是 Manager 在添加映射时选择的行为，不是绑定失败。
+
+</Note>
+
+还是没有反应时，按[调试与排查](/read/input-troubleshooting)从设备、映射、Handler 到领域逐层检查。
+
+## 接下来
+
+- 想在攻击动画后段提前按下闪避，并在动画结束时才执行：[通道输入缓存](/read/input-buffer)。
+- 长按、双击等触发规则：[修饰器与触发器](/read/input-triggers)。
+- 让玩家可以改这个键：[改键与玩家设置](/read/input-settings)。

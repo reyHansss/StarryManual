@@ -1,81 +1,97 @@
 ---
 title: Input · 调试与排查
-description: 使用 Gamepad 与 Actions 观察和模拟输入，沿设备、映射、绑定、缓存与能力定位问题。
+description: 按设备、映射、Handler、缓存、领域逐层定位输入问题；用 StellaDebug 的 Gamepad 与 Actions 窗口观察和模拟输入，并了解模拟的范围。
 section: [调试与排查]
-order: 46
+order: 47
 ---
 
 ## 从能观察到的最前一层开始
 
-在 PIE 或非 Shipping 游戏中按 `F1` 打开 HaloDebug 调试输入，再从菜单进入 `Input → Gamepad` 或 `Input → Actions`。沿下方路线检查设备、映射、Handler、缓存和领域能力，确定输入停在哪一层。
+“按了没反应”可能停在任何一层：设备原始值、Enhanced Input 的 Action、项目的 Handler、缓存窗口，或者最终的移动与技能。不要只看角色有没有动作就判定“输入丢了”，先确定输入停在了哪一层。
 
-原始设备值、Enhanced Input Action、项目 Handler、领域能力是不同阶段，不要只看角色有没有动作就判定“输入丢了”。
+在 PIE 或非 Shipping 游戏中按 **F1** 打开调试输入，从 **Input → Gamepad** 或 **Input → Actions** 开始观察。
 
 <Diagram
   title="输入没有响应时的排查路线"
   source={
-    'flowchart TD\n  Start(输入未生效) --> Raw{设备原始值正常？}\n  Raw -->|否| Device(检查设备、焦点与输入模式)\n  Raw -->|是| Action{Action 有正确值与事件？}\n  Action -->|否| Map(检查 IMC、优先级、修饰器与 Trigger)\n  Action -->|是| Bound{Manager 和 Handler 已登记？}\n  Bound -->|否| Setup(检查 Controller 初始化和 Setup)\n  Bound -->|是| Buffer{正在等待缓存窗口关闭？}\n  Buffer -->|是| Window(检查通道与正常结束或中断)\n  Buffer -->|否| Domain(检查 Mover、GAS 或业务条件)'
+    'flowchart TD\n  Start(输入没有生效) --> Raw{设备原始值正常？}\n  Raw -->|否| Device(检查设备、窗口焦点与输入模式)\n  Raw -->|是| Action{Action 有正确的值与事件？}\n  Action -->|否| Map(检查 IMC、优先级、修饰器与触发器)\n  Action -->|是| Bound{Manager 与 Handler 已登记？}\n  Bound -->|否| Setup(检查 Controller 初始化与 Setup)\n  Bound -->|是| Buffer{在等缓存窗口结束？}\n  Buffer -->|是| Window(检查通道，以及窗口是正常结束还是被中断)\n  Buffer -->|否| Domain(检查 Mover、GAS 或业务条件)'
   }
 />
 
-## Gamepad 与 Actions
+## 手柄与动作模拟
 
-### Gamepad：观察原始手柄输入
+**Gamepad 窗口：看手柄的原始输入**
 
-Gamepad 显示物理手柄的原始按键与轴，即使没有对应 IMC 也能观察。它通过 Slate 只读观察输入，不消费或重发原始事件；Overlay 适合边玩边看。
+- **显示内容**：物理手柄的原始按键与轴，没有对应的 IMC 也能看到。它通过 Slate 只读地观察输入，不消费也不重发原始事件；默认以叠加层显示，适合边玩边看。
+- **颜色**：浅色表示物理输入，橙色表示模拟输入。
+- **模拟操作**：
+  - 点击已映射的按钮可以锁定模拟；
+  - 拖动已映射的二维摇杆可以模拟推动，松开回中，按住 `Ctrl` 松开则保持当前位置；
+  - 分轴的 Action 到 Actions 窗口中模拟。
+- **其他**：右键可以调整或重置设置与布局；关闭 Gamepad 窗口会清除它自己的模拟。
 
-浅色表示物理输入，橙色表示模拟。已映射按钮可点击锁定模拟；已映射二维摇杆可拖动，松开回中，按住 `Ctrl` 松开可保留。分轴 Action 可在 Actions 中模拟。右键可调整或重置相关设置与布局，关闭 Gamepad 会清理它自己的模拟。
+**Actions 窗口：看和模拟已映射的动作**
 
-### Actions：查看和模拟已映射动作
+- **显示内容**：列出当前玩家所有已映射的 Enhanced Input Action，按 IMC 分组并显示优先级。每行分 `Action`、`Current`、`Inject` 三列。
+- **模拟布尔动作**：点击 `Inject` 切换“持续按下”，再点一次释放；按住 `Ctrl` 点击或右键可切换 Repeat（周期性按下）。
+- **模拟标量与向量**：直接设置数值。
+- **共享模拟**：同一个 Action 资产即使出现在多个 IMC 中，也只共用一份模拟，每帧只注入一次；名字相同的不同资产各自独立。移除最后一个映射或切换玩家时，相应的模拟状态被清除。
 
-Actions 显示当前玩家已映射的 Enhanced Input Action，按 `Action / Current / Inject` 三列排列。根据值类型设置布尔、标量或向量，普通点击按住注入，`Ctrl` 点击或右键切换 Repeat。
+<Note title="Actions 窗口始终在注入">
 
-同一 Action 资产跨多个 IMC 共用一份模拟，每帧只注入一次；同名的不同资产各自独立。移除最后一个映射或切换玩家时，工具清理对应状态。
+即使 Actions 窗口被隐藏，甚至从没打开过，它每帧都会向所有已映射的 Action 注入当前的模拟值，包括零值。这是工具的既定做法：停止注入后由引擎产生 Completed。
 
-**隐藏 Actions 窗口不会停止 Repeat，完成检查后要使用 Reset。** Reset 只清理 Actions 的注入，Gamepad 的模拟需要单独停止。
+- 隐藏窗口不会停止 Repeat；检查完要点 **Reset**。
+- Reset 只清除 Actions 的模拟值，不会停止这种逐帧注入。
+- Gamepad 的模拟要单独停止。
 
-## 模拟输入的范围
+</Note>
+
+## 模拟从动作层进入
 
 <Diagram
   title="Action 注入从动作层进入"
   source={
-    'flowchart LR\n  Key(物理按键) --> Mapping(IMC 按键映射与修饰)\n  Mapping --> Action(Action 自身 Modifier / Trigger)\n  Inject(HaloDebug Action 注入) --> Action\n  Action --> Event(Enhanced Input 动作事件)\n  Event --> Consumer(已绑定的动作使用方)'
+    'flowchart LR\n  Key(物理按键) --> Mapping(IMC 按键映射与按键修饰器)\n  Mapping --> Action(Action 自身的修饰器与触发器)\n  Inject(Actions 窗口注入) --> Action\n  Action --> Event(Enhanced Input 动作事件)\n  Event --> Manager(InputManager 与 Handler)'
   }
 />
 
-Actions 通过原生 Enhanced Input 接口注入，经过 Action 自身的 Modifier 与 Trigger，绕过 IMC 按键条目上的 Modifier。因此“模拟正常、物理按键不正常”时，优先检查映射层差异。
+Actions 窗口通过 Enhanced Input 的原生接口注入，会经过 Action 自身的修饰器与触发器，但**绕过** IMC 按键条目上的修饰器。所以遇到“模拟正常、按实际按键不正常”时，先查映射层的差异。
 
-Gamepad 与 Actions 同时模拟同一个 Action 时，按 Enhanced Input 原生累积规则处理。验证单一路径前先清理另一处的持续模拟，避免把叠加结果误认为项目重复分派。
+Gamepad 与 Actions 同时模拟同一个 Action 时，按 Enhanced Input 原生的累积规则合并。验证单一路径前，先清除另一处的持续模拟，避免把叠加结果误认为项目重复分派。
 
 ## 按现象查
 
-| 现象                               | 优先检查                                                          |
-| ---------------------------------- | ----------------------------------------------------------------- |
-| Setup 加了却 HasSetupData 为 false | 是否尚在 Pending；LocalPlayer、Subsystem、InputComponent 是否就绪 |
-| 动作有值但 Handler 不执行          | InputActions 资产是否一致，TriggerEvents 是否包含真实阶段         |
-| 加配置时警告重复 IMC／Setup        | 配置拥有者是否重叠；重复 Add 不提供来源计数                       |
-| 同类 Handler 执行多次              | 是否实际创建了多个对象；去重不按类名                              |
-| 切换配置后按住无反应               | 默认等待已按键释放，松开后再试                                    |
-| Hold 短按没到 Completed            | 可能实际是 Canceled，检查触发器结果                               |
-| 双击一直不成立                     | 首次释放与两次间隔阈值、第二次按下事件                            |
-| 输入延迟到动画末尾                 | 检查是否按设计进入通道缓存                                        |
-| 中断后仍期待执行缓存               | 中断窗口按规则丢弃；不要靠补发旧命令修正                          |
-| 切换 Pawn 后方向不对               | 显式 ForwardReference 是否由提供者正确更新／清除                  |
-| 模拟可用、实体键不同               | Action 注入不经过 IMC 按键 Modifier                               |
-| 改键页缺少某功能                   | 建设置树前是否登记对应 IMC                                        |
+| 现象                                  | 先检查                                                                                     |
+| ------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Setup 加了，`HasSetupData` 却为 false | 是否还在排队等初始化；LocalPlayer、Subsystem、输入组件是否就绪；IMC 里是否有可以绑定的动作 |
+| 加配置时警告重复的 IMC 或 Setup       | 配置的拥有者是否重叠；重复添加不会累计来源                                                 |
+| Action 有值，Handler 却不执行         | Handler 的 `InputActions` 是否是同一个资产；`TriggerEvents` 是否包含实际发生的阶段         |
+| 同一个类的 Handler 执行了多次         | 是否实际存在多个对象；去重看对象，不看类名                                                 |
+| 切换配置后按住的键没反应              | 默认要先松开再按                                                                           |
+| 长按松得太早，没有 Completed          | 实际发生的可能是 Canceled，检查触发器结果                                                  |
+| 双击一直不成立                        | 第一次松开是否超过 0.2 秒、两次之间是否超过 0.5 秒、Handler 是否响应 Triggered             |
+| 输入被延后到动画末尾                  | 是否按设计进入了通道缓存                                                                   |
+| Montage 中断后缓存的命令没有执行      | 中断的窗口按规则丢弃命令，不要靠补发旧命令修正                                             |
+| 切换角色后移动方向不对                | 显式的 ForwardReference 是否由设置它的一方正确更新或清除                                   |
+| 模拟正常、实际按键不正常              | Actions 注入不经过 IMC 按键条目上的修饰器                                                  |
+| 改键页里没有某个功能                  | 建立设置树之前是否登记了对应的 IMC                                                         |
 
-## 有 Action 不等于技能必然激活
+## 有 Action 不等于技能一定会激活
 
-沿 Handler 继续检查 ASC、InputTag、技能激活条件与 NetExecutionPolicy。GameplayEvent 的同步返回值不包括稍后远程 RPC 的结果，不能拿客户端当前返回值替代服务器最终结论。
+- **技能**：沿着 Handler 继续检查 ASC、InputTag、技能的激活条件与 `NetExecutionPolicy`。GameplayEvent 的同步返回值不包含服务器稍后通过 RPC 执行的结果，不能用客户端当时的返回值代替服务器的最终结论。
+- **移动**：确认角色的 Mover 与实际的能力接口已经接入。
 
-移动还应确认角色 Mover 与实际能力接口接入。不要在共享 Handler 加临时玩家成员、另建缓存或补一个延迟，来绕过领域初始化缺失。
+不要在共享的 Handler 上加临时的玩家成员、另建缓存或补一个延迟，去绕过领域初始化缺失。
 
-## 验证一次改动需要什么
+## 验证一次改动
 
-针对动作验证按下、持续、正常释放与未触发取消，再覆盖改动直接涉及的配置退出、切换 Pawn、缓存取消或映射重建。跨 IMC 共享绑定的改动要同时观察同一 Action 是否只分派一次。
+1. 对改动的动作验证按下、持续、正常松开，以及没有触发就取消。
+2. 再覆盖改动直接涉及的情况：配置退出、切换角色、缓存取消、映射重建。
+3. 改的是跨 IMC 的共享绑定时，同时确认同一个 Action 只分派了一次。
 
-已有项目回归名称可用于定位，例如 `Starry.Input.DoubleTapPipeline`；这里提供查找线索，不代表本页编写时重新运行了 UE 自动化。
+项目中输入相关的自动化测试以 `Starry.Input` 开头，目前有 `Starry.Input.DoubleTap` 与 `Starry.Input.BufferMigration`，运行方法见[第一次运行](/read/start-first-run#运行自动化测试)。
 
-[配置接入](/read/input-overview)、[绑定与生命周期](/read/input-binding)、[通道缓存](/read/input-buffer)分别对应排查链中的不同层。
+排查链上的各层分别对应：[模块总览](/read/input-overview)、[配置与生命周期](/read/input-binding)、[通道输入缓存](/read/input-buffer)。
 
-实现入口：`Framework/Input/StarryInputLogs`、`StarryInputManagerComponent` 与相应 Handler／Trigger；观察与模拟工具位于 `Plugins/Toolkit/HaloDebug/Source/HaloDebugInput`，项目菜单由 `UStarryDebugSubsystem` 注册。
+代码位置：`Framework/Input/StarryInputManagerComponent`、`Framework/Input/StarryInputLogs` 与各 Handler、Trigger；观察与模拟工具在插件 `Plugins/Toolkit/StellaDebug/Source/StellaDebugInput`，菜单由 `UStarryDebugSubsystem` 注册。

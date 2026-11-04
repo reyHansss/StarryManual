@@ -1,65 +1,105 @@
 ---
 title: Input · 通道输入缓存
-description: 按 GameplayTag 通道开窗，保留首批或末批输入，正常关闭执行，中断取消丢弃。
+description: 在动画窗口内暂存可缓存的输入、窗口结束时再执行：配置步骤、首批与末批模式、正常结束与中断的区别，以及可以动手试的缓存演示。
 section: [输入缓存]
-order: 43
+order: 45
 ---
 
-## 真实项目使用通道窗口
+## 它解决什么问题
 
-Starry 的输入缓存由 `UStarryInputBufferComponent` 提供，InputManager 继承它。Handler 允许缓存、配置了有效通道，而且该通道当前打开时，动作快照被延迟到窗口关闭再执行。
+攻击动画的后半段，玩家往往会提前按下一次攻击或闪避。如果立刻执行，会打断当前动画；如果直接丢掉，操作会显得迟钝。
 
-缓存的保留边界由通道窗口控制；当前没有为每条输入设置一个自动到期的毫秒有效期。
+输入缓存的做法：在动画指定的一段**窗口**内，把可缓存的输入先存起来，窗口正常结束时再执行；动画被打断，就丢弃它们。
 
-## 配置一个动画输入窗口
+**由谁提供**
 
-1. 给需要延迟的 Handler 开启 `bCanBeBuffered`，显式填写有效 `BufferChannelTag`。
-2. 确认 Manager 的 `InputBufferMode` 已启用；默认是 `LastCommand`。
-3. 在 Montage 上添加 `Input Buffer` Notify State（`UStarryAnimNotifyState_InputBuffer`）。
-4. 给 Notify State 设置与 Handler 相同的通道。
-5. 正常播放到窗口结束，确认保留的命令执行；中断 Montage，确认该窗口的命令丢弃。
+- 缓存由 `UStarryInputBufferComponent` 提供，InputManager 继承了它。
+- 窗口由动画通知状态 **Input Buffer**（`UStarryAnimNotifyState_InputBuffer`）打开和关闭。
+- 缓存的保留时间由窗口决定，单条输入没有单独的过期时间。
 
-Notify 默认通道是项目 Default 标签，Handler 仍需要显式配置；不存在“Handler 没填就自动匹配默认通道”的规则。该 Notify 当前只允许放在 Montage 上，只为本地控制角色操作缓存。
+## 配置一个动画窗口
 
-## 首批与末批按通道处理
+1. 给需要延后执行的 Handler 打开 `bCanBeBuffered`。它的 `BufferChannelTag` 默认就是 `Input.Buffer.Channel.Default`。
+2. 确认 Manager 的 `InputBufferMode` 已启用，默认是 `LastCommand`。
+3. 在 Montage 上添加 **Input Buffer** 通知状态，覆盖需要缓存的时间段。通知的通道默认也是 `Input.Buffer.Channel.Default`，所以只用一个通道时，两边都不用改。
+4. 验证两种情况：
+   - 正常播放到窗口结束，保留的命令被执行；
+   - 中断 Montage，这个窗口里的命令被丢弃。
 
-| 模式           | 该通道窗口内保留什么               |
-| -------------- | ---------------------------------- |
-| `FirstCommand` | 第一批命令，后续输入不替换         |
-| `LastCommand`  | 最新一批命令，覆盖该通道此前一批   |
-| `Disabled`     | Manager 正常输入路径不使用这个缓存 |
+**其他限制**
 
-一次 Action／事件可能对应多个 Handler。系统先按每个 Handler 的通道拆分，同通道同批内部保持原有顺序；First／Last 选择的是该通道的一批，不是只执行其中一个 Handler。
+- 这个通知只能放在 Montage 上，并且只对本地控制的角色生效。
+- 需要多个互不影响的窗口时，给 Handler 和通知设置不同的通道标签。
+- 工程资产中目前还没有 Montage 使用这个通知。
 
-两个不同通道互不覆盖。窗口使用精确标签，不能用父标签推导所有子通道都已打开。
+## 动手试一试
+
+下面的演示按项目源码的规则推演一段操作：`Dispatch` 决定每个 Handler 是立即执行还是存入缓存，`BufferInputCommands` 按通道写入或丢弃，`CloseInputBuffer` 在窗口结束时执行或丢弃。场景中的动作与处理器名称是示例。
+
+<InputBufferDemo
+  title="一个攻击窗口里的三次输入"
+  source={`模式 LastCommand
+处理器 LightAttack 缓存
+处理器 HeavyAttack 缓存
+处理器 Dodge 缓存 Input.Buffer.Channel.Dodge
+处理器 Look 不缓存
+动作 IA_Light LightAttack
+动作 IA_Heavy HeavyAttack
+动作 IA_Dodge Dodge
+动作 IA_Look Look
+打开 Input.Buffer.Channel.Default
+输入 IA_Light
+输入 IA_Look
+输入 IA_Heavy
+输入 IA_Dodge
+关闭 Input.Buffer.Channel.Default`}
+/>
+
+可以这样试：
+
+- **切到 `FirstCommand`**：保留的是 LightAttack，HeavyAttack 被丢弃。
+- **切到 `Disabled`**：所有处理器都立即执行。
+- **看 Dodge**：它属于另一个没有打开的通道，所以照常立即执行。
+- **看 Look**：它不可缓存，始终立即执行。
+
+## 首批与末批
+
+| `InputBufferMode`     | 窗口内每个通道保留什么                       |
+| --------------------- | -------------------------------------------- |
+| `LastCommand`（默认） | 最新的一批命令，覆盖这个通道之前的一批       |
+| `FirstCommand`        | 第一批命令；之后同通道的输入被丢弃，不会执行 |
+| `Disabled`            | Manager 不使用自己的缓存                     |
+
+**“一批”的含义**：一次动作事件可能分派给多个 Handler。系统先按各 Handler 的通道分组，同一通道里保持原来的顺序，这些命令就是“一批”。首批、末批模式选的是这一整批，不是只执行其中一个 Handler。
+
+**通道之间互不影响**：不同通道互不覆盖。窗口按精确标签匹配，不能用父标签推断所有子通道都已打开。
+
+**`Disabled` 不等于没有缓存**：这时 Manager 会改用宿主上其他已启用的缓存组件；没有其他缓存组件时，所有处理器都立即执行。
+
+## 正常结束与中断
 
 <Diagram
-  title="LastCommand 的一个正常关闭过程"
+  title="LastCommand：窗口正常结束"
+  steps
   source={
-    'sequenceDiagram\n  participant Montage as Montage Notify\n  participant Buffer as 指定通道\n  participant Input as 玩家输入\n  participant Handler as 延迟 Handler\n  Montage->>Buffer: OpenInputBuffer\n  Input->>Buffer: 第一批命令\n  Input->>Buffer: 第二批命令覆盖前批\n  Montage->>Buffer: CloseInputBuffer，未取消\n  Buffer->>Handler: 按顺序执行第二批\n  Buffer->>Buffer: 移除通道和命令'
+    'sequenceDiagram\n  participant Montage as Input Buffer 通知\n  participant Buffer as 缓存通道\n  participant Input as 玩家输入\n  participant Handler as 可缓存的 Handler\n  Montage->>Buffer: OpenInputBuffer\n  Input->>Buffer: 第一批命令\n  Input->>Buffer: 第二批命令覆盖第一批\n  Montage->>Buffer: CloseInputBuffer（未取消）\n  Buffer->>Handler: 按顺序执行第二批\n  Buffer->>Buffer: 移除通道与命令'
   }
 />
 
-## 正常关闭与取消不同
+- **`OpenInputBuffer(ChannelTag)`**：打开窗口。
+- **`CloseInputBuffer(ChannelTag, false)`**：执行这个通道保留的命令，再移除通道与命令。
+- **`CloseInputBuffer(ChannelTag, true)`**：直接丢弃。
 
-`OpenInputBuffer(ChannelTag)` 打开窗口；`CloseInputBuffer(ChannelTag, false)` 执行本通道保留命令，然后移除通道与命令；传 `true` 直接丢弃。
+通知结束时用 UE 的 `NotifyStateReachedEnd(EventReference)` 判断是否真的播放到了末尾，能正确处理播放速率变化和 Montage 中断。共享的通知资产里不保存每个角色的计时。
 
-Notify End 通过 UE 的 `NotifyStateReachedEnd(EventReference)` 判断实际是否正常结束，支持播放速率变化和 Montage 中断。它不在共享 Notify 资产中保存每个角色的计时。
+同一通道没有嵌套计数。两个重叠的窗口如果用同一个通道，先关闭的那个会提前结束另一个。
 
-同一通道没有嵌套开窗计数。独立或重叠的窗口应使用不同标签，避免一处关闭提前结束另一处的通道。
+## 不应该留下旧输入
 
-## 禁用与直接接口调用的边界
+- **清空**：`ResetInputBuffer` 清空全部通道与命令。停用输入处理、移除 Setup 时都会清空缓存，避免角色或功能退出后又冒出旧命令。
+- **执行时再判断**：缓存保存的是动作与输入值的快照，真正执行时仍然回到 Handler，再调用领域能力。技能还能不能激活、目标是否仍然有效，由执行那一刻的领域规则判断。
+- **直接调用接口时**：底层的 `OpenInputBuffer` 只登记通道，不检查是否处于 `Disabled`。自定义代码直接调用这些接口时，先用 `IsInputBufferEnabled` 查询，并自己保证打开与关闭的顺序。
 
-`IsInputBufferEnabled` 由模式决定，Manager 据此选择正常缓存路径。底层 `OpenInputBuffer` 自身只登记通道，不额外检查 Disabled；自定义调用方应先查询是否启用，而不是用“能查询到通道”判断功能已启用。
+Handler 的共享规则见 [Handler 与能力分派](/read/input-handlers)，缓存没有生效时见[调试与排查](/read/input-troubleshooting)。
 
-直接调用接口时，调用方还需保证通道与开关顺序；不能把底层命令存储接口当成完整输入入口，绕过 Manager 的窗口判断。
-
-## 缓存不应该留下旧输入
-
-`ResetInputBuffer` 清理全部通道和命令。停用输入处理或移除 Setup 时会清缓存，避免角色或功能退出后又释放旧命令。
-
-缓存记录的是动作与输入值快照；真正执行仍回到 Handler，再调用领域能力。技能是否还能激活、目标是否仍有效，由执行时的领域规则判断。
-
-共享处理器约束见[Handler 与能力分派](/read/input-handlers)，配置退出见[绑定与生命周期](/read/input-binding)，缓存无效时看[Input 排查](/read/input-troubleshooting)。
-
-实现入口：`Framework/Input/StarryInputBufferComponent`、`StarryBufferedInputCommand` 与 `Framework/Animation/Notifies/StarryAnimNotifyState_InputBuffer`。
+代码位置：`Framework/Input/StarryInputBufferComponent`、`Framework/Input/StarryBufferedInputCommand`、`Framework/Animation/Notifies/StarryAnimNotifyState_InputBuffer`。

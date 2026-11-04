@@ -1,81 +1,121 @@
 ---
-title: HaloDebug · 窗口扩展与属性绘制
-description: 复用窗口生命周期、反射 Inspector 和场景绘制，避免为每个调试页重做基础设施。
+title: StellaDebug · 扩展开发
+description: 新增一个调试窗口：窗口基类与注册、生命周期与扩展点、反射属性检查器、场景绘制与曲线事件，以及构建条件。
 section: [扩展开发]
-order: 33
+order: 32
 ---
 
-## 新窗口先复用基类
+## 新增一个窗口
 
-窗口继承 `FHaloDebugWindow`，由 Subsystem 注册并拥有。以下是窗口主体片段；它应放在项目的非 Shipping 调试代码中，实际类名与文件按所属功能命名。
+窗口继承 `FStellaDebugWindow`，由 `UStellaDebugSubsystem` 创建并持有。下面是窗口主体的写法，`FStarryExampleDebugWindow` 是示例名称；实际的类名和文件按所属功能命名，放在项目的非 Shipping 调试代码里：
 
 ```cpp
-#include "HaloDebugCommon.h"
+#include "StellaDebugCommon.h"
 
-#if ENABLE_HALODEBUG
-#include "HaloDebugWindow.h"
+#if ENABLE_STELLADEBUG
+#include "StellaDebugWindow.h"
 
 /** 展示所选对象的调试摘要。 */
-class FStarryExampleDebugWindow : public FHaloDebugWindow
+class FStarryExampleDebugWindow : public FStellaDebugWindow
 {
 protected:
-    virtual void RenderContent() override
-    {
-        ImGui::TextUnformatted("Starry debug window");
-    }
+	virtual void RenderContent() override
+	{
+		ImGui::TextUnformatted("Starry debug window");
+	}
 };
 #endif
 ```
 
-在项目已有的窗口注册处使用 `Subsystem->AddWindow<FStarryExampleDebugWindow>("Engine.Actor.Example")`。点分路径同时决定菜单和窗口／布局身份，应使用稳定、有语义的名字。
-
-Subsystem 管理窗口内存，不手动 delete。`RenderContent` 的顶层 Begin／End 已由基类处理，不要再套一个同名顶层窗口。
-
-## 把初始化和清理放对位置
-
-| 时机             | 合适职责                             |
-| ---------------- | ------------------------------------ |
-| 构造             | 默认参数，不依赖 ImGui／Slate 上下文 |
-| `Initialize`     | 先调用基类，再建立窗口所需资源与订阅 |
-| `RenderContent`  | 当帧面板内容                         |
-| `RenderHelp`     | 操作说明与约束                       |
-| `RenderViewport` | 游戏视口里的调试绘制                 |
-| `Shutdown`       | 解除订阅、释放所拥有资源             |
-
-不要让通用插件硬编码 Starry 的菜单或 Gameplay 依赖。项目功能窗口在项目注册，公共控件才沉到共享层。
-
-## 反射属性不用再写一套递归
-
-使用 `HaloDebugEngine` 的 `FHaloDebugPropertyInspector`：
+在项目已有的注册处（`UStarryDebugSubsystem`）添加：
 
 ```cpp
-// 仅在游戏线程的有效 ImGui 绘制帧内调用，对象须在调用期间有效。
-FHaloDebugPropertyInspector::DrawReadOnly("SelectedObject", Object);
-
-// 结构体可传 UStruct 与当帧有效内存，也适用于 FInstancedStruct 的内容。
-FHaloDebugPropertyInspector::DrawReadOnly("ExecutionData", StructType, StructMemory);
+Subsystem->AddWindow<FStarryExampleDebugWindow>("Engine.Actor.Example");
 ```
 
-`Id` 在宿主窗口内唯一。绘制不复制对象、不持有 GC 引用、不缓存属性地址，也不采集历史快照。历史查看需要在发生时独立采样，不能把实时 Inspector 当成录像。
+**注意事项**
 
-`FHaloDebugPropertyInspectorOptions` 可控制过滤、Category、排序与默认展开。UObject 引用默认不展开；允许后由用户逐层打开，过滤器不会顺着所有引用递归搜索。
+- **Subsystem 负责窗口的内存**：不要手动 delete。
+- **不要重复包一层窗口**：`RenderContent` 外层的 Begin／End 已由基类处理，不要再套一个同名的顶层窗口。
 
-## 可编辑不等于自动应用业务
+<Note title="路径的最后一段也要唯一">
 
-`DrawEditable` 返回本帧是否发生修改。它支持常用标量、枚举、字符串、结构体、数组成员与 Map Value；Set 元素、Map Key 及其嵌套字段保持只读，避免破坏哈希。
+点分路径的完整形式决定菜单位置和可见性；ImGui 的窗口名与停靠布局只按**最后一段**识别。`AddWindow` 的重名检查实际上不会拦住最后一段相同的两个窗口，所以要自己保证最后一段不重复，并使用稳定、有语义的名字。
 
-编辑器不会自动补 Undo、PostEditChange、资产保存或业务刷新。调用者必须按领域要求处理变更；会触发网络权限、重建或复杂副作用的值，应使用已有业务接口操作。
+</Note>
 
-短文本输入复用 `FHaloDebugWidgets::InputText`，其缓冲为 256 字节且包含终止符。其他控件、图表优先用现有 ImGui／ImPlot 与共享 Widgets，不复制一份文本框或 tooltip 实现。
+## 生命周期与扩展点
 
-## 场景绘制按本次调用指定参数
+| 方法                     | 什么时候调用、适合做什么                         |
+| ------------------------ | ------------------------------------------------ |
+| 构造函数                 | 设置默认参数，不依赖 ImGui 或 Slate 上下文       |
+| `Initialize`             | 先调用基类，再建立窗口需要的资源与订阅           |
+| `RenderContent`          | 每帧绘制面板内容                                 |
+| `RenderHelp`             | 绘制操作说明与使用约束                           |
+| `RenderViewport`         | 在游戏视口中绘制调试图形                         |
+| `RenderTick`／`GameTick` | 每帧在渲染侧／游戏侧更新，即使窗口不可见         |
+| `RenderMainMenuWidget`   | 在菜单栏上绘制小部件，例如 Selection、Time Scale |
+| `RenderSettings`         | 绘制窗口自己的设置项                             |
+| `BindInputs`             | 绑定窗口需要的输入                               |
+| `Shutdown`               | 解除订阅、释放自己持有的资源                     |
 
-`FHaloDebugPaintDraw` 提供点、线、形状、骨骼与碰撞结果绘制。分类入口受日志级别控制，`Draw` 前缀入口供主动绘制的面板使用；按所需入口设置颜色、线宽与寿命。
+窗口可以用 `GetConfig<T>()` 读取自己的配置对象，用 `GetAsset<T>()` 读取插件数据资产。
 
-三维线框默认单帧，正 `LifeTime` 持续指定游戏秒，`Persistent` 持续到清理；世界位置与尺寸沿用 UE 单位，2D 屏幕绘制使用像素。不要依赖一套隐式全局尺寸让不同窗口互相影响。
+通用插件里不要写死 Starry 的菜单或依赖 Gameplay 代码：项目功能的窗口在项目中注册，真正通用的控件才放到共享层。
 
-绘制留在本进程，不自动复制到其他玩家。日志使用 `UE_LOG`，通知可用 `LogHaloDebugNotify`；蓝图曲线入口为 `UHaloDebugPaintPlotBlueprint::Plot`，不要依赖已移除的旧 Draw／Log 蓝图库。
+## 查看反射属性：不用自己写递归
 
-构建中保持 `HaloDebugCommon` 可用，具体面板依赖和实现按 `ENABLE_HALODEBUG`／非 Shipping 条件组织。[调试工具入门](/read/stelladebug-overview)解释模块分工，[远程面板](/read/stelladebug-remote)解释 UI 传输边界。
+`StellaDebugEngine` 模块的 `FStellaDebugPropertyInspector` 可以直接绘制任意对象或结构体的属性：
 
-实现入口：`HaloDebugWindow.h`、`HaloDebugSubsystem.h`、`HaloDebugWidgets.h`、`HaloDebugPropertyInspector.h` 与 `HaloDebugPaintDraw.h`，均在 HaloDebug 插件对应模块中。
+```cpp
+// 只在游戏线程、有效的 ImGui 绘制帧中调用；调用期间对象必须有效。
+FStellaDebugPropertyInspector::DrawReadOnly("SelectedObject", Object);
+
+// 结构体传入 UStruct 与当帧有效的内存，同样适用于 FInstancedStruct 中的内容。
+FStellaDebugPropertyInspector::DrawReadOnly("ExecutionData", StructType, StructMemory);
+```
+
+- **Id**：在宿主窗口内唯一即可。
+- **不保存任何东西**：绘制时不复制对象、不持有 GC 引用、不缓存属性地址，也不记录历史。要回看历史，需要在发生时自己采样。
+- **选项**：`FStellaDebugPropertyInspectorOptions` 控制过滤、分类、排序与默认展开。UObject 引用默认不展开，允许后由使用者逐层打开；过滤不会沿着所有引用递归搜索。
+
+**可编辑版本**：`DrawEditable` 返回这一帧是否发生了修改。
+
+- **可以编辑**：常用标量、枚举、字符串、结构体、数组成员与 Map 的值。
+- **保持只读**：Set 的元素、Map 的键及其嵌套字段，以免破坏哈希。
+- **不包办后续处理**：它不会自动补 Undo、`PostEditChange`、资产保存或业务刷新，调用方要按领域要求处理变更。会涉及网络权限、重建或复杂副作用的值，应该通过已有的业务接口去改。
+
+短文本输入使用 `FStellaDebugWidgets::InputText`，缓冲区为 256 字节（含结尾的终止符）。其他控件和图表优先使用 ImGui、ImPlot 与共享的 Widgets，不要再复制一份文本框或 tooltip 实现。
+
+## 场景绘制、曲线与事件
+
+**场景绘制**：`FStellaDebugPaintDraw` 提供点、线、形状、骨骼与碰撞结果的绘制。
+
+- **两类入口**：分类入口受日志级别控制；`Draw` 前缀的入口供主动绘制的面板使用。
+- **参数**：颜色、线宽和持续时间都在每次调用时传入，不依赖全局尺寸设置，不同窗口互不影响。
+- **持续时间**：三维线框默认只存在一帧；正数的 `LifeTime` 持续指定的游戏秒数；`Persistent` 一直保留到清理。
+- **单位**：世界坐标与尺寸使用 UE 单位，2D 屏幕绘制使用像素。
+
+**曲线与事件**：在 Plots 窗口中查看。
+
+| 接口                                                    | 作用                              |
+| ------------------------------------------------------- | --------------------------------- |
+| `FStellaDebugPaint::Plot(WorldContext, TrackId, Value)` | 向一条曲线追加数值                |
+| `StartEvent`／`StopEvent`                               | 标出一段有起止的事件              |
+| `InstantEvent`                                          | 标出一个瞬时事件                  |
+| `ToggleEvent`                                           | 按布尔值开始或结束一段事件        |
+| 蓝图 `UStellaDebugPaintPlotBlueprint::Plot`             | 蓝图中绘制曲线（蓝图只保留 Plot） |
+
+所有绘制都只在本进程中，不会复制给其他玩家。日志使用 `UE_LOG`；需要在面板中通知时，使用日志分类 `LogStellaDebugNotify`。
+
+## 构建条件
+
+`ENABLE_STELLADEBUG` 默认为 `!UE_BUILD_SHIPPING`。
+
+- 依赖面板的代码放在 `#if ENABLE_STELLADEBUG` 中；
+- `StellaDebugCommon` 在所有构建中都可用，其中定义了这个宏；
+- 项目模块对 StellaDebug 面板模块的依赖只在非 Shipping 构建中链接。
+
+模块分工见 [StellaDebug 总览](/read/stelladebug-overview#插件的模块分工)，远程显示的边界见[远程面板](/read/stelladebug-remote#远程显示的边界)。
+
+代码位置：插件中的 `StellaDebugWindow.h`、`StellaDebugSubsystem.h`、`StellaDebugWidgets.h`、`StellaDebugPropertyInspector.h`、`StellaDebugPaintDraw.h`、`StellaDebugPaint.h`。

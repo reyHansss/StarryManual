@@ -1,64 +1,81 @@
 ---
-title: Input · 绑定与配置生命周期
-description: 理解跨 IMC 的共享绑定、配置所有权、延迟初始化，以及切换角色时的清理。
+title: Input · 配置与生命周期
+description: 多份 Setup 怎样共享同一个 Action 的绑定、重复添加与移除的规则、初始化前的排队、切换角色与停用输入时发生什么。
 section: [配置与绑定]
-order: 41
+order: 42
 ---
 
-## 相同 Action 只绑定一次事件
+## 同一个 Action 的事件只绑定一次
 
-同一个 Manager 中，相同 Input Action 与同一 TriggerEvent 共用一个 InputComponent 绑定。多个已登记配置引用它时，Manager 记录使用关系，不为每个 IMC 再重复绑定。
+在同一个 Manager 中，相同的 Input Action 加上相同的触发事件，共用一个输入组件绑定。多份已登记的 Setup 引用它时，Manager 记录各自的使用关系，不会为每个 IMC 再重复绑定。
 
-一个事件可以分派给多个不同 Handler 对象；同一个 Handler 对象在同一 Action／事件中只调用一次。去重依据对象与动作身份，不是类名：同类的两个不同对象仍可各自处理。
+一个事件可以分派给多个不同的 Handler 对象；同一个 Handler 对象在同一个 Action 的同一事件中只会被调用一次。去重看的是**对象身份**，不是类名：同一个类的两个不同对象会各自处理。
 
 <Diagram
-  title="配置共享 Action 绑定，Handler 按对象分派"
+  title="多份配置共享 Action 绑定，Handler 按对象分派"
   source={
-    'flowchart LR\n  SetupA(Setup A / IMC A) --> Shared(同一 IA + Triggered)\n  SetupB(Setup B / IMC B) --> Shared\n  Shared --> Binding(一个 InputComponent 绑定)\n  Binding --> H1(Handler 对象 1)\n  Binding --> H2(Handler 对象 2)\n  SetupA -.-> H1\n  SetupB -.-> H1'
+    'flowchart LR\n  SetupA(Setup A / IMC A) --> Shared(同一个 IA + Triggered)\n  SetupB(Setup B / IMC B) --> Shared\n  Shared --> Binding(一个输入组件绑定)\n  Binding --> H1(Handler 对象 1)\n  Binding --> H2(Handler 对象 2)'
   }
 />
 
-## 使用次数不等于调用来源计数
+## 添加与移除的规则
 
-| 操作                             | 当前语义                                       |
-| -------------------------------- | ---------------------------------------------- |
-| 不同配置引用同一 Action／Handler | 按已登记配置记录使用关系，最后使用者退出才释放 |
-| 同一 Setup 连续 Add 两次         | 第二次拒绝，不增加一份所有权                   |
-| 不同 Setup 使用同一个 IMC        | 拒绝重复映射上下文                             |
-| Remove 一份已登记 Setup          | 移除这一份配置，不需要与重复 Add 次数配平      |
+| 操作                                        | 结果                                                       |
+| ------------------------------------------- | ---------------------------------------------------------- |
+| 不同的 Setup 引用同一个 Action 或 Handler   | 按已登记的配置记录使用关系，最后一个使用者移除时才解除绑定 |
+| 同一份 Setup 连续添加两次                   | 第二次被拒绝，不会多出一份所有权                           |
+| 添加的 Setup 所用的 IMC 已经在 Subsystem 中 | 被拒绝，不论这个 IMC 是哪个系统加进去的                    |
+| 移除一份已登记的 Setup                      | 移除这一份配置，不需要和添加次数一一配平                   |
+| Setup 的 IMC 里没有任何可以绑定的动作       | 这份 Setup 被直接丢弃                                      |
 
-因此，某功能的 Add 因冲突被拒绝后，再 Remove 不能当作“撤销我刚才那一次”。配置应在设计上只有一个拥有者，进入时 Add、退出时 Remove。
+这套规则有一个直接后果：某个功能的添加因为冲突被拒绝后，它再调用移除，并不等于“撤销我刚才那一次”，而是会移除另一个来源登记的同一份配置。所以每份配置在设计上只能有一个拥有者，进入时添加、退出时移除。
 
-`GameFeatureAction_AddInputBinding` 按自己的 `InputSetups` 列表配对调用，不另存成功列表或来源计数。冲突需要整理功能的配置归属，而不是靠叠加计数掩盖。
+**GameFeature Action `AddInputBinding`**
 
-## 初始化前后怎样判断
+- **成对增删**：按自己的 `InputSetups` 列表成对添加与移除，不额外记录哪些添加成功了。
+- **等待时机**：要等 Hero 组件发出“可以绑定输入”的信号（`BindInputsNow`，或已经处于就绪状态）才会添加。
+- **软引用**：列表是软引用，资产没有加载时那一项会被跳过。
 
-`AddInputSetupData` 没有成功返回值。Manager 未初始化时把配置放入 Pending，初始化就绪后再处理；`HasSetupData` 只检查已处理配置，不把 Pending 当成已经生效。
+出现冲突时，应该整理功能的配置归属，而不是靠计数去掩盖。
 
-不要用一次 HasSetupData 查询推导异步初始化的最终结果。排查时同时看 Controller InputComponent、LocalPlayer、Enhanced Input Subsystem 与 Manager 初始化顺序。
+## 初始化之前
 
-## 切换 Pawn 的策略
+`AddInputSetupData` 没有成功与否的返回值。
 
-`bResetSetupForNewPawn` 默认 `false`：保留固定与功能配置，更换旧 Pawn Provider 提供的配置。开启后会清空并按固定配置重建；两种模式都会重新处理 Pawn 配置。
+- **排队**：Manager 还没初始化时，配置先进入等待队列，初始化完成后再处理。
+- **`HasSetupData`**：只检查已经处理过的配置，不把排队中的当成已经生效。
+- **初始化前移除**：在初始化之前调用移除，不会撤销已经排队的配置。
 
-运行中不要直接修改已应用 Setup 资产的 Handler 数组来期待自动重绑。应通过明确的配置增删边界更新运行状态。
+不要用一次 `HasSetupData` 的结果推断异步初始化的最终状态。排查时一起检查 Controller 的输入组件、LocalPlayer、Enhanced Input Subsystem 和 Manager 的初始化顺序。
 
-## 停分派与清缓存
+## 切换角色
 
-`DisableInputProcessing` 停止项目分派并清理缓存，不会为所有 Handler 主动补发 Canceled，也没有恢复旧 `ResetInput` 基类协议。
+| `bResetSetupForNewPawn` | 切换角色时                                                                 |
+| ----------------------- | -------------------------------------------------------------------------- |
+| `false`（默认）         | 保留 Controller 固定配置与功能配置，只更换旧角色 Provider 提供的那部分配置 |
+| `true`                  | 清空后按固定配置重建                                                       |
 
-移除 Setup 会清缓存；Action／Handler 仍有其他已登记配置使用时保留，最后使用者退出才解除绑定。业务持有的任务、技能或移动状态仍按各自生命周期退出，不能只等一条不会到来的输入取消通知。
+两种模式都会重新处理新角色提供的配置。运行中不要直接修改一份已经应用的 Setup 资产的 Handler 数组，指望它自动重新绑定；要更新运行状态，就明确地移除旧配置、添加新配置。
 
-## 添加映射后为何要松开再按
+## 停用输入与清理缓存
 
-默认 `FModifyContextOptions` 使用：
+- **`DisableInputProcessing`**：停止项目分派，并清空输入缓存。它不会给所有 Handler 补发 Canceled 事件。
+- **移除 Setup**：同样会清空缓存。如果 Action 和 Handler 还被其他已登记的配置使用，绑定保留；最后一个使用者移除后才解除。
 
-- `bIgnoreAllPressedKeysUntilRelease = true`；
-- `bForceImmediately = false`；
-- `bNotifyUserSettings = true`。
+技能、移动等业务持有的状态，按各自的生命周期退出，不要等待一条不会到来的“输入取消”通知。
 
-新增布尔动作时，已经按住的键通常需要先释放再按下。这有助于避免切换配置瞬间把旧按键状态当成新动作，不应直接诊断成绑定失败。
+## 添加映射时的选项
 
-Handler 的共享约束见[Handler 与能力分派](/read/input-handlers)，延迟命令的清理见[通道输入缓存](/read/input-buffer)，设置登记见[改键与玩家设置](/read/input-settings)。
+Manager 在添加 IMC 时使用 `CreateModifyContextOptions` 生成选项，这个函数可以在派生类中覆写。默认实现为：
 
-实现入口：`Framework/Input/StarryInputManagerComponent` 与项目 `GameFeatureAction_AddInputBinding`。
+| 选项                                | 默认值 | 效果                                       |
+| ----------------------------------- | ------ | ------------------------------------------ |
+| `bIgnoreAllPressedKeysUntilRelease` | true   | 已经按住的键要先松开再按下，才会触发新映射 |
+| `bForceImmediately`                 | false  | 不强制在当帧立即重建映射                   |
+| `bNotifyUserSettings`               | true   | 把这个 IMC 登记到玩家输入设置，供改键使用  |
+
+所以新增布尔动作时，已经按住的键通常要松开再按一次。这能防止切换配置的瞬间把旧的按键状态当成新动作，不要误判为绑定失败。
+
+Handler 的共享规则见 [Handler 与能力分派](/read/input-handlers)，缓存命令的清理见[通道输入缓存](/read/input-buffer)，改键登记见[改键与玩家设置](/read/input-settings)。
+
+代码位置：`Framework/Input/StarryInputManagerComponent`、`Framework/GameFeatures/GameFeatureAction_AddInputBinding`。

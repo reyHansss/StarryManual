@@ -1,66 +1,97 @@
 ---
-title: AstraAI · Logic 与生命周期
-description: 把动作接入 Start、Cancel、Cleanup，正确处理共享模板、蓝图实例与过期异步回调。
+title: StellaAI · Logic 与生命周期
+description: 一次执行怎样启动、更新、取消和清理；共享模板、执行数据与蓝图实例怎样选；异步回调怎样避免结束错误的执行。
 section: [行为执行]
-order: 13
+order: 24
 ---
 
-## Logic 负责这一次动作
+## Logic 负责“这一次”
 
-Behavior 选择机会，Logic 取得这次动作需要的目标与资源，启动任务，并在结束时归还。项目中的 GAS、Smart Object 或具体交互各自负责实际能力，AstraAI 不要求所有交互都经过一种专用 GA 基类。
+Behavior 决定做什么，Logic 负责这一次怎么做：取得目标与资源、启动任务、在结束时全部归还。具体的移动、技能或交互由所属领域实现，StellaAI 不要求交互必须经过 GAS。
 
-每个 Controller 至多一个顶层活动 Logic。BT、StateTree 内部仍可以按各自机制组织任务，这个限制不等于后端内部只能有一个节点。
+每个 Controller 同一时间最多有一个顶层活动的 Logic。旧执行完全清理之后，下一次执行才会开始，不会和旧执行争抢同一批资源。这个限制只针对顶层；BT 或 StateTree 内部照常可以并行组织多个任务。
 
 <Diagram
-  title="旧执行清理完成后，下一次执行才开始"
+  title="一次执行的生命周期"
   source={
-    'stateDiagram-v2\n  [*] --> Ready\n  Ready --> Running: Start\n  Running --> Running: Tick\n  Running --> Cleaning: FinishExecution 成功或失败\n  Running --> Cancelling: 抢占、撤销或失效\n  Cancelling --> Cleaning: 取消完成\n  Cleaning --> Cleaning: 等待后端安全停止\n  Cleaning --> Ready: Cleanup 完成\n  Ready --> Running: 下一次选择\n  Ready --> [*]: 关闭'
+    'stateDiagram-v2\n  [*] --> Running: 选中后 Start\n  Running --> Running: Tick\n  Running --> Cleaning: FinishExecution 报告成功或失败\n  Running --> Cancelling: 被抢占、配置撤销或持续约束失效\n  Cancelling --> Cleaning: 后端停止\n  Cleaning --> Cleaning: Cleanup 返回 false，等待资源停止\n  Cleaning --> [*]: Cleanup 返回 true，结算并释放'
   }
 />
 
-## 选哪一种状态存储
+## 选择状态放在哪里
 
-| 实现方式                              | 配置与状态放在哪里                                                 |
-| ------------------------------------- | ------------------------------------------------------------------ |
-| 原生、无 UObject 成员状态的 Logic     | 共享模板；本次数据由 `GetInstanceDataType()` 指定的 Struct 保存    |
-| 需要独立 UObject 成员状态的原生 Logic | 构造时启用 `bCreateInstance`，实际执行时创建实例                   |
-| 蓝图 Logic                            | 派生 `UAstraAIBehaviorLogic_BlueprintBase`，实际执行时创建独立对象 |
+| 实现方式                                | 状态放在哪里                                                                                            |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| 原生 Logic，没有 UObject 成员状态       | 所有 NPC 共享同一个模板；本次执行的数据存在 `GetInstanceDataType()` 声明的 Struct 中                    |
+| 原生 Logic，需要独立的 UObject 成员状态 | 在构造函数中把 `bCreateInstance` 设为 true，实际开始执行时才复制一个实例                                |
+| 蓝图 Logic                              | 以 `UStellaAIBehaviorLogic_BlueprintBase` 为父类（菜单项 BehaviorLogic (AIBL)），实际执行时创建独立对象 |
 
-不要为了蓝图事件图直接派生基础 Logic 或原生 BT／StateTree Logic。蓝图入口统一使用 BlueprintBase。组件不会预先复制所有候选，也不会连同所属 Modifier、Group、Behavior 一起复制。
+需要蓝图事件图或 latent 节点时，一律从 BlueprintBase 派生。Logic 基类和原生的 BehaviorTree、StateTree、Wait Logic 都不允许蓝图派生。组件不会预先为每个候选复制 Logic，也不会连同所属的 Modifier、Group、Behavior 一起复制。
 
-## 原生生命周期的分工
+## 原生生命周期
 
-- `Start`：建立本次任务、订阅和资源，保存必要执行数据。
-- `Tick`：更新当前执行；持续约束使用 `IsExecutionValid`。
-- `Cancel`：请求停止任务，处理被抢占或主动撤销。
-- `Cleanup`：解绑、归还资源并完成结算；后端还没安全停止时可返回 `false` 等待。
+| 方法               | 什么时候被调用               | 该做什么                                                       |
+| ------------------ | ---------------------------- | -------------------------------------------------------------- |
+| `Start`            | 被选中时                     | 建立本次任务、订阅与资源，保存需要的执行数据                   |
+| `Tick`             | 每帧；取消等待期间也会调用   | 推进当前执行，确认后端是否已经退出                             |
+| `IsExecutionValid` | 每帧                         | 检查执行期间必须始终成立的约束；返回 false 时执行被取消        |
+| `Cancel`           | 被抢占、配置撤销或约束失效时 | 请求停止自己启动的任务                                         |
+| `Cleanup`          | 完成或取消之后               | 解绑、归还资源，并按 `Result` 结算；取消时 `Result` 为 Aborted |
 
-这些方法由选择器同步分派，传入 Data 属于当前执行。不要从异步回调直接重新调用 Start、Tick 或 Cleanup。
+这些方法都由选择器同步调用，传入的 Data 属于当前这次执行。基础 Logic 的默认实现：`Start` 直接报告成功，`Cancel` 直接报告 Aborted。
 
-取消等待期间仍可能收到 `Tick`，用于确认已有后端退出；准备提交新动作时先检查 `Context.Component->CanSubmitActions(Id)`。不能因为还在 Tick，就继续推进正常动作链。
+**取消等待期间**
 
-`FinishExecution(Id, Result)` 只接受当前执行原代次的首次完成，实际结算等回调退栈后处理。旧执行清理未完成时，新行为不会先抢占同一批资源。
+- `Tick` 仍会被调用，用来确认后端已经退出，但不能借此继续推进正常的动作链。
+- 准备提交新动作前，先检查 `Context.Component->CanSubmitActions(Id)`。
 
-## 异步回调保存原 Id
+**`Cleanup` 的返回值**
 
-启动时保存组件弱引用与本次 `FAstraAIExecutionId`。回调到来后先确认组件还存在，再通过 `FindLogicData(原Id)` 取得仍有效的数据，或调用 `FinishExecution(原Id, Result)` 报告结果。
+| 情况                                                   | 要求                                                               |
+| ------------------------------------------------------ | ------------------------------------------------------------------ |
+| 普通清理，后端还没安全停止                             | 返回 false，组件稍后再次调用，直到返回 true 才结算与释放           |
+| `bForce` 为 true（EndPlay、组件销毁、Controller 拆卸） | 必须立即释放资源。此时返回 false 会被强制再调用一次，并触发 ensure |
 
-不要捕获 `FInstancedStruct` 内存地址跨越异步边界：旧执行退出后，该地址可能已经失效。也不要在回调里读取“组件当前的 Id”代替原 Id，否则上一次任务的完成可能结束下一次任务。
+**`FinishExecution(Id, Result)`**：只接受当前这一代执行的第一次完成报告；真正的结算等调用栈退出后才进行。
 
-资源有独立生命周期时，回调还应使用该领域自己的有效性判断。执行 Id 解决的是“是不是同一次 Logic”，不能代替资产加载句柄、Actor 弱引用等检查。
+## 异步回调要带着原来的 Id
 
-## 蓝图怎样结束与取消
+**启动时**：保存组件的弱引用和本次的 `FStellaAIExecutionId`。
 
-创建 `AIBL_` 蓝图后，实现 `OnStart(Context, Execution)`，在动作完成时调用 `Finish(Result)`。默认 OnStart 直接成功，所以只添加类型、未实现逻辑，不会自动得到等待或移动能力。
+**回调到来时**：
 
-在 `OnCancel` 中停止自己启动的任务；取消完成后调用 `Finish(Aborted)`。默认取消直接报告 Aborted。取消过程中不能再启动下一段正常动作。
+1. 先确认组件还在；
+2. 用 `FindLogicData(原 Id)` 取得仍然有效的数据，或者直接 `FinishExecution(原 Id, Result)` 报告结果。
 
-`OnCleanup` 用于同步解除委托、归还资源与处理结果，不能在里面依赖 latent 等待。随后组件会清除本蓝图实例的 latent 与定时器，释放组件引用，交由 GC 回收。
+<Note title="两种常见的错误写法">
 
-## 开发时验证一轮完整退出
+- **捕获 Struct 地址**：捕获 `FInstancedStruct` 的内存地址跨越异步边界，会在旧执行退出后读到失效内存。
+- **读取当前 Id**：在回调里读取组件“当前的”执行 Id 来代替原 Id，会让上一次任务的完成结束掉下一次执行。
 
-先验证正常成功与失败，再验证执行中抢占、配置撤销、宿主结束与再次执行。观察是否重复订阅、迟到回调结束了新任务、取消后任务仍运动，以及下一次执行是否读到了旧目标。
+</Note>
 
-后端的结果与退出约束见[BT、StateTree 与 HTN](/read/stellaai-backends)，命令领取与归还见[命令](/read/stellaai-commands)。
+执行 Id 只回答“是不是同一次 Logic”。资源有自己的生命周期时，回调还要做该领域自己的有效性检查，例如加载句柄、Actor 弱引用。
 
-实现入口：`Behavior/AstraAIBehaviorLogic`、`AstraAIBehaviorLogic_BlueprintBase`、`AstraAIBehaviorLogic_Wait` 与 `AstraAIComponent`。
+## 蓝图 Logic
+
+创建 `AIBL_` 蓝图后：
+
+- **`OnStart(Context, Execution)`**：启动动作，完成时调用 `Finish(Result)`。默认的 OnStart 直接报告成功，只建类型而不实现它，是得不到任何行为的。
+- **`OnCancel`**：停止自己启动的任务，取消完成后调用 `Finish(Aborted)`。默认实现直接报告 Aborted。取消过程中不能再开始下一段正常动作。
+- **`OnCleanup(Context, Execution, Result)`**：同步解除委托、归还资源、处理结果，里面不能依赖 latent 等待。
+
+清理之后，组件清除这个蓝图实例的 latent 动作与定时器，释放引用，交给 GC 回收。
+
+## 写完一个 Logic 后验证什么
+
+1. 先验证正常的成功与失败。
+2. 再验证执行中被抢占、配置撤销、宿主结束，以及结束后再次执行。
+3. 重点观察以下问题：
+   - 有没有重复订阅；
+   - 迟到的回调有没有结束掉新的执行；
+   - 取消后角色是否还在继续动作；
+   - 下一次执行有没有读到上一次的目标。
+
+把动作交给行为树、状态树或 HTN 时的结果与退出规则，见 [BT、StateTree 与 HTN](/read/stellaai-backends)；命令的领取与归还，见[命令](/read/stellaai-commands)。
+
+代码位置（插件 `Source/StellaAI`）：`Behavior/StellaAIBehaviorLogic`、`Behavior/StellaAIBehaviorLogic_BlueprintBase`、`Behavior/StellaAIBehaviorLogic_Wait`、`Behavior/StellaAIComponent`。

@@ -1,57 +1,140 @@
 ---
-title: AstraAI · 组合与覆盖
-description: 正确区分优先级、行为分数与 Stack 顺序，按完整路径组织可撤销的配置。
+title: StellaAI · 组合与覆盖
+description: 用 Modifier 一层层叠出 NPC 的行为集合：路径与操作、编辑器用法、后层覆盖前层的规则、运行时增删，以及可以动手试的叠加演示。
 section: [行为系统]
-order: 11
+order: 22
 ---
 
-## 用路径定位一个行为
+## 用路径标识一个行为
 
-一个行为的身份是完整路径，例如 `Daily/Rest`。`Daily` 是 Group，`Rest` 是 Behavior；路径使用 `FName`，大小写不能用来区分两个身份。
+最终行为集合里，每个 Group 和 Behavior 都由一条**路径**唯一确定，例如 `Ambient/Patrol`：
 
-Modifier 的每条请求属于 `AddGroup`、`AddBehavior`、`RemoveGroup` 或 `RemoveBehavior`。它描述对最终组合的修改，不是一份每帧顺序执行的动作清单。
+- `Ambient` 是 Group，`Patrol` 是它下面的 Behavior；
+- 路径的每一段都是 `FName`，比较时不区分大小写，所以 `ambient/patrol` 和 `Ambient/Patrol` 是同一个身份。
 
-## 在编辑器里组织配置
+Modifier 由一组条目组成，每个条目是四种操作之一：`AddGroup`、`AddBehavior`、`RemoveGroup`、`RemoveBehavior`。条目描述的是“对最终集合做什么修改”，不是每帧依次执行的动作清单。
 
-打开 `AIBM_` 后，先选择 `Critical` 或 `Normal`，再添加根组或根行为。编辑器的“路径与请求工具”支持输入完整路径、选择 Group／Behavior 类型、添加与移除请求，并提供重命名、顺序调整与节点参数编辑。
+## 在编辑器中配置一层
 
-父组负责条件，子组与子行为继承根优先级。给节点填写设计说明，能帮助区分“为什么需要这一项”与“这项的当前参数”；说明与节点颜色不参与评分。
+打开 `AIBM_` 资产后，编辑器自动切到 **Behavior Modifier** 页签：
 
-打开 `AIBMS_` 时，只配置 Modifier 类型及其先后顺序。行为内部的 Logic、条件、评分参数在所属 Modifier 中修改；Stack 不提供另一套参数覆盖。
+- **添加节点**：先选择 `Critical` 或 `Normal`，再添加根 Group 或根 Behavior。子 Group 和子 Behavior 继承根节点的优先级。
+- **编辑节点**：可以输入完整路径来添加或移除条目，选择 Group／Behavior 的类型，重命名、调整顺序，并直接编辑节点参数。
+- **整理条目**：支持复制粘贴、恢复父类默认值、打开类型、拖拽移动。条目如果引用的是其他层定义的组，会单独归在“外部路径”分组下。
+- **继承 AIBM**：从另一个 AIBM 派生的子蓝图，会用自己的条目列表**整体替换**父类的列表，不做合并。
 
-<Diagram
-  title="三种顺序分别影响什么"
-  source={
-    'flowchart TB\n  Priority(Critical / Normal) -->|决定竞争层级| Selection(候选选择)\n  Score(Behavior 分数) -->|同级比较| Selection\n  Order(Stack 前层到后层) -->|组合增删与替换| Effective(最终有效配置)\n  Effective --> Selection'
-  }
-/>
+节点的设计说明和颜色只用于编辑时区分用途，不参与评分。
+
+**PIE 运行时的限制：**
+
+- AIBM 与 Stack 编辑器都禁止修改；
+- 在 PIE 中编译或修改 Modifier、Behavior、Group、Logic 蓝图，会关闭所有正在运行的 StellaAI 会话。
+
+## Stack：选哪些层、按什么顺序
+
+打开 `AIBMS_` 资产，只需要选择 Modifier 类型并排列顺序：上面的先应用，下面的后应用。行为内部的 Logic、条件和评分参数都在所属的 AIBM 中修改，Stack 不提供另一套参数覆盖。
+
+Stack 编辑器带有**最终组合**的只读预览：每个节点来自哪一层、哪些条目出错、哪些 Modifier 被重复应用，都会标出来。
 
 ## 后层怎样覆盖前层
 
-| 操作                     | 最终行为                                |
-| ------------------------ | --------------------------------------- |
-| 后层添加同路径 Behavior  | 完整替换前层定义，包括它的 Logic 与参数 |
-| 撤回覆盖层               | 恢复仍然有效的前层定义                  |
-| 后层显式重定义已有 Group | 替换该组条件，保留已有子项              |
-| 向已有 Group 增删子行为  | 引用其路径，不需要顺手重复定义 Group    |
-| 移除 Group               | 该路径下的组与行为退出最终组合          |
+| 操作                         | 结果                                                             |
+| ---------------------------- | ---------------------------------------------------------------- |
+| 后层添加同路径的 Behavior    | 完整替换前层的定义，包括 Logic 与全部参数，不按字段合并          |
+| 撤回后层                     | 从剩余的层重新组合，前层的定义恢复生效                           |
+| 后层显式 `AddGroup` 已有的组 | 替换这个组的条件模板与优先级，保留已有子项；子项改用新组的优先级 |
+| 向已有组增删子行为           | 直接引用它的路径，不需要再定义一次组                             |
+| `RemoveGroup`                | 移除这个组以及它下面的全部组和行为                               |
+| 移除不存在的路径             | 没有变化，也不报错                                               |
 
-例如，前层定义 `Daily/Rest`，后层以同一路径放入受伤后的休息配置。后层存在时使用后层完整定义；撤回后恢复前层。这里没有按字段合并，也不按 Behavior 的类名合并两个不同路径。
+以下情况会让条目**出错并被跳过**：
 
-正在执行的行为若因撤回或替换而失去原定义，组件会先取消、清理，再重新选择。不会为了保留当前动作继续使用已经撤销的配置。
+- 路径无效：名称为空，或者含有 `/`；
+- 同一层里重复添加同一路径；
+- 同一路径已经是另一种类型，例如已经是组，又要按行为添加或移除；
+- 父组不存在；
+- Behavior 没有 Logic、分数不是有限值，或冷却为负。
 
-## 运行时应用要保存 Handle
+## 动手试一试
 
-`AddModifier` 返回应用句柄，用它精确定位一次应用。相同 Modifier 类型的不同 Handle 是独立应用；不要只保存类型，事后猜测要撤回哪一层。
+下面的演示按 StellaAI 的组合规则实时计算最终集合，规则与插件中的 `FStellaAIComposition::Build` 一一对应。
 
-请求在安全边界处理，拿到 Handle 只表示申请已登记。通过 `OnModifierChanged` 观察 `Pending`、`Applied`、`Rejected`、`Removed`，需要生效结果时以通知为准。
+- **第一层**：`AIBM_Base_Core` 使用插件编辑器测试中的真实条目。
+- **后面几层**：带“示例”字样，是为演示规则准备的。
 
-可选的来源对象是弱引用；来源失效时，属于它的应用会撤销。`MoveModifier` 的位置从零开始，最终组合不合法时会拒绝。应用与移除事件 `OnApplied / OnRemoved` 成对管理该层自己的副作用，不因重算而重复执行仍保留的层。
+<ModifierStackDemo
+  title="叠加、替换与移除"
+  source={`层 AIBM_Base_Core
+AddGroup CriticalReaction Critical 关键反应
+AddBehavior CriticalReaction/Death 死亡
+AddBehavior CriticalReaction/StunReaction 眩晕反应
+AddBehavior CriticalReaction/StaggerReaction 硬直反应
+AddBehavior CriticalReaction/BurnReaction 燃烧反应
+AddBehavior SyncAction Critical 同步动作
+AddGroup Ambient Normal 日常
+AddBehavior Ambient/Patrol 巡逻
+AddBehavior Ambient/Idle 待机
+层 AIBM_示例_Combat
+AddGroup Combat Normal 战斗
+AddBehavior Combat/Melee 近战攻击
+AddBehavior Combat/Ranged 远程攻击
+层 AIBM_示例_DisableMelee
+RemoveBehavior Combat/Melee
+层 AIBM_示例_Leader
+AddBehavior Combat/Command 指挥队友
+层 AIBM_示例_Alert
+AddGroup Ambient Critical 警戒日常
+AddBehavior Ambient/Patrol 警戒巡逻
+RemoveBehavior Ambient/Idle`}
+/>
 
-## 配置共享，应用状态独立
+可以这样试：
 
-多个 NPC 可以引用同一套 Modifier、Group、Behavior 模板。每个 NPC 的应用 Handle、评估结果、冷却与活动执行独立；不要把当前目标、Owner、执行下标写进共享模板成员。
+- **看默认结果**：
+  - `Combat/Melee` 被 DisableMelee 移除；
+  - Alert 把 `Ambient` 重定义为 Critical，`Patrol` 被替换为“警戒巡逻”，`Idle` 被移除。
+- **调整顺序**：把 DisableMelee 移到 Combat 上面，近战会回来。这时移除发生在添加之前，之后的添加不受影响。
+- **取消勾选 Combat**：
+  - DisableMelee 的移除变成“目标不存在”；
+  - Leader 的 `Combat/Command` 因父组不存在而报错。
+- **取消勾选 Alert**：`Ambient` 恢复为 Normal，`Patrol` 与 `Idle` 恢复为 Base_Core 的定义。
 
-评分与抢占的具体规则见[评分与抢占](/read/stellaai-selection)，动作中的独立数据与清理见[Logic 与生命周期](/read/stellaai-logic)。区域应用的来源管理见[行为区域](/read/stellaai-zones)。
+## 运行时增删 Modifier
 
-实现入口：插件的 `Behavior/AstraAIBehaviorModifier`、`AstraAIBehaviorModifierStack`、`AstraAIBehaviorTypes` 与 `AstraAIComponent`。
+**添加**
+
+- `AddModifier(Class, SourceOwner)` 返回一个应用句柄 `FStellaAIModifierHandle`。相同 Modifier 类的两次应用有不同的句柄，撤回时用句柄精确定位，不要只记类型。
+- 返回句柄只表示请求已经登记。请求在安全的边界统一处理，要知道是否生效，监听 `OnModifierChanged`：
+
+| 状态       | 何时广播                                                         |
+| ---------- | ---------------------------------------------------------------- |
+| `Applied`  | 应用成功；`MoveModifier` 调整位置成功时也发这个状态              |
+| `Rejected` | 应用或调整后的组合有错误，请求被拒绝，组合保持原样，附带错误原因 |
+| `Removed`  | 已撤回，包括还没应用就被撤销的情况                               |
+
+枚举里还声明了 `Pending`，但不会被广播。
+
+**撤回与调整**
+
+- `RemoveModifier(Handle)` 总会执行，不会被拒绝；撤回后出错的条目被跳过。
+- `MoveModifier(Handle, Position)` 的位置从 0 开始，结果不合法时会被拒绝。
+- 如果一次变化会改变当前正在执行的行为或它的祖先组，组件会先取消并清理当前执行，再让变化生效，然后重新选择。
+- `SourceOwner` 是可选的来源对象，按弱引用保存。来源失效或 Actor 正在销毁时，属于它的应用会被撤回。
+
+**Modifier 自己的副作用**
+
+- 在 `OnApplied`／`OnRemoved` 中成对处理。需要为每次应用单独保存状态时，设置 Modifier 的 `InstanceDataType`。
+- 重新组合时，仍然保留的层不会重复触发这两个事件。
+- 会话关闭时，按应用的倒序调用 `OnRemoved`，这时不广播 `OnModifierChanged`。
+
+调试时可以在 **AI → Modifiers** 面板中给选中的 NPC 临时增删 Modifier，它走的是同样的取消、清理、重选流程，并显示被拒绝的原因。
+
+## 配置共享，状态独立
+
+多个 NPC 引用同一套 Modifier、Group、Behavior 与 Logic 模板，组件不会为每个 NPC 复制它们。每个 NPC 独立的只有运行数据：应用句柄、评估结果、冷却和当前执行。
+
+所以不要把当前目标、所属角色或执行进度写进模板对象的成员里。需要独立状态时，用 Logic 的执行数据或 Modifier 的应用数据。
+
+评分怎样决定谁被选中，见[评分与抢占](/read/stellaai-selection)；区域怎样按分配应用 Modifier，见[行为区域](/read/stellaai-zones)。
+
+代码位置（插件 `Source/StellaAI`）：`Behavior/StellaAIBehaviorModifier`、`Behavior/StellaAIBehaviorModifierStack`（组合规则 `FStellaAIComposition::Build`）、`Behavior/StellaAIComponent`。

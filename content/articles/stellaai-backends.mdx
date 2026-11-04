@@ -1,55 +1,83 @@
 ---
-title: AstraAI · BT、StateTree 与 HTN
-description: 复用控制器上的树组件，正确传入数据、报告整树结果并等待安全退出。
+title: StellaAI · BT、StateTree 与 HTN
+description: 把一次动作交给行为树、状态树或 HTN：三种后端 Logic 的配置与结果映射、StateTree 调用局部树的退出方式、黑板复用和移动任务。
 section: [行为执行, 树后端]
-order: 17
+order: 25
 ---
 
-## 顶层选择与树内编排
+## 顶层选择，局部编排
 
-AstraAI 决定当前运行哪个 Behavior，Logic 可以把这一次动作交给 Behavior Tree、StateTree 或 HTN。Controller 按需复用各后端组件与原生黑板，主 Brain 仍由 AstraAI 负责。
+StellaAI 决定当前做哪个 Behavior；Logic 可以把这一次动作交给 Behavior Tree、StateTree 或 HTN 去编排。
 
-这些组件可以独立使用，不持有 AstraAI 的执行身份；Logic 接收后端结果，校验原执行 Id，再结束本次行为。
+**后端组件**
 
-| 入口                                 | 配置                                          | 结束要点                                    |
-| ------------------------------------ | --------------------------------------------- | ------------------------------------------- |
-| `UAstraAIBehaviorLogic_BehaviorTree` | `BehaviorTree`、`ExecutionMode`               | SingleRun 自然退出但没有显式结果时按 Failed |
-| `UAstraAIBehaviorLogic_StateTree`    | `FStateTreeReference`，使用 AIComponentSchema | 通过 StateTree 结果完成，不接管黑板         |
-| `UAstraAIBehaviorLogic_HTN`          | `UHTN`、`bLoop`，HTN 必须有黑板               | 默认不循环，退出等待后端安全停止            |
+- 后端组件挂在 Controller 上，按需创建并复用：每个 Controller 最多一个 Stella 的 BT 组件、一个 StateTree 组件、一个 HTN 组件，再加一个原生黑板。
+- 这些组件可以独立使用，不持有 StellaAI 的执行身份。
+- Logic 接收后端的结果，校验原执行 Id 后再结束本次行为。主 Brain 始终是 `UStellaAIComponent`。
 
-## Behavior Tree 怎样报告成功
+**拒绝而不抢占**：Controller 上已经有同类的原生组件，或者 Stella 的后端正忙时，Logic 和任务直接失败，不抢占，也不创建第二个。
 
-单次 BT 在真正完成整次目标的位置使用 `UAstraAIBTTask_FinishTree`，明确选择 `Succeeded`、`Failed` 或 `Aborted`；`InProgress` 不是合法终结结果。
+| Logic                                 | 配置                                              | 结束与结果                                                                  |
+| ------------------------------------- | ------------------------------------------------- | --------------------------------------------------------------------------- |
+| `UStellaAIBehaviorLogic_BehaviorTree` | `BehaviorTree`、`ExecutionMode`                   | 单次运行时由 `FinishTree` 节点明确报告；树自然结束但没有报告结果，按 Failed |
+| `UStellaAIBehaviorLogic_StateTree`    | `FStateTreeReference`（使用 AI Component Schema） | 按 StateTree 的结果完成，Stopped 记为 Aborted；不接管黑板                   |
+| `UStellaAIBehaviorLogic_HTN`          | `UHTN`、`bLoop`（默认不循环）；HTN 必须有黑板     | 成功之外的结果一律记为 Failed；退出时等待后端安全停止                       |
 
-这个节点结束当前整棵 BT，不只是结束所在分支。如果 BT 由 StateTree 的局部任务调用，结果交给直接调用者，不会越过父 StateTree 直接结束顶层 AstraAI 行为。
+HTN 后端由项目的 `UStellaAIHTNComponent` 承接，它是原生 HTN 组件的薄派生：只负责停止判断、单次与循环配置和清理。Controller 上已经有普通的 `UHTNComponent` 时，HTN Logic 直接失败。
 
-不要在局部 BT 中调用 Controller 的 `RunBehaviorTree` 来替换主 Brain。需要局部执行时，使用已接入的后端 Logic 或 StateTree 桥接任务。
+## 行为树怎样报告结果
 
-## StateTree 组合局部树
+单次运行的 BT 在真正完成整次目标的位置放 `UStellaAIBTTask_FinishTree`，明确选择 `Succeeded`、`Failed` 或 `Aborted`。
 
-`FAstraAISTTask_RunBehaviorTree` 与 `FAstraAISTTask_RunHTN` 允许 StateTree 调用相应局部后端。按单次任务配置时 `bLoop = false`；进入前准备所需黑板输入，退出时等待局部任务安全取消。
+- **结束范围**：它结束的是**整棵**当前 BT，不只是所在分支。
+- **组件要求**：这个节点必须运行在 Stella 的 BT 组件里，否则返回 Failed。
+- **嵌套调用**：如果 BT 是被 StateTree 的局部任务调用的，结果交给直接调用它的任务，不会越过父 StateTree 直接结束顶层行为。
 
-StateTree 自己不创建、缓存或切换黑板。不要为了让 StateTree“看起来和 BT 一样”另外塞入一套黑板拥有权。
+不要在局部 BT 里调用 Controller 的 `RunBehaviorTree` 去替换主 Brain。
+
+## StateTree 调用局部树
+
+在 StateTree 中可以用 `FStellaAISTTask_RunBehaviorTree` 与 `FStellaAISTTask_RunHTN` 运行局部的 BT 或 HTN。单次任务配置 `bLoop = false`。
 
 <Diagram
-  title="StateTree 调用局部 BT 的结果返回路径"
+  title="StateTree 调用局部 BT：结果怎样返回"
+  steps
   source={
-    'sequenceDiagram\n  participant AI as AstraAI Logic\n  participant ST as StateTree\n  participant Task as RunBehaviorTree 任务\n  participant BT as 局部 BT\n  AI->>ST: 启动本次执行\n  ST->>Task: 进入任务\n  Task->>BT: 初始化输入并运行\n  BT-->>Task: FinishTree 明确结果\n  Task-->>ST: 本任务完成\n  ST-->>AI: 整棵 StateTree 结束\n  AI->>AI: 校验 Id 后完成并清理'
+    'sequenceDiagram\n  participant Logic as StellaAI StateTree Logic\n  participant ST as StateTree\n  participant Task as RunBehaviorTree 任务\n  participant BT as 局部 BT\n  Logic->>ST: 启动本次执行\n  ST->>Task: EnterState\n  Task->>Task: 切换黑板后 InitializeBlackboard 写入本次输入\n  Task->>BT: 启动树\n  BT-->>Task: FinishTree 报告结果\n  Task-->>ST: 本任务完成，BT 的 Aborted 记为 Failed\n  ST-->>Logic: 整棵 StateTree 结束\n  Logic->>Logic: 等子树清理完成，校验 Id 后完成'
   }
 />
 
-## 黑板复用要初始化临时输入
+**任务退出（ExitState）**：
 
-BT 与 HTN 使用的原生黑板归 Controller 管理。兼容布局复用时可以保留已有值，因此不能把“组件被复用”理解为“所有键已自动清零”。
+- 退出是同步的：任务先解绑，然后立即返回。
+- 正常退出时，任务只是向子树发出清理请求，子树自己在后台完成中止，期间拒绝被复用。
+- 宿主拆卸时，直接强制清理。
 
-原生 Logic 可以覆写 `InitializeBlackboard` 写入本次目标与参数。只初始化自己拥有的键，避免留下上次目标，也避免顺手清除其他已约定保留的数据。
+真正等待子 BT／HTN 清理完成的是外层的 StellaAI StateTree Logic：它要等子树停稳，才完成并清理这一次行为。独立使用的原生 StateTree 在退出后可以继续进入其他状态，但再次使用一个仍在清理中的 BT 时，任务会失败。
 
-需要蓝图事件图或 latent 的自定义动作使用 [BlueprintBase Logic](/read/stellaai-logic)。原生 BT／StateTree／HTN Logic 不能当作可任意蓝图派生的入口。
+StateTree 自己不创建、缓存或切换黑板。
 
-## 移动使用引擎能力
+## 黑板复用要初始化本次输入
 
-UE 5.8 中使用原生 `UAITask_MoveTo`、StateTree 的 `FStateTreeMoveToTask`，以及 BT 的原生移动任务。取消与完成由当前任务和后端协议处理，不再增加一层已删除的 Astra Move 包装。
+- **黑板归属**：BT 与 HTN 使用的原生黑板归 Controller 管理。
+- **复用时保留旧值**：资产布局兼容时会复用已有黑板并保留原来的值。所以“组件被复用”不等于“所有键都已清零”。
+- **初始化时机**：原生 Logic 和任务可以覆写 `InitializeBlackboard`，写入本次的目标与参数。它在切换黑板之后、启动树之前调用。只初始化自己负责的键：既不要留下上一次的目标，也不要清掉其他已约定保留的数据。
+- **交接失败**：另一个 BT 或 HTN 的使用者正忙时，黑板交接失败，本次启动也随之失败。
 
-如果退出后新行为一直不开始，先在[AI 调试面板](/read/stellaai-debugging)核对局部树是否仍在运行或清理；不要用延迟启动下一行为掩盖未退出的任务。
+## 移动用引擎原生能力
 
-实现入口：插件 `BehaviorTree`、`StateTree`、`HTN` 目录及对应 Behavior Logic。
+| 后端      | 移动方式                    |
+| --------- | --------------------------- |
+| Logic     | 直接用 `UAITask_MoveTo`     |
+| StateTree | 使用 `FStateTreeMoveToTask` |
+| BT        | 使用引擎原生的移动任务      |
+
+取消与完成由当前任务和后端各自的协议处理，StellaAI 不再额外包装移动。路径由项目的 StellaNavigation 提供。
+
+## 退出后新行为迟迟不开始
+
+先在 [AI 调试面板](/read/stellaai-debugging)的 BehaviorTree、StateTree、HTN 面板中确认局部树是否仍在运行或清理。不要用“延迟一会儿再启动下一个行为”去掩盖没有退出的任务。
+
+需要事件图或 latent 节点的自定义动作，使用 [BlueprintBase Logic](/read/stellaai-logic#蓝图-logic)。原生的 BT、StateTree、HTN Logic 不能作为任意蓝图派生的入口。
+
+代码位置（插件 `Source/StellaAI`）：`BehaviorTree`、`StateTree`、`HTN` 目录下的 Logic、任务与组件，以及 `Behavior/StellaAIBlackboard`。

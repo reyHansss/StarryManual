@@ -1,68 +1,95 @@
 ---
-title: AstraAI · 模块总览与接入
-description: 从行为系统、执行系统与机会调度了解 AstraAI，再为角色配置第一套组合决策。
-order: 10
+title: StellaAI · 模块总览
+description: StellaAI 解决什么问题、由哪些概念组成、各类资产在哪里创建，以及它怎样接入 Starry 的 AI 控制器。
+order: 20
 ---
 
-## 模块职责与子模块协作
+## 它解决什么问题
 
-AstraAI 把“现在知道什么”“可以做什么”“这次怎样执行”拆开。Objective 保存当前机会，Modifier Stack 组合可选行为，Behavior 给机会评分，Logic 执行被选中的动作。主决策组件是 Controller 上的 `UAstraAIComponent`。
+一个 NPC 在任何时刻都要回答“现在做什么”。StellaAI 把这个问题拆成四件事，分别交给不同的对象：
 
-Starry 已通过 `AStarryAIController` 接入插件。日常配置从角色的 `AISetup` 出发，不需要再给同一个角色手动挂第二套选择器。
+- **现在有哪些机会**：Objective 保存当前事实，例如“有可接取的命令”“我在分配区域之外”。
+- **我能做哪些事**：Modifier 一层层叠加出这个 NPC 当前可用的行为集合，例如“基础反应 + 人形战斗 + 持火把”。
+- **哪件事最值得做**：Behavior 判断能否开始，并给机会打分；选择器按优先级与分数选出一个。
+- **这一次具体怎么做**：被选中行为的 Logic 负责执行，可以直接调用移动、技能，也可以交给行为树、状态树或 HTN。
 
-行为系统负责配置组合、候选筛选与评分，行为执行负责一次动作的启动、结束和取消；机会与调度连接领域事实、外部命令和行为区域。上方功能目录按这些职责组织，具体功能页同时说明配置方法与运行机制。BT、StateTree 和 HTN 是 Logic 可使用的局部树后端，归在行为执行之下。
+这样，“行为配置”可以像积木一样按角色、状态、区域叠加和撤销，而“执行”只关心这一次动作的开始、取消和清理。StellaAI 的设计以 Unreal Fest 2024 的一场 AI 架构分享为基线。
 
 <Diagram
-  title="从角色配置到一次行为执行"
+  title="从配置到一次执行"
   source={
-    'flowchart LR\n  Pawn(AI 角色的 AISetup) --> Setup(BrainType = Composition)\n  Setup --> Stack(ModifierStack)\n  Setup --> Objectives(ObjectiveSetup)\n  Stack --> Selector(AstraAI 选择器)\n  Objectives --> Facts(当前 Objective)\n  Facts --> Selector\n  Selector --> Behavior(选中的 Behavior)\n  Behavior --> Logic(一次 Logic 执行)'
+    'flowchart LR\n  Setup(AISetup：BrainType = Composition) --> Stack(Modifier Stack)\n  Setup --> OSetup(Objective Setup)\n  Stack --> Set(当前行为集合)\n  OSetup --> Gen(Generator)\n  Gen --> Obj(Objective 机会)\n  Set --> Select(选择器)\n  Obj --> Select\n  Select --> Behavior(选中的 Behavior)\n  Behavior --> Logic(Logic 执行这一次)'
   }
 />
 
-## 创建第一套配置
+## 核心概念
 
-以下是一条验证接入的操作路线。示例名称用于说明命名，不表示项目已预置这些资产。
+| 概念           | 是什么                                                                          |
+| -------------- | ------------------------------------------------------------------------------- |
+| Objective      | 供决策读取的机会数据，由 Generator 创建和维护                                   |
+| Modifier       | 对行为集合的一层修改：添加或移除 Group 与 Behavior                              |
+| Modifier Stack | 一组按顺序应用的 Modifier 类，多个 NPC 可以共用同一份                           |
+| Group          | 行为的分组，筛选新候选，并决定子项的优先级（Critical 或 Normal）                |
+| Behavior       | 一个可选行为：判断能否激活、给机会打分，并指定执行它的 Logic                    |
+| Logic          | 一次执行的实际负责者，生命周期为 Start → Tick → Cancel → Cleanup                |
+| Command        | 由玩法发布、可被符合条件的 NPC 领取的任务                                       |
+| Behavior Zone  | 挂在普通 Actor 上的区域组件，按分配关系给 NPC 应用 Modifier，并提供区域几何查询 |
 
-1. 在内容浏览器的 `AI → AstraAI` 分类创建 Modifier，命名为 `AIBM_ManualExample`。
-2. 打开 Modifier 编辑器，在 `Normal` 下添加一个 Behavior，例如路径 `Idle`。使用基础 Behavior，设置 `StaticWeight = 1`，`ObjectiveClass` 留空。
-3. 在该节点的 `Logic` 中使用原生 Wait，设置 `Seconds = 1`。它只等待并完成，不驱动移动或动画。
-4. 创建 Modifier Stack，命名为 `AIBMS_ManualExample`，把刚才的 Modifier 类型加入列表。
-5. 创建 Objective Component Setup，命名为 `AIOCS_ManualExample`。这次 Wait 不依赖 Objective，可以先保持 `GeneratorTemplates` 为空。
-6. 创建 `UStarryAISetupDataAsset` 配置，选择 `BrainType = Composition`，填入 `ModifierStack` 与 `ObjectiveSetup`。
-7. 在 AISetup 中指定有效的 `PerceptionSenseProfile`。可以复用已有 `UStarryAISenseProfile`；新建时配置需要的感官，并让 `DominantSense` 与其中一种感官匹配。`PerceptionAwarenessProfile` 按察觉积累需求选择。
-8. 在 `AStarryAICharacter` 的派生角色中设置 `AISetup`，确认 AI Controller 使用 `AStarryAIController` 或其派生类，并按关卡需要配置自动控制。
-9. 在服务端或单机世界运行，检查控制器初始化到 `Ready`，再通过 [AI 调试面板](/read/stellaai-debugging)观察 `Idle` 的执行。
+主决策组件是 Controller 上的 `UStellaAIComponent`，Objective 由同一个 Controller 上的 `UStellaAIObjectiveComponent` 管理。两者分开：Objective 只维护事实，不选择行为。
 
-AISetup 的资产校验要求填写 `PerceptionSenseProfile`，即使这次 Wait 不使用感知目标也应配置；`PerceptionAwarenessProfile` 可选。AISetup 还须位于 Asset Manager 已扫描的内容范围，当前项目扫描 `/Game` 下的 `StarryAISetupData` 资产。
+## 资产与创建位置
 
-默认 `CooldownSeconds = 0`，因此只有这个候选时，Wait 完成后可以再次被选中。若想更容易观察两次执行之间的空隙，可给 Behavior 设置冷却；这不是 Wait 自己的循环参数。
+在内容浏览器中右键，选择 **AI → StellaAI**，可以创建以下资产。菜单项名称带有对应的缩写：
 
-## 资产与类型怎样区分
+| 前缀     | 菜单项                            | 用途                                 | 编辑方式                                                      |
+| -------- | --------------------------------- | ------------------------------------ | ------------------------------------------------------------- |
+| `AIBM_`  | Behavior Modifier (AIBM)          | 一层行为增删配置                     | 蓝图资产，打开后自动切到“Behavior Modifier”页签进行可视化编辑 |
+| `AIBMS_` | AIBehaviorModifierStack (AIBMS)   | Modifier 类的有序列表                | Stack 编辑器，带最终组合的只读预览                            |
+| `AIB_`   | Behavior (AIB)                    | 自定义 Behavior 类型：激活条件与评分 | 蓝图类；具体节点的参数在 AIBM 中填写                          |
+| `AIBG_`  | Behavior Group (AIBG)             | 自定义 Group 类型：候选筛选条件      | 蓝图类；组参数在 AIBM 中填写                                  |
+| `AIBL_`  | BehaviorLogic (AIBL)              | 需要事件图或 latent 节点的蓝图 Logic | 以 BlueprintBase 为父类的蓝图                                 |
+| `AIO_`   | Objective (AIO)                   | 自定义机会数据                       | 蓝图类                                                        |
+| `AIOG_`  | Objective Generator (AIOG)        | 自定义机会生成器                     | 蓝图类                                                        |
+| `AIOCS_` | AIObjectiveComponentSetup (AIOCS) | 生成器模板列表                       | 数据资产                                                      |
+| `AIC_`   | Command (AIC)                     | 可发布、领取和结束使用的命令类型     | 蓝图类                                                        |
 
-| 前缀     | 职责                             | 编辑位置                             |
-| -------- | -------------------------------- | ------------------------------------ |
-| `AIBM_`  | 一层增删 Group、Behavior 的配置  | Modifier 专用编辑器                  |
-| `AIBMS_` | 可复用的 Modifier 类型与顺序     | Stack 专用编辑器                     |
-| `AIB_`   | Behavior 类型，定义条件与评分    | 类型蓝图；节点参数在 Modifier 内配置 |
-| `AIBG_`  | Group 类型，筛选新候选           | 类型蓝图；组参数在 Modifier 内配置   |
-| `AIBL_`  | 可拥有本次执行状态的蓝图 Logic   | 以 BlueprintBase 为父类的蓝图        |
-| `AIO_`   | Objective 类型，描述机会数据     | Objective 派生类型                   |
-| `AIOG_`  | Objective Generator 类型         | Generator 派生类型                   |
-| `AIOCS_` | 生成器模板列表                   | Objective Component Setup 资产       |
-| `AIC_`   | 可发布、领取和结束使用的命令类型 | Command 派生类型                     |
+Modifier 里的 Group、Behavior、Logic 都是配置模板，所有使用这套配置的 NPC 共享同一份对象。每个 NPC 只单独保存运行时的数据，例如应用句柄、评估结果、冷却和当前执行。
 
-Modifier 中的 Group、Behavior、Logic 是配置模板，不等于每个 NPC 都会复制一整棵对象树。需要自定义 Behavior 时先创建类型，再在 Modifier 中选择类型与填写该节点的参数。
+## 在 Starry 中怎样接入
 
-## 初始化何时算成功
+Starry 通过 `AStarryAIController` 接入 StellaAI，配置入口是角色的 AISetup：
 
-Controller 先异步加载配置，创建并初始化 Objective 组件，再初始化 AstraAI 组件。完成后状态变为 `Ready`，广播 `OnAISetupComplete`，随后启动组合决策。`HasCompletedAISetup()` 仅在 `Ready` 时为真；失败通过 `OnAISetupFailed` 通知。
+1. 在 **Starry → AI → Starry AI Setup** 创建 `UStarryAISetupDataAsset`，选择 `BrainType = Composition`，填写 `ModifierStack` 与 `ObjectiveSetup`。
+2. 在 `AStarryAICharacter` 的派生类上设置 `AISetup`。
 
-不要在 Pawn 刚生成时假定所有软引用已加载。依赖决策组件的项目功能应等待完成事件，或者先检查当前完成状态。客户端 `NM_Client` 世界不运行这套 AI 初始化。
+**Controller 装配的顺序：**
 
-自定义 Pawn 通过 `IStarryAISetupProviderInterface::GetAISetupData` 提供配置。撤销控制、结束游戏或配置失败会进入关闭流程，清理 Brain、Objective、黑板与感知等本次接入资源。
+1. 异步加载 AISetup；
+2. 创建感知组件；
+3. 创建并初始化 Objective 组件；
+4. 创建 `UStellaAIComponent` 并初始化；
+5. 进入 `Ready`，广播 `OnAISetupComplete`，开始组合决策。
 
-## 接下来做什么
+完整过程见[一局游戏怎样启动](/read/arch-startup#ai-控制器怎样装配)。
 
-需要叠加战斗、日常或临时行为时，阅读[组合与覆盖](/read/stellaai-composition)。需要理解为什么选中某个行为，阅读[评分与抢占](/read/stellaai-selection)。需要让行为真正驱动项目能力，阅读[Logic 与生命周期](/read/stellaai-logic)。
+**装配时要注意：**
 
-实现入口：`Plugins/AI/AstraAI`、`Framework/AI/StarryAIController`、`Framework/AI/StarryAISetupDataAsset`、`Framework/Character/StarryAICharacter`。后三处路径相对于 `Source/StarryGame`。
+- **只在权威端运行**：客户端（`NM_Client`）世界不装配 AI 决策。
+- **等就绪信号**：依赖 StellaAI 的功能应等待 `OnAISetupComplete`，或先检查 `HasCompletedAISetup()`，不要假定角色一生成就已就绪。
+- **自定义配置来源**：自定义 Pawn 可以通过 `IStarryAISetupProviderInterface::GetAISetupData` 提供配置。
+
+## 从哪里开始读
+
+| 你要做的事                          | 阅读                                                   |
+| ----------------------------------- | ------------------------------------------------------ |
+| 第一次让一个 NPC 跑起 StellaAI      | [快速上手](/read/stellaai-quickstart)                  |
+| 叠加或撤销一组行为                  | [组合与覆盖](/read/stellaai-composition)（含交互演示） |
+| 搞清楚为什么选中了某个行为          | [评分与抢占](/read/stellaai-selection)                 |
+| 让行为真正驱动移动、技能或交互      | [Logic 与生命周期](/read/stellaai-logic)               |
+| 用行为树、状态树或 HTN 编排一次动作 | [BT、StateTree 与 HTN](/read/stellaai-backends)        |
+| 给行为提供新的机会数据              | [Objective 与生成器](/read/stellaai-objectives)        |
+| 让玩法给 NPC 派任务                 | [命令](/read/stellaai-commands)                        |
+| 按区域改变 NPC 的行为               | [行为区域](/read/stellaai-zones)                       |
+| AI 不动或行为不对                   | [调试与排查](/read/stellaai-debugging)                 |
+
+代码位置：插件 `Plugins/AI/StellaAI`；项目接入 `Source/StarryGame/Framework/AI/StarryAIController`、`Framework/AI/StarryAISetupDataAsset`、`Framework/Character/StarryAICharacter`。

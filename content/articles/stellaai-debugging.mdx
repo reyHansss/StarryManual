@@ -1,65 +1,103 @@
 ---
-title: AstraAI · 调试与排查
-description: 从初始化到候选、机会、应用层与后端，沿真实运行路径定位 AI 没有行动的原因。
+title: StellaAI · 调试与排查
+description: AI 调试面板各窗口能看到什么、节点标签和颜色的含义、Timeline 的用法，以及 AI 不行动或行为不对时按运行链逐层排查。
 section: [调试与排查]
-order: 18
+order: 29
 ---
 
-## 打开项目的 AI 面板
+## 打开 AI 面板
 
-在非 Shipping 游戏中按 `F1` 打开 HaloDebug 输入，再打开 `AI` 菜单。Starry 当前注册了以下窗口，它们共享项目的 AI 调试会话。
+在非 Shipping 构建的 PIE 中按 **F1** 切换调试输入，打开顶部的 **AI** 菜单。下面这些窗口共用同一个 AI 调试会话，由 Agents 窗口每帧驱动：
 
-| 菜单                 | 主要查看内容             |
-| -------------------- | ------------------------ |
-| `AI → Agents`        | 选择与定位当前 AI        |
-| `AI → AstraBehavior` | 当前组合决策与行为执行   |
-| `AI → Objectives`    | 当前机会与生成器相关数据 |
-| `AI → Modifiers`     | 应用层及组合结果         |
-| `AI → BehaviorTree`  | BT 后端                  |
-| `AI → StateTree`     | StateTree 后端           |
-| `AI → HTN`           | HTN 后端                 |
-| `AI → Blackboard`    | 实际黑板数据             |
+| 窗口               | 看什么                                                                                                                                                                      |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Agents**         | 列出带 StellaAI 组件的角色并选择其一，选择结果同步到 StellaDebug 顶栏。<br />显示 Controller、Pawn、移动模式，以及寻路、Objective 组件和 Controller 上全部 Brain 的运行状态 |
+| **StellaBehavior** | 当前行为集合的树、节点的评估结果、当前执行的详情，下方是 Timeline                                                                                                           |
+| **Objectives**     | 当前的机会与生成器                                                                                                                                                          |
+| **Modifiers**      | 应用的层与组合结果；可以给选中的 NPC 临时增删 Modifier，并显示被拒绝的原因                                                                                                  |
+| **BehaviorTree**   | 节点树（可搜索），活动节点为绿色                                                                                                                                            |
+| **StateTree**      | 同上，针对 StateTree                                                                                                                                                        |
+| **HTN**            | 节点树、计划实例与每一步的代价                                                                                                                                              |
+| **Blackboard**     | 全部键值，包括父资产中的键                                                                                                                                                  |
 
-这里的窗口是 Starry 项目通过 HaloDebug 注册的面板。插件提供真实运行事件，项目会话组织显示；不会为了打开调试窗口重新调用一遍评分来生成“历史结果”。
+BehaviorTree、StateTree、HTN、Blackboard 四个窗口不要求角色带 StellaAI 组件，独立使用的原生后端也能看。
 
-## 按运行链定位
+面板显示的是 StellaAI 实际发布的评估与执行事件。打开面板不会让组件额外调用条件或评分。
+
+## 读懂 StellaBehavior
+
+**节点颜色**
+
+| 颜色 | 含义                                 |
+| ---- | ------------------------------------ |
+| 灰色 | 条件未通过、在冷却中，或被优先级屏蔽 |
+| 白色 | 最近一次评估可用                     |
+| 黄色 | 当前正在执行的行为，以及它的祖先组   |
+
+**节点标签**
+
+| 标签        | 含义                                                         |
+| ----------- | ------------------------------------------------------------ |
+| `[分数]`    | 最近一次真实评估的分数；条件失败后仍保留上一次的分数         |
+| `[CD 秒数]` | 冷却中，显示剩余秒数，优先于分数显示                         |
+| `[--]`      | 还没有评估记录；组合一旦变化，评分记录清空，节点回到这个状态 |
+
+**详情区**
+
+- 树上方有搜索框和 **Follow Active**（自动跟随当前执行）。
+- 显示当前执行的时长、来源层、执行状态、能否被中断、蓝图类与 C++ 类。
+- 可以实时查看 Logic 与 Logic Data 的属性。
+
+## 用 Timeline 回看历史
+
+Timeline 位于 StellaBehavior 窗口下方：
+
+- **控件**：**Record**、**Clear**、**Follow** 和 **Seconds**（显示最近 5～120 秒）。
+- **图形**：显示行为执行区间、Objective 泳道、感知事件和察觉曲线，点击图形可以跳到对应的历史记录。横轴为游戏时间（秒）；察觉曲线取各目标累计察觉值的最大值，范围 0～1。
+- **历史表**：共六列，可以展开查看当时的 Objective 与 Logic Data 快照；收起图形后仍可查看。
+- **采集范围**：只采集当前选中的角色。保留最近 128 条执行、256 条 Objective 寿命、256 个感知事件；察觉值每 0.1 秒采样一次，最多 1200 个。
+
+对象检查器显示的是**当前**对象。要查看几秒前的情况，看 Timeline 里当时采集的快照，不要拿当前的共享模板或当前 Struct 去反推另一次执行的状态。
+
+## AI 不行动时按运行链排查
 
 <Diagram
-  title="AI 不行动时先确认哪一层没有完成"
+  title="先确认哪一层没有完成"
   source={
-    'flowchart TD\n  Begin(AI 没有行动) --> Ready{Controller Ready？}\n  Ready -->|否| Setup(检查控制、Provider、软引用与失败通知)\n  Ready -->|是| Layers{Modifier 已应用？}\n  Layers -->|否| Apply(检查 Stack、来源与 Rejected 事件)\n  Layers -->|是| Facts{条件与机会有效？}\n  Facts -->|否| Objective(检查 Generator 更新与精确类)\n  Facts -->|是| Choice{有可选行为？}\n  Choice -->|否| Score(检查优先级、分数、冷却)\n  Choice -->|是| Exec(检查当前 Logic、后端与清理)'
+    'flowchart TD\n  Begin(AI 没有行动) --> Ready{Controller 进入 Ready？}\n  Ready -->|否| Setup(检查控制关系、AISetup、资产校验与 OnAISetupFailed)\n  Ready -->|是| Layers{Modifier 已应用？}\n  Layers -->|否| Apply(检查 Stack、来源与 Rejected 原因)\n  Layers -->|是| Facts{需要的机会存在？}\n  Facts -->|否| Objective(检查 Generator 更新与精确类型)\n  Facts -->|是| Choice{有候选通过检查？}\n  Choice -->|否| Score(检查冷却、优先级屏蔽、组条件与分数)\n  Choice -->|是| Exec(检查当前 Logic、后端与清理是否完成)'
   }
 />
 
-## 常见现象与检查点
+| 现象                        | 先检查                                                                                                                               |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Agents 里没有这个 NPC       | `BrainType` 是否为 Composition；角色是否提供了 AISetup；当前是否是权威端世界                                                         |
+| 初始化直接停在 Stopped      | `UStarryAISettings::bDisableLogic` 是否开启；全局禁用时不会开始加载配置                                                              |
+| 初始化一直没完成            | 软引用是否能加载；是否收到 `OnAISetupFailed` 及其原因                                                                                |
+| AISetup 资产校验失败        | Composition 模式要求 `ModifierStack`、`ObjectiveSetup` 和有效的 `PerceptionSenseProfile`；新建感知配置还要检查感官与 `DominantSense` |
+| 新加的 Modifier 没有效果    | 看 Modifiers 面板里它是 Applied 还是 Rejected；检查是否被后层覆盖                                                                    |
+| 有机会却不执行              | 机会是否当前有效、精确类型是否匹配；组条件、分数与冷却                                                                               |
+| 高分行为没有抢占            | 是否同优先级且严格高分；当前是否在执行 Critical；Pawn 是否带有 `UninterruptibleTags`                                                 |
+| 切换配置后一直在等待        | 旧执行的 Cancel／Cleanup 与局部树是否已安全结束                                                                                      |
+| 新的执行被旧任务结束        | 异步回调是否保存并校验了原来的执行 Id                                                                                                |
+| BT 看起来走完了却按失败结算 | 单次运行是否用 `FinishTree` 明确报告了结果                                                                                           |
 
-| 现象                   | 优先检查                                                                            |
-| ---------------------- | ----------------------------------------------------------------------------------- |
-| 没有 AstraAI Brain     | `BrainType` 是否为 Composition，Pawn 是否提供 AISetup，控制器是否运行在允许的世界   |
-| 初始化直接停在 Stopped | `UStarryAISettings::bDisableLogic` 是否开启；全局禁用时不会开始加载配置             |
-| 初始化一直未完成       | 软引用加载、`ObjectiveSetup` 与 `ModifierStack`、`OnAISetupFailed` 的原因           |
-| AISetup 资产校验失败   | 是否填写有效的 `PerceptionSenseProfile`；新建感知配置还须检查感官与 `DominantSense` |
-| 新加 Modifier 没有效果 | 不能只看 Handle；确认 Applied／Rejected，检查后层覆盖                               |
-| 有机会却不执行         | 机会是否当前有效、是否精确类匹配、组条件、分数与冷却                                |
-| 高分行为没有抢占       | 是否同级严格高分、当前是否 Critical、是否阻止普通中断                               |
-| 已切换配置却仍等待     | 旧执行的 Cancel／Cleanup 与局部树是否安全结束                                       |
-| 新执行被旧任务结束     | 异步回调是否保存并校验原 ExecutionId                                                |
-| BT 看起来走完却按失败  | SingleRun 是否通过 FinishTree 明确报告结果                                          |
+记录问题时，同时写下以下信息，方便判断是配置没应用、条件不满足、任务失败，还是回调认错了执行：
 
-## 实时数据和历史值分清
+- Controller；
+- 行为的完整路径；
+- 应用句柄；
+- 执行 Id；
+- 所在的世界；
+- 触发的操作。
 
-AstraBehavior 树中，灰色表示条件失败、冷却或优先级阻挡；白色表示最近评估可用；黄色表示当前执行行为及其祖先组。`[--]` 表示尚无有效评分记录，条件失败后仍可保留最近一次真实分数，Normal 显示上次实际评估结果。
+## 验证一次改动
 
-Timeline 记录启停、原因与当时的 Objective 内容，收起图表后仍可查看历史表。当前只采集所选角色；横轴为游戏秒，察觉曲线取 Starry 各目标累计察觉值的最大值，范围 0～1。
+1. 先验证直接相关的成功与失败。
+2. 再检查抢占、配置撤销、角色销毁与复用。
+3. 如果修的是接入顺序，先确认原生的初始化与通知是否完整。
 
-对象 Inspector 展示的是当前对象；历史查看需要会话在当时采集的值。不要拿当前共享模板或当前 Struct 地址，反推几秒前另一次执行的状态。
+一次手动赋值或延迟能绕过问题，不代表找到了原因。
 
-记录问题时同时写下 Controller、行为完整路径、应用 Handle、执行 Id、发生的世界和触发操作。这样能够判断是配置未应用、条件不满足、任务失败，还是回调代次错误。
+调试工具本身的操作与远程显示见 [StellaDebug](/read/stelladebug-overview) 和[远程面板](/read/stelladebug-remote)；执行与清理规则见 [Logic 与生命周期](/read/stellaai-logic)。
 
-## 验证改动时观察退出
-
-先验证直接相关的成功与失败，再检查抢占、配置撤销、角色销毁与复用。若修正的是接入顺序，先确认原生初始化与通知是否完整，不把一次手动赋值或延迟能绕过问题当成根因证据。
-
-HaloDebug 的操作与远程显示见[调试工具入门](/read/stelladebug-overview)和[远程面板](/read/stelladebug-remote)。执行清理规则见[Logic 与生命周期](/read/stellaai-logic)。
-
-实现入口：`Source/StarryGame/Framework/Development/StarryDebugSubsystem` 与 `Framework/AI/Debug` 下的窗口、`FStarryAIDebugSession`；运行事件定义位于 AstraAI 插件。
+代码位置：`Source/StarryGame/Framework/Development/StarryDebugSubsystem`（窗口注册）、`Framework/AI/Debug`（各窗口与调试会话 `FStarryAIDebugSession`）；运行事件由插件的 `UStellaAIComponent` 发布。

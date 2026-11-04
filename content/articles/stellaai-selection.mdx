@@ -1,53 +1,88 @@
 ---
-title: AstraAI · 评分与抢占
-description: 沿着条件、优先级、分数、持续有效性与冷却，解释一个行为为何开始或退出。
+title: StellaAI · 评分与抢占
+description: 选择器每一帧怎样筛选候选、比较优先级与分数、决定是否打断当前行为，以及激活条件、持续约束和冷却各管什么。
 section: [行为系统]
-order: 12
+order: 23
 ---
 
-## 先筛选，再比较
+## 每次选择做了什么
 
-Group 的条件筛选新候选。Behavior 的 `CanBeActivated` 判断当前机会是否适合启动；基础实现可通过 `ObjectiveClass` 要求一个当前有效的精确 Objective 类。
-
-`CalculateScore` 为机会返回有限分数，基础实现使用 `StaticWeight`。评分函数只读当前机会与领域状态，不领取命令、不占资源，也不偷偷启动任务。候选与活动行为都可能被重新评分，副作用放在评分里会产生重复执行。
+`UStellaAIComponent` 在 Tick 中先更新当前的 Logic，然后进行一次选择。Objective 正在更新、组件正在关闭或正在等待旧执行停止时，这一帧不选择。
 
 <Diagram
-  title="一次候选决策的主要判断"
+  title="一个候选要通过的检查（按代码中的顺序）"
   source={
-    'flowchart TD\n  Candidate(有效组合中的 Behavior) --> Group{组条件通过？}\n  Group -->|否| Skip(跳过新候选)\n  Group -->|是| Activate{可激活且不在冷却？}\n  Activate -->|否| Skip\n  Activate -->|是| Score{分数为有限值？}\n  Score -->|否| Skip\n  Score -->|是| Compare(比较优先级与分数)\n  Compare --> Current{需要替换当前执行？}\n  Current -->|否| Keep(保持当前执行)\n  Current -->|是| Cancel(取消并清理旧执行)\n  Cancel --> Start(清理完成后启动新执行)'
+    'flowchart TD\n  C(行为集合中的一个 Behavior) --> Cool{在冷却中？}\n  Cool -->|是| Skip(跳过)\n  Cool -->|否| Crit{当前在执行 Critical，而它是 Normal？}\n  Crit -->|是| Skip\n  Crit -->|否| Due{它是 Normal 且还没到评估时机？}\n  Due -->|是| Skip\n  Due -->|否| Group{所有祖先组条件通过？}\n  Group -->|否| Skip\n  Group -->|是| Act{CanBeActivated？}\n  Act -->|否| Skip\n  Act -->|是| Score{CalculateScore 为有限值？}\n  Score -->|否| Skip\n  Score -->|是| Compare(参与比较)'
   }
 />
 
-## Critical、分数和中断许可
+**评估节奏**
 
-| 情况                                        | 处理                           |
-| ------------------------------------------- | ------------------------------ |
-| Critical 候选与 Normal 当前行为竞争         | 更高优先级可以抢占             |
-| 同优先级候选分数更高                        | 当前行为允许普通中断时可以替换 |
-| 同优先级分数相同                            | 不因为同分而替换当前行为       |
-| 当前正在执行 Critical                       | Normal 不能靠更高分越级抢占    |
-| Owner 拥有 `UninterruptibleTags` 中任一标签 | 阻止同优先级的普通抢占         |
+- **Critical 候选**：每次选择都会评估。
+- **Normal 候选**：只在评估时机到来时评估。时机指距上次超过 `NormalInterval`（默认 0.2 秒），或有人调用了 `RequestEvaluation()`。
+- **自动请求**：每个 Objective 更新批次结束时会自动请求一次评估。`NormalInterval` 是组件上的属性，AISetup 中没有它的配置入口。
 
-`CanBeInterrupted` 与 `UninterruptibleTags` 不会阻挡宿主失效、配置撤销或 Critical 对 Normal 的抢占。它们也不能代替任务自己的取消处理。
+**检查顺序的影响**：冷却和优先级屏蔽排在最前面，所以处于冷却或被屏蔽的候选不会运行组条件与评分。
 
-`NormalInterval` 默认 `0.2` 秒，Critical 每帧评估。`RequestEvaluation` 可以请求提前评估 Normal，适合领域事实变化后主动唤醒；不必为了立即响应而把所有行为都归到 Critical。
+## 谁会胜出
 
-## 激活条件与持续约束分开写
+当前**有**正在执行的行为时，先给它重新评分，作为要击败的分数。候选要胜出，必须满足其一：
 
-一个“弹药大于零”的组条件可以允许射击开始。最后一发消耗后，组条件不再满足，不等于当前射击必须立刻中断。否则已经合法开始的动作可能被自己的消耗打断。
+- 优先级比当前行为高（Critical 高于 Normal）；
+- 优先级相同，且分数**严格高于**当前分数。
 
-动作执行期间必须始终成立的要求，写入 Logic 的 `IsExecutionValid` 或底层任务的有效性规则。条件与配置本身被替换属于另一回事，会按配置撤销处理。
+当前**没有**执行时，第一个通过检查的候选先当选，之后的候选同样要更高优先级或严格更高的分数才能替换它。候选按路径顺序遍历，所以同分时路径排在前面的胜出。
 
-## 冷却从结算开始
+| 情况                            | 结果                                        |
+| ------------------------------- | ------------------------------------------- |
+| Critical 候选对 Normal 当前行为 | 可以抢占，不受中断许可限制                  |
+| 同优先级、候选分数更高          | 当前行为允许中断时抢占                      |
+| 同优先级、分数相同              | 不替换                                      |
+| 当前正在执行 Critical           | Normal 候选直接跳过，分数再高也不能越级抢占 |
+| 当前行为自己的分数不是有限值    | 当前执行被取消                              |
 
-`CooldownSeconds` 默认 `0`。成功结算后开始冷却；`bCooldownOnFailure` 开启时，失败也使用同一冷却。`Aborted` 不消费冷却。
+**中断许可**：同优先级的抢占要先询问当前行为的 `CanBeInterrupted`。基础实现读取 **Pawn** 的 GameplayTag，Pawn 带有 `UninterruptibleTags` 中任意一个标签时就不允许被打断。中断许可只拦同优先级的普通抢占，不阻挡 Critical 对 Normal 的抢占，也不阻挡宿主失效或配置撤销引起的取消。
 
-冷却属于每个 NPC 的行为运行状态，不要把上次执行时间写回共享 Behavior。业务资源的返还在 Logic 清理中完成，`OnExecutionFinished` 是清理完成后的无状态结果通知。
+**抢占只做取消**：抢占时组件取消当前执行，等它清理完成后，下一次选择**重新评估全部候选**，不保证一定启动刚才胜出的那个。
 
-## 为什么看起来没有切换
+## 评分只读，不做事
 
-依次核对：配置是否已应用、Group 与 Objective 是否允许新候选、冷却是否结束、分数是否有限、当前优先级、是否严格高分、普通中断是否被标签阻挡，以及旧执行是否仍在等待安全清理。
+- **`CanBeActivated`**：判断当前机会是否适合开始。基础实现会检查 `ObjectiveClass`：填写后，要求存在一个当前有效的该精确类型的 Objective。
+- **`CalculateScore`**：返回分数，基础实现直接返回 `StaticWeight`（默认 0）。
 
-不要用调试面板主动再跑一次评分来解释历史结果。[AI 调试](/read/stellaai-debugging)展示实际采集的决策与执行信息；异步退出的判断见[Logic 与生命周期](/read/stellaai-logic)。
+候选和当前执行都会被反复评分，所以这两个函数只读取当前机会与领域状态。不要在里面领取命令、占用资源或启动任务，否则会被重复执行。
 
-实现入口：`Behavior/AstraAIBehavior`、`AstraAIBehaviorGroup` 与 `AstraAIComponent`。
+## 激活条件和持续约束要分开写
+
+一个“弹药大于零”的组条件允许射击开始。打出最后一发后组条件不再满足，但这不意味着正在进行的射击要立刻中断，否则一个合法开始的动作会被自己的消耗打断。
+
+- **只在开始时成立**：写在 Group 或 Behavior 的激活条件里，只影响新候选。
+- **执行期间必须始终成立**：写在 Logic 的 `IsExecutionValid` 或底层任务自己的有效性检查里。检查失败时，当前执行被取消。
+- **条件或配置本身被替换**：属于配置变化，按[组合与覆盖](/read/stellaai-composition#运行时增删-modifier)的规则处理。
+
+## 冷却
+
+| 字段                 | 默认值 | 含义                                         |
+| -------------------- | ------ | -------------------------------------------- |
+| `CooldownSeconds`    | 0      | 结算成功后，这个路径的行为在多少秒内不可再选 |
+| `bCooldownOnFailure` | false  | 开启后，失败也进入同样的冷却                 |
+
+被取消（Aborted）的执行不进入冷却。一旦组件发出取消，这次执行的结果就固定为 Aborted，即使 Logic 随后报告成功也不进冷却。
+
+冷却属于每个 NPC 的运行状态，不要把“上次执行时间”写回共享的 Behavior。业务资源在 Logic 的清理中归还；`OnExecutionFinished` 是清理完成之后的结果通知，不保存状态。
+
+## 为什么没有切换到我想要的行为
+
+按选择顺序逐项核对：
+
+1. 配置是否已经应用：查看 Stack 预览或 Modifiers 面板。
+2. 是否在冷却中，或者被正在执行的 Critical 屏蔽。
+3. Normal 是否到了评估时机：领域事实变化后可以调用 `RequestEvaluation()`。
+4. 祖先组条件、`CanBeActivated`、所需的 Objective 是否满足。
+5. 分数是否为有限值，是否严格高于当前行为。
+6. 当前行为是否被 `UninterruptibleTags` 阻止打断。
+7. 旧执行是否还在等待安全清理。
+
+[调试面板](/read/stellaai-debugging)显示的是实际发生过的评估与执行事件。调试界面本身不会为了显示而重新调用条件或评分。
+
+代码位置（插件 `Source/StellaAI`）：`Behavior/StellaAIBehavior`、`Behavior/StellaAIBehaviorGroup`、`Behavior/StellaAIComponent`（选择逻辑在 `Select`）。

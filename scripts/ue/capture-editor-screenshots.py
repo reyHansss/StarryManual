@@ -42,11 +42,19 @@ def shots():
     return set(glob.glob(SHOT_PATTERN, recursive=True))
 
 
+def close_current():
+    if state["asset"] is not None:
+        editors.close_all_editors_for_asset(state["asset"])
+        state["asset"] = None
+
+
 def finish():
     unreal.unregister_slate_post_tick_callback(handle)
-    editors.close_all_asset_editors()
-    log("done, quitting editor")
-    unreal.SystemLibrary.quit_editor()
+    try:
+        close_current()
+    finally:
+        log("done, quitting editor")
+        unreal.SystemLibrary.quit_editor()
 
 
 def tick(_delta):
@@ -56,7 +64,6 @@ def tick(_delta):
             return
         path, name = CAPTURES[state["index"]]
         if state["asset"] is None:
-            editors.close_all_asset_editors()
             asset = unreal.load_asset(path)
             if asset is None:
                 log("missing asset " + path)
@@ -77,8 +84,7 @@ def tick(_delta):
         for index, file in enumerate(new_files):
             shutil.move(file, os.path.join(directory, "window-%d.bmp" % index))
         log("captured %s: %d window(s) -> %s" % (path, len(new_files), directory))
-        editors.close_all_asset_editors()
-        state["asset"] = None
+        close_current()
         state["index"] += 1
     except Exception as error:  # 任何异常都退出编辑器，避免后台进程一直挂着。
         log("error: " + str(error))

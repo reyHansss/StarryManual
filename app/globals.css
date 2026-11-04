@@ -1560,7 +1560,15 @@ mark {
   max-width: var(--measure);
   margin-inline: auto;
 }
-.article-prose > :is(.article-diagram, .blueprint-viewer, figure.shiki, div:has(> table)) {
+.article-prose
+  > :is(
+    .article-diagram,
+    .article-demo,
+    .article-screenshot,
+    .blueprint-viewer,
+    figure.shiki,
+    div:has(> table)
+  ) {
   max-width: none;
 }
 .article-header {
@@ -1944,6 +1952,43 @@ mark {
   font-size: 13px;
 }
 /* 所有正文图表自动布局，作者不需要为单篇文章配置颜色、圆角和节点坐标。 */
+/* 正文截图：保持原图比例，点击查看原图；图注沿用图表卡片的标题样式。 */
+.article-screenshot {
+  margin-block: 28px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+}
+.article-screenshot a {
+  display: block;
+  background: var(--surface-sunken);
+}
+.article-screenshot img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  margin-inline: auto;
+}
+.article-screenshot figcaption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-soft);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.6;
+}
+.article-screenshot figcaption svg {
+  flex: none;
+  color: var(--coral);
+}
 .article-diagram {
   margin-block: 28px;
   overflow: hidden;
@@ -1984,6 +2029,81 @@ mark {
   color: color-mix(in srgb, var(--coral) 85%, var(--text));
   font-size: 11px;
   font-weight: 500;
+}
+/* 时序图逐步播放：当前消息着重，已播放的淡化，未播放的几乎隐去；颜色覆盖 Mermaid 的行内样式。 */
+.diagram-steps {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 13px;
+}
+.diagram-dialog .diagram-steps {
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+.diagram-step-start {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: background-color var(--motion-state) var(--ease-out);
+}
+.diagram-step-start:hover {
+  background: var(--surface-soft);
+}
+.diagram-step-start svg {
+  color: var(--coral);
+}
+.diagram-steps .icon-button:disabled {
+  opacity: 0.35;
+}
+.diagram-step-label {
+  display: flex;
+  flex: 1 1 260px;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  color: var(--text);
+}
+.diagram-step-label strong {
+  flex: none;
+  color: var(--accent-hover);
+  font-variant-numeric: tabular-nums;
+}
+.diagram-artwork [data-step-state] {
+  transition: opacity var(--motion-state) var(--ease-out);
+}
+.diagram-artwork [data-step-state='future'] {
+  opacity: 0.1;
+}
+.diagram-artwork [data-step-state='past'] {
+  opacity: 0.45;
+}
+.diagram-artwork text[data-step-state='current'] {
+  fill: var(--accent-hover) !important;
+  font-weight: 700 !important;
+}
+.diagram-artwork :is(line, path)[data-step-state='current'] {
+  stroke: var(--coral) !important;
+  stroke-width: 2.5px !important;
+}
+.diagram-artwork rect[data-step-state='current'] {
+  stroke: var(--coral) !important;
+  stroke-width: 2px !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .diagram-artwork [data-step-state] {
+    transition: none;
+  }
 }
 .diagram-viewer {
   min-width: 0;

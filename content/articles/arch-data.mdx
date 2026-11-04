@@ -1,0 +1,97 @@
+---
+title: 数据与资源
+description: 主资产怎样被扫描与加载，主要配置资产各管什么，Content 与 Config 目录的归属，以及 GameplayTag 从哪里来。
+order: 13
+---
+
+## 配置与运行状态分开
+
+Starry 的大部分可调内容都是数据资产：Experience、CharacterData、Input Setup、AISetup 等。它们描述**能力和规则**，运行时的状态由实际的宿主对象持有。
+
+同一份资产会被多个角色共享，所以资产里不保存某个玩家或某个 NPC 的运行状态：
+
+- **Input Handler**：所有使用者共用同一个对象。
+- **StellaAI 的 Behavior**：作为共享模板引用，每个 NPC 的执行数据另外存放。
+
+## 主资产与 AssetManager
+
+`UStarryAssetManager` 按 `Config/DefaultGame.ini` 的 `PrimaryAssetTypesToScan` 扫描主资产：
+
+| 主资产类型                             | 扫描目录                                        |
+| -------------------------------------- | ----------------------------------------------- |
+| `StarryExperienceDefinition`（蓝图类） | `/Game/Blueprints/Experiences`、`/Game/Samples` |
+| `StarryExperienceActionSet`            | `/Game/Blueprints/Experiences`                  |
+| `StarryUserFacingExperienceDefinition` | `/Game/Blueprints/Playlists`                    |
+| `StarryGameData`                       | `/Game/Core/System`                             |
+| `StarryAISetupData`                    | `/Game`                                         |
+| `FactionSetup`、`GameFeatureData`      | `/Game`                                         |
+| `Map`、`PrimaryAssetLabel`             | 仅编辑器使用                                    |
+
+**同一节里的另外两项全局配置：**
+
+- **全局数据** `StarryGameDataPath`：指向 `/Game/Core/System/DA_StarryGameData`，保存全局伤害、治疗与动态标签所用的 GE。
+- **默认角色数据** `DefaultCharacterData`：指向 `/Game/Blueprints/Characters/DA_StarryDefaultCharacter`，是 CharacterData 回退链的最后一环。
+
+新建的 AISetup 或 Experience 必须放在对应的扫描目录里，否则运行时找不到。
+
+**Cook 相关的配置：**
+
+- `/StellaPatrol/Tests`、`/Game/Tests/StellaAI`、`/Game/Tests/GAS` 配置为永不 Cook。
+- GameplayCue 从 `/Game/Blueprints/AbilitySystem/GameplayCues` 收集。
+
+## 主要配置资产
+
+| 类型                                        | 管什么                                                                                               | 现有实例                                                                                          |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Experience（`UStarryExperienceDefinition`） | 默认角色数据、要启用的 GameFeature、Action 与 ActionSet                                              | `B_StarryDefaultExperience`、`Experiences/Ecology/*`、`Samples/Navigation/B_NavigationExperience` |
+| ActionSet、UserFacingExperience             | 可复用的 Action 组；前端展示用的地图、Experience 与卡片信息                                          | 暂无实例                                                                                          |
+| CharacterData（`UStarryCharacterData`）     | 角色类、AbilitySets、默认装备、标签关系、InputSetups、默认相机模式                                   | `DA_StarryDefaultCharacter`、`Characters/Player/DA_PlayerCharacter`、生态角色                     |
+| Input Setup（`UStarryInputSetupDataAsset`） | 一个 IMC、优先级与一组 Handler                                                                       | `Blueprints/Input/Setups/IS_Locomotion`                                                           |
+| AISetup（`UStarryAISetupDataAsset`）        | BrainType、Modifier Stack、Objective 配置、感知与移动适配                                            | `Blueprints/Ecology/AI/AI_Ecology`、`Samples/Navigation/AI_Navigation`                            |
+| GameData（`UStarryGameData`）               | 全局 GE                                                                                              | `Core/System/DA_StarryGameData`                                                                   |
+| 其他                                        | AbilitySet（`AS_`）、生态场景（`DA_Ecology*`）、StellaAI 资产（`AIBM_`、`AIBMS_`、`AIOCS_`）、声望表 | 按功能分布在 `Content/Blueprints`，声望表在 `Content/Core/Factions`                               |
+
+## Content 目录
+
+| 目录                     | 放什么                                                                                                            |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `Core`                   | 只放系统级、全局唯一的一份配置，目前是全局数据与声望表                                                            |
+| `Blueprints`             | 按领域放功能蓝图与数据：AI、AbilitySystem、Camera、Characters、Components、Ecology、Experiences、Input、Playlists |
+| `Art`、`Audio`           | 美术与音频资源，目前主要是 UEFN 人体模型与 Foley 音效                                                             |
+| `Materials`、`VFX`、`UI` | 按资源类型存放，目前为空                                                                                          |
+| `Maps`                   | 正式关卡，目前为空                                                                                                |
+| `Samples`                | 可运行的示例，目前是导航示例                                                                                      |
+| `Tests`                  | 各系统的测试地图与资产，正式内容不得引用                                                                          |
+
+**归属原则：**
+
+- **不进 Core**：角色基类、CharacterData、Experience、Playlists 都放在 `Blueprints` 的对应领域，不因为“很基础”或“被很多地方引用”而放进 `Core`。
+- **不按 C++ 目录分**：资源目录不和 C++ 的 Framework 目录一一对应。
+- **在编辑器里移动**：移动 `.uasset` 要在编辑器里操作。
+
+## Config 目录
+
+| 文件                                      | 主要内容                                                                                                                  |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `DefaultEngine.ini`                       | 默认 GameMode、GameInstance 与各引擎类的项目替换（导航系统换成 StellaNavigation）、碰撞通道、渲染与物理设置、导航代理尺寸 |
+| `DefaultGame.ini`                         | CommonUI、加载屏、GAS 全局类与 Cue 管理器、GameFeature 策略、AssetManager、AI 阵营、声望表、打包排除                      |
+| `DefaultInput.ini`                        | 项目的 PlayerInput 类、Enhanced Input 组件与输入用户设置类                                                                |
+| `DefaultMass.ini`                         | 关闭引擎的 Mass 复制处理器，改用生态自己的复制处理器                                                                      |
+| `DefaultNetworkPrediction.ini`            | Mover 所用的 Network Prediction 设置：固定步长与平滑、模拟端插值                                                          |
+| `DefaultEditorPerProjectUserSettings.ini` | Unreal MCP 服务（端口 8000）                                                                                              |
+| `FolderPresets/StarryContent.json`        | Project Folder Generator 使用的内容目录预设                                                                               |
+
+## GameplayTag 从哪里来
+
+- **C++ 原生标签**：用 `UE_DEFINE_GAMEPLAY_TAG` 定义，是标签的主要来源。框架里集中在以下几个文件：
+  - `Combat/StarryCombatTags.cpp`（最多）
+  - `System/StarryGameplayTags.cpp`
+  - `Factions/StarryFactionTags.cpp`
+  - `Input/StarryInputTags.cpp`
+  - `AI/StarryAITags.cpp`
+- **ini 中的标签**：`Config/Tags/Animation.ini` 定义 `Foley.*` 与 `MotionMatching.*`。
+- **插件自带的标签**：GameSubtitles、CommonUser 等。
+
+新增标签优先用 C++ 原生方式定义在所属领域的标签文件中，调用方直接引用标签变量，不手写字符串。
+
+代码位置：`Framework/System/StarryAssetManager`、`Framework/System/StarryGameData`、`Framework/Character/StarryCharacterData`、`Framework/Experience`。

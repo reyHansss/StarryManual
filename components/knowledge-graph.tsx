@@ -420,7 +420,7 @@ function GraphExplorer({
   ]);
   const [selection, setSelection] = useState({
     scope: scopeKey,
-    slug: compact ? 'architecture' : undefined,
+    slug: compact ? 'arch-overview' : undefined,
   });
   const [layout, setLayout] = useState<'connections' | 'modules'>('connections');
   const [revision, setRevision] = useState(0);

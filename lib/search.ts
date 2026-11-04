@@ -24,7 +24,10 @@ export function getSearchText(content: string) {
     .replace(/```[^\n]*\n([\s\S]*?)```/g, (_, block: string) => keep(block))
     .replace(/`([^`\n]+)`/g, (_, inline: string) => keep(inline))
     .replace(/\bsource=\{\s*(?:'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|`(?:\\.|[^`\\])*`)\s*\}/g, ' ')
-    .replace(/<(?:Diagram|BlueprintViewer|Note)\b[^>]*?\btitle="([^"]*)"[^>]*>/g, ' $1 ')
+    .replace(
+      /<(?:Diagram|BlueprintViewer|Note|Screenshot|ModifierStackDemo|InputBufferDemo)\b[^>]*?\btitle="([^"]*)"[^>]*>/g,
+      ' $1 ',
+    )
     .replace(/<[^>]*>/g, ' ')
     .replace(/\]\([^)\s]*\)/g, ' ')
     .replace(/^[ \t]*\|?(?:[ \t]*:?-{3,}:?[ \t]*\|)+[ \t]*(?::?-{3,}:?)?[ \t]*$/gm, ' ')

@@ -1,0 +1,94 @@
+---
+title: 系统怎样协作
+description: 玩家输入怎样变成移动和技能，AI 怎样从决策走到执行，生态怎样驱动大量生物，以及系统之间怎样发通知和调试。
+order: 14
+---
+
+各系统按“领域拥有规则和状态，使用方拥有接入代码”的原则协作：
+
+- 输入只负责把操作交给 Handler，Handler 去调用移动或技能；
+- AI 只负责选出要做的事，具体动作交给 Logic 和它所用的后端；
+- 跨系统的通知用消息，不让发布方知道谁在听。
+
+## 玩家输入 → 移动与技能
+
+<Diagram
+  title="一次按键的去向"
+  source={
+    'flowchart LR\n  Key(键鼠 / 手柄) --> IMC(Input Mapping Context)\n  IMC --> IA(Input Action 事件)\n  IA --> IM(InputManager 分派)\n  IM --> Buffer{该通道正在缓存？}\n  Buffer -->|是| Wait(缓存到窗口结束)\n  Buffer -->|否| Handler(Input Handler)\n  Wait --> Handler\n  Handler --> Move(Mover 移动)\n  Handler --> Ability(GAS 能力：按 InputTag 激活)\n  Handler --> UI(界面)'
+  }
+/>
+
+**一次按键的处理过程：**
+
+1. **配置来源**：PlayerController 上的 InputManager 应用三处的 Input Setup：Controller 固定配置、角色 CharacterData 提供的配置，以及 GameFeature Action 追加的配置。
+2. **分派**：收到动作事件后，按 Handler 登记的触发阶段分派。
+3. **调用领域**：Handler 调用对应领域。移动交给 Mover；技能按 InputTag 找到 ASC 中对应的能力并激活；界面类操作交给 UI。
+4. **输入缓存**：如果 Handler 可缓存，且它的通道正处在动画通知 Input Buffer 打开的窗口里，命令先暂存，窗口正常结束时再执行。
+
+技能执行中的伤害、命中、连招和锁定由 Combat 处理，属性变化走 GAS 的属性集与 GE。详细配置见 [Input](/read/input-overview)。
+
+## AI：从决策到执行
+
+<Diagram
+  title="组合决策的一次执行"
+  source={
+    'flowchart LR\n  Facts(领域事实：感知、命令、区域、生态) --> Gen(Objective Generator)\n  Gen --> Obj(Objective 当前机会)\n  Stack(Modifier Stack 组合出的行为集合) --> Select(StellaAI 选择)\n  Obj --> Select\n  Select --> Logic(选中 Behavior 的 Logic)\n  Logic --> Backend(BT / StateTree / HTN 后端)\n  Logic --> Task(原生 AITask：MoveTo 等)\n  Backend --> Domain(移动、GAS 能力、SmartObject)\n  Task --> Domain'
+  }
+/>
+
+- **配置**：AISetup 为 Composition 的 AI 由 StellaAI 决策。Modifier Stack 组合出当前可用的行为集合；Generator 把领域事实变成 Objective。
+- **选择**：选择器在候选中按优先级和分数选出 Behavior。
+- **执行**：选中 Behavior 的 Logic 负责这一次动作的启动、取消与清理，可以直接使用原生 AITask，也可以把动作交给 BehaviorTree、StateTree 或 HTN。
+- **移动**：使用引擎原生的 MoveTo，路径由 StellaNavigation 提供。
+- **具体交互**：技能、SmartObject 等由项目领域实现，StellaAI 不规定交互必须走 GAS。
+
+详见 [StellaAI](/read/stellaai-overview)。
+
+## 生态：大量生物的日常
+
+生态是 Gameplay 中最大的子系统，位于 `Gameplay/Ecology`，按《怪物猎人：荒野》的规则复刻生物的需求、日程、资源与群体行为：
+
+<Diagram
+  title="生态的主要数据流"
+  source={
+    'flowchart TD\n  Config(Scenario 与群体配置) --> World(WorldSubsystem 生态会话)\n  World --> Plan(需求与日程)\n  Plan --> Mass(Mass Processor 与 Signals)\n  Mass --> Tree(原生 Mass StateTree 逐成员执行)\n  Tree --> Move(Mass 导航，或正式角色的 PathFollowing / Mover)\n  Tree --> Act(SmartObject 点位与 GAS 动作)\n  Act --> Result(Authority 提交结果)\n  Result --> Rep(复制给客户端表现)\n  World --> Save(逻辑快照与跨地图保存)'
+  }
+/>
+
+- **会话**：配置驱动一个世界会话。每个稳定个体拥有自己的需求与日程，成员各自执行已采用的计划。
+- **远近切换**：远处成员只在 Mass 中模拟；需要身体时，绑定正式角色，接入 StellaAI、Mover 与 GAS。
+- **资源**：资源点的占用由原生 SmartObject 裁决，真实动作由 GAS 技能执行。
+- **网络与保存**：结果只在权威端产生，客户端读取复制结果；逻辑状态可以保存并跨地图恢复。
+
+生态的专题手册尚待整理。
+
+## 系统之间发通知
+
+需要“发生了某件事，谁关心谁来听”的场景，项目使用引擎的 Async Message System，例如技能失败、受到伤害、背包和快捷栏变化：
+
+- **发布**：发布方在规则处理或复制回调之后发出消息。
+- **监听**：监听方自己登记、自己撤销。
+- **不替代网络同步**：消息系统不负责复制，状态同步和显式 RPC 仍由所属领域处理。
+
+需要按顺序异步加载资源、并随宿主一起取消时，使用 [AsyncMixin](/read/asyncmixin-overview)。消息的用法见 [Async Message](/read/asyncmessage-overview)。
+
+## 调试面板接入领域数据
+
+StellaDebug 提供窗口、菜单、属性检查与场景绘制等通用能力；`UStarryDebugSubsystem` 把项目的窗口注册进菜单。
+
+- **通用面板**：Engine、Input 菜单下的工具。
+- **AI 面板**：AI 面板读取 StellaAI 实际发布的评估与执行事件，不会为了显示而重新计算评分或改变运行数据。
+- **排查说明**：各领域的排查说明写在所属模块的“调试与排查”中。
+
+详见 [StellaDebug](/read/stelladebug-overview)。
+
+## 结束与切换时的清理
+
+所有系统都遵循同一个习惯：谁登记，谁撤销。
+
+- **输入**：配置在角色切换或功能退出时成对移除。
+- **能力与装备**：按授予时的句柄收回。
+- **AI**：执行先取消、再清理，清理完成后才开始下一次。
+- **消息**：监听在宿主退出时停止。
+- **异步回调**：都核对原来的请求或执行身份，过期的结果直接丢弃，不会影响后来的执行。

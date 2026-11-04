@@ -51,10 +51,10 @@ const article = (slug, links, module = 'input', section = []) => ({
 });
 const articles = [
   article('a', ['a', 'b', 'missing'], 'input', ['动作处理']),
-  article('b', ['a', 'd'], 'astraai', ['行为执行']),
-  article('c', ['a'], 'halodebug'),
+  article('b', ['a', 'd'], 'stellaai', ['行为执行']),
+  article('c', ['a'], 'stelladebug'),
   article('d', [], 'input', ['动作处理', '值与触发规则']),
-  article('isolated', [], 'manual'),
+  article('isolated', [], 'start'),
 ];
 
 test('合并双向引用并忽略自引用与站外目标', () => {
@@ -119,12 +119,12 @@ test('模块总览聚合全部文章的跨模块阅读链接并去重，保留�
     article('input-overview', [], 'input'),
     article(
       'input-detail',
-      ['astraai-detail', 'astraai-overview', 'input-overview', 'missing'],
+      ['stellaai-detail', 'stellaai-overview', 'input-overview', 'missing'],
       'input',
     ),
-    article('astraai-overview', ['input-detail'], 'astraai'),
-    article('astraai-detail', [], 'astraai'),
-    article('halodebug-alone', [], 'halodebug'),
+    article('stellaai-overview', ['input-detail'], 'stellaai'),
+    article('stellaai-detail', [], 'stellaai'),
+    article('stelladebug-alone', [], 'stelladebug'),
   ];
   const before = structuredClone(pages);
   const modules = getModuleGraph(pages, articleModules);
@@ -136,13 +136,13 @@ test('模块总览聚合全部文章的跨模块阅读链接并去重，保留�
   assert.equal(modules.find((module) => module.module === 'input').articleCount, 2);
   assert.equal(modules.find((module) => module.module === 'input').url, '/read/input-overview');
   assert.deepEqual(getGraphRelations(modules), [
-    { id: 'module:astraai::module:input', source: 'module:astraai', target: 'module:input' },
+    { id: 'module:input::module:stellaai', source: 'module:input', target: 'module:stellaai' },
   ]);
   assert.deepEqual(
     getLocalArticles(modules, 'module:input').map((module) => module.module),
-    ['astraai', 'input'],
+    ['stellaai', 'input'],
   );
-  const isolated = modules.find((module) => module.module === 'halodebug');
+  const isolated = modules.find((module) => module.module === 'stelladebug');
   assert.equal(isolated.url, undefined, '没有总览文章时不伪造模块说明链接');
   assert.deepEqual(isolated.links, []);
   assert.deepEqual(pages, before);

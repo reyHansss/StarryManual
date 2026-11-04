@@ -1,0 +1,112 @@
+---
+title: 日常开发
+description: 编译配置、C++ 规范、源码与资源归属、测试与检查脚本、引擎修改流程和 Git 提交约定。
+order: 4
+---
+
+## 编译
+
+日常在 Rider 中以 **Development Editor | Win64** 编译 `StarryEditor`，同一个目标始终沿用这套配置、工具链和全局编译开关。
+
+<Note title="不要随手切换全局编译参数">
+
+`-NoLiveCoding`、`WITH_LIVE_CODING` 这类参数会让共享 PCH 和大量引擎编译产物失效，切换一次就要长时间重编。同一目标上也不要交替使用 `-ForceUnity`、`-DisableAdaptiveUnity`、`-UsePrecompiled`、`-NoLink`。确实需要调整时，先说明要改的参数、原因和重编影响，取得项目负责人同意后再做。
+
+</Note>
+
+只想编译少数模块时，可以用 `Tools/UEBuild/Start.bat` 启动 Starry UE Build，勾选模块后合并或逐个编译。它底层调用引擎原有的 UBT，依赖和链接仍由 UBT 处理。
+
+## C++ 规范
+
+- **排版**：遵循 UE 规范，使用 Tab 缩进（宽度 4）。
+  - 类、函数和控制流的花括号独占一行，单语句分支也加花括号，不把多条语句挤在一行。
+  - 反射宏独占一行，紧贴所属声明。
+  - 仓库根目录的 `.clang-format` 采用 Allman 风格、列宽 140、不排序 include。Slate 声明式布局格式化后仍要人工检查层级。
+- **接口实现区**：用成对标记把同一接口的连续覆写包起来，标记本身保留英文：
+
+```cpp
+// UActorComponent interface
+virtual void BeginPlay() override;
+virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+//~ End of UActorComponent interface
+```
+
+- **注释**：项目 `Source` 和项目内插件的新代码写中文注释，说明职责、参数、返回值和约束，不写复述名称的空话。修改旧代码时，顺带把涉及的英文说明译成中文；纯注释修改不能改动逻辑或反射元数据。
+- **引擎版本**：只面向 UE 5.8 的 API，不为旧版本写条件分支或兼容宏。
+
+## 源码放在哪里
+
+各模块和目录的职责见[架构总览](/read/arch-overview)。写代码时最常用的几条：
+
+- **include 路径**：项目 `Source` 不拆 Public／Private，include 从模块根写起，例如 `#include "Framework/AI/StarryAIController.h"`。
+- **依赖方向**：`Framework` 是可复用框架，不能 include `Gameplay` 的头文件；具体玩法放 `Gameplay`，继承或组合框架。
+- **类与文件**：有独立头文件的核心类，非内联实现放在同名 `.cpp`；小而紧密相关的枚举和结构体可以合入语义明确的 `XXXTypes.h`。
+- **`Build.cs` 写法**：依赖列表每行一个模块，按职责用空行分组；项目模块只公开模块根目录（`PublicIncludePaths.Add(ModuleDirectory)`）。
+- **移动源码文件**：同步修改 include 与 `Docs/LyraSourceMap.csv`，再运行 `Scripts/TestSourceStructure.ps1`。单纯移动文件时，不改反射类名和资产路径。
+
+## 资源放在哪里
+
+- **`Content/Core`**：只放系统级、全局唯一的一份配置，例如 `DA_StarryGameData`。
+- **`Content/Blueprints`**：按领域放功能蓝图和数据，包括角色基类、CharacterData、Experience、Playlists。不要因为某个资产“很基础”或“被很多地方引用”就移进 Core。
+- **其他目录**：美术、材质、特效、界面、音频沿用各自的资源目录，不和 C++ 的 Framework 目录一一对应。
+- **移动方式**：`.uasset` 要在编辑器里移动，让引擎修正引用和重定向，不要直接在文件系统里挪。
+
+主资产怎样被扫描和加载，见[数据与资源](/read/arch-data)。
+
+## 测试与检查脚本
+
+**测试内容要能整体移除：**
+
+- 测试代码放在模块的 `Tests` 目录，测试资产放在 `Content/Tests` 或测试插件里。
+- 正式代码、默认配置和正式资产不能引用测试。
+- 测试插件默认禁用，部分测试目录已配置为永不 Cook。
+
+**改了什么，就只跑直接相关的必要测试。** 大型回归留到一个大步骤完成后再跑；已经通过的验证只在有新改动、失败或未解决的风险时重跑。运行方法见[第一次运行](/read/start-first-run#运行自动化测试)。
+
+`Scripts` 目录里的检查工具（`.ps1` 需要 PowerShell 7）：
+
+| 脚本                                     | 做什么                                                                                       |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `TestSourceStructure.ps1`                | 检查 include 是否从模块根写起、有无反向依赖、已撤销目录是否重建、`Build.cs` 规则与源码映射表 |
+| `TestStellaAIBoundaries.ps1`             | 检查 StellaAI 的命名与依赖边界、测试插件默认禁用、正式代码不引用测试                         |
+| `OpenStellaNavigationTest.ps1`／`.bat`   | 建立导航测试的隔离工程，编译并打开测试地图；需要传 `-EngineRoot`                             |
+| `TestStellaNavigationRuntime.ps1`        | 导航的 Standalone 与 Dedicated 无界面验收                                                    |
+| `TestStellaNavigationWorldPartition.ps1` | 转换 World Partition 地图、构建导航数据并验收流送                                            |
+| `CreateFrameworkDefaults.py`             | 在编辑器 Python 中补齐缺失的框架默认资产，参数为 `--repair-effects`、`--repair-character`    |
+| `ImportFactionReputation.py`             | 把声望表导入 `Content/Core/Factions`                                                         |
+
+两个 `.py` 脚本使用 `import unreal`，要在编辑器内置的 Python 中运行。
+
+## 修改引擎或第三方源码
+
+**只在两种情况下修改引擎或第三方插件源码：**
+
+- 修复已经确认的缺陷；
+- 现有公共接口确实无法解决的架构问题。
+
+只是为了接入方便，不扩展上游组件的公共入口；通用项目逻辑放在 Starry 的 Framework 或项目插件里。动手前先整理问题证据、拟修改的位置与行为、项目侧替代方案和影响范围，确认后再改。
+
+所有修改用成对标记完整包住，说明写在 BEGIN 后面；替换原实现时，在 `#else` 中原样保留 Epic 的代码：
+
+```cpp
+// BEGIN STARRY MOD：按类型缓存并查询 Brain 组件
+#if STARRY_SOURCE_MODIFY
+	return FindCachedBrainComponent(Class);
+#else
+	return FindComponentByClass<UBrainComponent>();
+#endif
+// END STARRY MOD
+```
+
+上面的函数体是演示写法的占位代码。规则如下：
+
+- **列对齐**：`BEGIN`／`END` 与 `#if`／`#else`／`#endif` 都从行首开始，正文按所在作用域缩进。
+- **条件写法**：条件只写 `#if STARRY_SOURCE_MODIFY`，不附说明；着色器里也用 `#if`，不用 `#ifdef`。
+- **XML 文件**：用 `<!--BEGIN STARRY MOD - 说明-->` 与 `<!--END STARRY MOD-->`。
+- **改动方式**：能只新增行就不替换原有代码，也不顺带改格式或标识符。
+
+## Git 提交
+
+- **语言**：标题和正文都用中文。
+- **节奏**：每完成一个步骤并通过相关验证后提交一次。提交只包含这个步骤的改动，不夹带其他任务，不自动推送。
+- **AI 署名**：AI 助手参与的提交保留你为主作者，正文后空一行加上共同署名，例如 Codex 使用 `Co-authored-by: Codex <noreply@openai.com>`。

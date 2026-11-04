@@ -44,12 +44,12 @@ BT 与 HTN 使用的原生黑板归 Controller 管理。兼容布局复用时可
 
 原生 Logic 可以覆写 `InitializeBlackboard` 写入本次目标与参数。只初始化自己拥有的键，避免留下上次目标，也避免顺手清除其他已约定保留的数据。
 
-需要蓝图事件图或 latent 的自定义动作使用 [BlueprintBase Logic](/read/astraai-logic)。原生 BT／StateTree／HTN Logic 不能当作可任意蓝图派生的入口。
+需要蓝图事件图或 latent 的自定义动作使用 [BlueprintBase Logic](/read/stellaai-logic)。原生 BT／StateTree／HTN Logic 不能当作可任意蓝图派生的入口。
 
 ## 移动使用引擎能力
 
 UE 5.8 中使用原生 `UAITask_MoveTo`、StateTree 的 `FStateTreeMoveToTask`，以及 BT 的原生移动任务。取消与完成由当前任务和后端协议处理，不再增加一层已删除的 Astra Move 包装。
 
-如果退出后新行为一直不开始，先在[AI 调试面板](/read/astraai-debugging)核对局部树是否仍在运行或清理；不要用延迟启动下一行为掩盖未退出的任务。
+如果退出后新行为一直不开始，先在[AI 调试面板](/read/stellaai-debugging)核对局部树是否仍在运行或清理；不要用延迟启动下一行为掩盖未退出的任务。
 
 实现入口：插件 `BehaviorTree`、`StateTree`、`HTN` 目录及对应 Behavior Logic。

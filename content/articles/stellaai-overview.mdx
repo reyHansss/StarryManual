@@ -31,7 +31,7 @@ Starry 已通过 `AStarryAIController` 接入插件。日常配置从角色的 `
 6. 创建 `UStarryAISetupDataAsset` 配置，选择 `BrainType = Composition`，填入 `ModifierStack` 与 `ObjectiveSetup`。
 7. 在 AISetup 中指定有效的 `PerceptionSenseProfile`。可以复用已有 `UStarryAISenseProfile`；新建时配置需要的感官，并让 `DominantSense` 与其中一种感官匹配。`PerceptionAwarenessProfile` 按察觉积累需求选择。
 8. 在 `AStarryAICharacter` 的派生角色中设置 `AISetup`，确认 AI Controller 使用 `AStarryAIController` 或其派生类，并按关卡需要配置自动控制。
-9. 在服务端或单机世界运行，检查控制器初始化到 `Ready`，再通过 [AI 调试面板](/read/astraai-debugging)观察 `Idle` 的执行。
+9. 在服务端或单机世界运行，检查控制器初始化到 `Ready`，再通过 [AI 调试面板](/read/stellaai-debugging)观察 `Idle` 的执行。
 
 AISetup 的资产校验要求填写 `PerceptionSenseProfile`，即使这次 Wait 不使用感知目标也应配置；`PerceptionAwarenessProfile` 可选。AISetup 还须位于 Asset Manager 已扫描的内容范围，当前项目扫描 `/Game` 下的 `StarryAISetupData` 资产。
 
@@ -63,6 +63,6 @@ Controller 先异步加载配置，创建并初始化 Objective 组件，再初�
 
 ## 接下来做什么
 
-需要叠加战斗、日常或临时行为时，阅读[组合与覆盖](/read/astraai-composition)。需要理解为什么选中某个行为，阅读[评分与抢占](/read/astraai-selection)。需要让行为真正驱动项目能力，阅读[Logic 与生命周期](/read/astraai-logic)。
+需要叠加战斗、日常或临时行为时，阅读[组合与覆盖](/read/stellaai-composition)。需要理解为什么选中某个行为，阅读[评分与抢占](/read/stellaai-selection)。需要让行为真正驱动项目能力，阅读[Logic 与生命周期](/read/stellaai-logic)。
 
 实现入口：`Plugins/AI/AstraAI`、`Framework/AI/StarryAIController`、`Framework/AI/StarryAISetupDataAsset`、`Framework/Character/StarryAICharacter`。后三处路径相对于 `Source/StarryGame`。

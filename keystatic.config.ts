@@ -84,6 +84,47 @@ export default config({
                   description: '填写节点关系、步骤、时序或状态；布局与配色由手册统一处理。',
                   multiline: true,
                 }),
+                steps: fields.checkbox({
+                  label: '逐步播放',
+                  description: '仅对时序图生效：读者可以按消息顺序逐条查看。',
+                  defaultValue: false,
+                }),
+              },
+            }),
+            Screenshot: block({
+              label: '截图',
+              schema: {
+                src: fields.text({
+                  label: '图片路径',
+                  description:
+                    '放在 public/images/ 下的文件，填写站内路径，例如 /images/stellaai/stack-editor.png。',
+                  validation: { isRequired: true },
+                }),
+                title: fields.text({ label: '图注', validation: { isRequired: true } }),
+              },
+            }),
+            ModifierStackDemo: block({
+              label: 'StellaAI 叠加演示',
+              schema: {
+                title: fields.text({ label: '演示标题' }),
+                source: fields.text({
+                  label: '场景文本',
+                  description:
+                    '“层 名称”开始一层，之后每行一个条目：AddGroup／AddBehavior 路径 [Critical|Normal] 模板名，RemoveGroup／RemoveBehavior 路径。路径用 / 分隔组。',
+                  multiline: true,
+                }),
+              },
+            }),
+            InputBufferDemo: block({
+              label: '输入缓存演示',
+              schema: {
+                title: fields.text({ label: '演示标题' }),
+                source: fields.text({
+                  label: '场景文本',
+                  description:
+                    '模式 LastCommand；处理器 名称 缓存 [通道] 或 处理器 名称 不缓存；动作 名称 处理器…；随后按顺序写 打开／输入／关闭／取消／重置。',
+                  multiline: true,
+                }),
               },
             }),
           },

@@ -1,0 +1,114 @@
+---
+title: 环境搭建
+description: 准备工具链，编译 Starry 使用的源码引擎 StarryUE，再关联、生成并编译项目工程。
+order: 2
+---
+
+整个流程分三步：装工具 → 编译引擎 → 编译项目。第一次完整走一遍需要较长时间，主要耗在引擎编译和首次打开编辑器时的着色器编译上。
+
+下文用 `<引擎目录>` 表示 StarryUE 的根目录，`<项目目录>` 表示 Starry 仓库的根目录。当前开发机上的实际位置见文末。
+
+## 准备工具
+
+| 工具               | 要求                                                                                                                                                                               |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Visual Studio 2022 | 打开 Visual Studio Installer，选“更多 → 导入配置”，导入 `<项目目录>/.vsconfig`。它会勾选所需的工作负载与组件，包括 MSVC 14.44、Windows 11 SDK 22621、LLVM Clang 与 Unreal 调试支持 |
+| JetBrains Rider    | 日常使用的 IDE，可选。需要额外设置一项 MSBuild 路径，见下文“编译项目”                                                                                                              |
+| Git                | 两个仓库都不使用 Git LFS                                                                                                                                                           |
+| PowerShell 7       | 运行 `Scripts` 下的检查脚本需要它。Windows 自带的 PowerShell 5.1 缺少脚本用到的 `[IO.Path]::GetRelativePath`                                                                       |
+| .NET               | 引擎工具使用引擎自带的 .NET SDK，不用单独安装。只有可选的 Starry UE Build 需要 .NET 9 桌面运行时                                                                                   |
+
+当前的开发与验证环境是 Windows 11。
+
+## 编译引擎 StarryUE
+
+<Note title="为什么必须用源码引擎">
+
+StarryUE 在 Epic 官方 5.8.3 的基础上加入了项目需要的修改。例如 `AAIController::FindBrainComponent` 用于按类型查找 AI 的多个 Brain 组件，Starry 和 StellaAI 都直接调用它，而 Launcher 安装的 UE 5.8 里没有这个函数。所以用 Launcher 版引擎打开 Starry 无法通过编译。
+
+</Note>
+
+StarryUE 是 Epic 私有仓库 UnrealEngine 的 fork，访问前需要先把 GitHub 账号关联到 Epic Games 账号。获取后在引擎根目录用 PowerShell 依次执行：
+
+```powershell
+git clone --branch starry-master --depth 1 https://github.com/reyHansss/StarryUE.git
+cd StarryUE
+.\Setup.bat
+.\GenerateProjectFiles.bat -2022
+.\Engine\Build\BatchFiles\Build.bat UnrealEditor Win64 Development -WaitMutex
+```
+
+- `--depth 1` 只下载最新一层历史，体积小很多。以后需要研究历史或合并新版本时，再执行 `git fetch --unshallow`。
+- `Setup.bat` 会做四件事：下载本版本的第三方依赖，安装 Git 钩子，静默安装 VC++ 与 GameInput 运行库，并用 `UnrealVersionSelector /register` 把这份引擎登记到本机。
+- 编译完成后，应该能在 `Engine/Binaries/Win64` 下看到 `UnrealEditor.exe`。
+
+### 引擎修改开关
+
+引擎里的项目修改都由宏 `STARRY_SOURCE_MODIFY` 控制，总开关在 `Engine/Source/Programs/Shared/StarrySourceModify.props` 的 `UseStarrySourceModify` 属性，默认开启。日常开发不需要动它。切换后要先关闭编辑器，执行 `BuildUBT.bat quiet FORCE`，再重新编译受影响的模块。修改标记的写法见[日常开发](/read/start-workflow#修改引擎或第三方源码)。
+
+## 关联并生成项目
+
+```powershell
+git clone https://github.com/reyHansss/Starry.git
+```
+
+`Starry.uproject` 的 `EngineAssociation` 记录的是源码引擎在**某台机器上**登记时生成的标识，换一台电脑后它对不上本机的引擎。在资源管理器中右键 `Starry.uproject`，选择“Switch Unreal Engine version…”，在弹出的版本选择器中选 StarryUE 的目录即可。这会改写 `EngineAssociation` 字段，提交代码时留意这处改动。
+
+然后右键 `Starry.uproject`，选择“Generate Visual Studio project files”，生成 `Starry.sln`／`Starry.slnx`。这些解决方案文件由 UBT 生成，不进入版本库。
+
+## 编译项目
+
+用 Rider 打开 `Starry.sln`，选择配置 **Development Editor | Win64**，编译 `StarryEditor`。
+
+<Note title="Rider 需要指定 MSBuild">
+
+在 Rider 的“设置 → 构建、执行、部署 → 工具包和构建”中，把 MSBuild 设为 Visual Studio 2022 自带的版本：
+
+`C:/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/amd64/MSBuild.exe`
+
+Rider 2026.2 默认选用它自带的 MSBuild 18，加载 C++ 工程时会去找不存在的 `VC/v180/Microsoft.Cpp.Default.props` 而失败。项目的 C++ 工具集仍是 v143。不要为此去改生成出来的 `UECommon.props`。
+
+</Note>
+
+项目有三个编译目标，都包含 `StarryGame` 与 `StarrySample` 两个运行时模块：
+
+| 目标           | 类型   | 用途                                             |
+| -------------- | ------ | ------------------------------------------------ |
+| `StarryEditor` | Editor | 编辑器，日常开发用；额外包含 `StarryEditor` 模块 |
+| `StarryGame`   | Game   | 独立运行的游戏程序                               |
+| `StarryServer` | Server | 专用服务器                                       |
+
+三个目标共用同一组设置：`BuildSettingsVersion.V7` 与 `IncludeOrderVersion.Unreal5_8`。
+
+编译成功后双击 `Starry.uproject`，或在 Rider 中运行，即可打开编辑器。第一次打开会编译大量着色器，耐心等待。项目没有设置编辑器启动地图，打开后看到的是引擎默认的 OpenWorld 模板地图。接下来按[第一次运行](/read/start-first-run)打开示例地图。
+
+## 可选工具
+
+| 工具                | 用途                                                                                                 | 怎样启动                                                                                                                    |
+| ------------------- | ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Starry UE Build     | 图形界面的模块编译工具：搜索勾选模块，合并或逐个编译，提供命令预览、日志与停止。底层仍调用引擎的 UBT | 双击 `Tools/UEBuild/Start.bat`；首次会先生成程序                                                                            |
+| netImgui 桌面查看器 | 在独立窗口里显示游戏进程的调试面板                                                                   | 双击 `NetImgui/Build.bat` 生成 `NetImgui/NetImguiServer/NetImguiServer.exe`，连接方法见[远程面板](/read/stelladebug-remote) |
+| Unreal MCP          | 编辑器内置的 MCP 服务，供 AI 助手读取和操作编辑器                                                    | 编辑器运行时自动在 `http://127.0.0.1:8000/mcp` 提供服务                                                                     |
+
+`NetImgui/Build.bat` 通过 vswhere 找到 Visual Studio 2022 和它附带的 CMake，不需要单独安装 CMake。
+
+## 遇到问题
+
+| 现象                                                                | 处理                                                         |
+| ------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Rider 加载 C++ 工程时报找不到 `VC/v180/Microsoft.Cpp.Default.props` | 按上文把 MSBuild 设为 Visual Studio 2022 的版本              |
+| 打开项目时提示找不到引擎，或要求选择引擎版本                        | 用“Switch Unreal Engine version…”重新关联 StarryUE           |
+| 编译报 `FindBrainComponent` 不存在                                  | 当前用的是 Launcher 版引擎，改用 StarryUE                    |
+| `Scripts` 下的 `.ps1` 脚本一运行就报解析错误                        | 用 PowerShell 7（`pwsh`）运行，不要用 Windows PowerShell 5.1 |
+
+## 当前开发机的位置
+
+以下是本机的实际值，只作参考：
+
+| 项目                                | 位置                                              |
+| ----------------------------------- | ------------------------------------------------- |
+| StarryUE 源码引擎                   | `C:/Users/34200/Documents/StarryUE`               |
+| Starry 项目                         | `C:/Users/34200/Documents/Unreal Projects/Starry` |
+| Launcher 版 UE 5.8（不用于 Starry） | `C:/Program Files/Epic Games/UE_5.8`              |
+
+引擎仓库的局部 Git 配置里设置了本机 HTTP 代理。这是本机配置，不在仓库中；换机器或代理端口变化时要相应调整。

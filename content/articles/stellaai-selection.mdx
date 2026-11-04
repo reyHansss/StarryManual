@@ -48,6 +48,6 @@ Group 的条件筛选新候选。Behavior 的 `CanBeActivated` 判断当前机�
 
 依次核对：配置是否已应用、Group 与 Objective 是否允许新候选、冷却是否结束、分数是否有限、当前优先级、是否严格高分、普通中断是否被标签阻挡，以及旧执行是否仍在等待安全清理。
 
-不要用调试面板主动再跑一次评分来解释历史结果。[AI 调试](/read/astraai-debugging)展示实际采集的决策与执行信息；异步退出的判断见[Logic 与生命周期](/read/astraai-logic)。
+不要用调试面板主动再跑一次评分来解释历史结果。[AI 调试](/read/stellaai-debugging)展示实际采集的决策与执行信息；异步退出的判断见[Logic 与生命周期](/read/stellaai-logic)。
 
 实现入口：`Behavior/AstraAIBehavior`、`AstraAIBehaviorGroup` 与 `AstraAIComponent`。

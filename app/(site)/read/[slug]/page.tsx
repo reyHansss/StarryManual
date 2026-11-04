@@ -93,8 +93,9 @@ export default async function ArticlePage({ params }: Props) {
   const modules = buildModuleNavigation(articles);
   const module = modules.find((group) => group.key === current.module)!;
   const moduleInfo = articleModules[module.key];
+  // 入门导览自带阅读路线，手册维护页面较少，这两处不在正文前重复列出功能目录。
   const isModuleOverview =
-    module.overview?.slug === slug && !['manual', 'authoring'].includes(module.key);
+    module.overview?.slug === slug && !['start', 'authoring'].includes(module.key);
   const outgoing = articles.filter((article) => current.links.includes(article.slug));
   const incoming = articles.filter(
     (article) => article.slug !== slug && article.links.includes(slug),

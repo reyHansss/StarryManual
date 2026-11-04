@@ -1,0 +1,148 @@
+---
+title: 架构总览
+description: Starry 的分层、三个源码模块、Framework 与 Gameplay 的目录地图、项目插件和依赖方向。
+order: 10
+---
+
+## 分层
+
+Starry 从下往上分四层：
+
+- **引擎**：StarryUE，在 Epic 5.8.3 上加了项目修改。
+- **插件**：引擎自带的 GAS、Mover、StateTree、Mass 等，以及项目自己维护的 Stella 系列等。
+- **`StarryGame` 模块**：分为可复用的 `Framework` 和具体玩法 `Gameplay` 两个目录。
+- **辅助模块**：`StarrySample` 放示例，`StarryEditor` 放编辑器扩展与测试。
+
+<Diagram
+  title="依赖方向：上层使用下层，下层不知道上层"
+  source={
+    'flowchart TB\n  Editor(StarryEditor 编辑器扩展与测试)\n  Sample(StarrySample 示例)\n  subgraph Game[StarryGame 运行时模块]\n    Gameplay(Gameplay 具体玩法)\n    Framework(Framework 可复用框架)\n  end\n  Project(项目插件：StellaAI · StellaNavigation · StellaPatrol · StellaDebug · HTN · AsyncMixin · GameSystems)\n  Builtin(引擎插件：GAS · Mover · StateTree · Mass · SmartObjects · Enhanced Input · CommonUI · GameFeatures)\n  Engine(StarryUE 引擎)\n  Editor --> Gameplay\n  Editor --> Sample\n  Gameplay --> Framework\n  Framework --> Project\n  Framework --> Builtin\n  Sample --> Project\n  Project --> Builtin\n  Builtin --> Engine'
+  }
+/>
+
+**依赖规则：**
+
+- `Framework` 不能 include `Gameplay` 的头文件。
+- `StarryGame` 不依赖 `StarrySample` 和 `StarryEditor`。
+- 项目插件不依赖 `StarryGame`。
+- 正式代码和资产不引用任何测试内容。
+
+前两条规则以及 include 写法由 `Scripts/TestSourceStructure.ps1` 检查，StellaAI 的边界由 `Scripts/TestStellaAIBoundaries.ps1` 检查。
+
+## 三个源码模块
+
+| 模块           | 类型    | 进入哪些目标         | 内容                                                                         |
+| -------------- | ------- | -------------------- | ---------------------------------------------------------------------------- |
+| `StarryGame`   | Runtime | Editor、Game、Server | 全部框架与玩法代码，以及受宏保护的运行时测试（`StarryGame/Tests`）           |
+| `StarrySample` | Runtime | Editor、Game、Server | 导航示例用的电梯调度与 SmartLink 通行交接，只依赖引擎模块和 StellaNavigation |
+| `StarryEditor` | Editor  | Editor               | 资产定义与工厂（例如 AISetup、Input Setup 的创建菜单），以及项目的编辑器测试 |
+
+项目源码不拆 Public／Private，include 从模块根写起。StellaDebug 的面板模块只在非 Shipping 构建中链接。
+
+## Framework 目录地图
+
+`Source/StarryGame/Framework` 提供角色、能力、输入、AI 接入等可复用能力。它的骨架来自 Lyra，战斗、输入与 GAS 扩展融合了 Ninja 系列插件（见[来源与改造](/read/arch-sources)）。
+
+**启动与装配**
+
+| 目录                              | 职责                                         | 关键类型                                                                    |
+| --------------------------------- | -------------------------------------------- | --------------------------------------------------------------------------- |
+| `System`                          | 引擎与 GameInstance、资产管理、全局标签      | `UStarryAssetManager`、`UStarryGameData`、`UStarryGameInstance`             |
+| `GameModes`                       | 世界规则、会话、Bot 创建                     | `AStarryGameMode`、`AStarryGameState`、`AStarryWorldSettings`               |
+| `Experience`                      | 玩法装配与加载                               | `UStarryExperienceDefinition`、`UStarryExperienceManagerComponent`          |
+| `GameFeatures`                    | GameFeature 策略与项目 Action                | `GameFeatureAction_AddAbilities`／`AddInputBinding`／`AddWidget`            |
+| `Player`                          | 玩家控制器、玩家状态、LocalPlayer、Bot       | `AStarryPlayerController`、`AStarryPlayerState`、`UStarryLocalPlayer`       |
+| `Settings`                        | GameSettings 注册与本地、共享设置            | `UStarryGameSettingRegistry`、`UStarrySettingsLocal`                        |
+| `Hotfix`、`Replays`、`Networking` | 热修复与运行时选项、回放、复制图（默认禁用） | `UStarryHotfixManager`、`UStarryReplaySubsystem`、`UStarryReplicationGraph` |
+
+**角色与表现**
+
+| 目录                             | 职责                                                              | 关键类型                                                                                               |
+| -------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `Character`                      | 角色基类与四个分类、CharacterData、扩展组件、Mover 移动模式、翻越 | `AStarryCharacter`、`AStarryPlayerCharacter`、`UStarryCharacterData`、`UStarryCharacterMoverComponent` |
+| `Animation`                      | 动画实例、GAS 标签映射、LookAtPOI 层、动画通知                    | `UStarryPlayerAnimInstance`、`UStarryLookAtPOIAnimInstance`                                            |
+| `Camera`                         | 相机模式栈与 GameplayCamera Director                              | `UStarryCameraComponent`、`UStarryPlayerCameraDirector`                                                |
+| `Cosmetics`、`Audio`、`Feedback` | 角色部件外观、混音与 Foley、上下文效果                            | `UStarryPawnComponent_CharacterParts`、`UStarryContextEffectComponent`                                 |
+| `Physics`、`Performance`         | 碰撞通道与带标签的物理材质、显著性管理与性能统计                  | `UPhysicalMaterialWithTags`、`UStarrySignificanceManager`                                              |
+
+**能力与战斗**
+
+| 目录                     | 职责                                                  | 关键类型                                                                       |
+| ------------------------ | ----------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `AbilitySystem`          | ASC、能力集、属性、效果与 Cue、阵营 GE 条件           | `UStarryAbilitySystemComponent`、`UStarryAbilitySet`、`UStarryGameplayAbility` |
+| `Combat`                 | 攻击、防御、连招、射击、施法、伤害、对象池、锁定      | `UStarryCombatManagerComponent`、`UStarryCombatComboComponent`                 |
+| `Equipment`、`Inventory` | 装备与武器、快捷栏、物品与背包                        | `UStarryEquipmentManagerComponent`、`UStarryInventoryManagerComponent`         |
+| `Interaction`            | 交互查询与交互能力                                    | `UStarryGameplayAbility_Interact`、`IInteractableTarget`                       |
+| `Factions`               | 阵营成员、声望、关系与伤害许可（Lyra 的队伍并入这里） | `UStarryFactionComponent`、`UStarryFactionSubsystem`                           |
+
+**输入、AI 与界面**
+
+| 目录          | 职责                                                                                      | 关键类型                                                                          |
+| ------------- | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `Input`       | Input Setup、Manager、Handler 与输入缓存；Manager 只挂在 PlayerController                 | `UStarryInputManagerComponent`、`UStarryInputSetupDataAsset`                      |
+| `AI`          | AI 控制器与 AISetup、感知、BT／StateTree／EQS 节点、多后端接入、怪物状态宿主、AI 调试面板 | `AStarryAIController`、`UStarryAISetupDataAsset`、`UStarryMonsterStatusComponent` |
+| `UI`          | HUD、界面管理、加载屏、AI 与战斗的 MVVM 展示                                              | `UStarryUIManagerSubsystem`、`UStarryCombatViewModel`                             |
+| `Messages`    | 项目消息结构，经引擎的 Async Message System 发布                                          | `FStarryVerbMessage`、`FStarryNotificationMessage`                                |
+| `Development` | 调试窗口注册、开发者设置、作弊                                                            | `UStarryDebugSubsystem`、`UStarryDeveloperSettings`                               |
+
+## Gameplay 目录地图
+
+`Source/StarryGame/Gameplay` 放具体玩法，直接继承或组合 Framework：
+
+| 目录       | 职责                                                                                  | 关键类型                                                                               |
+| ---------- | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `Ecology`  | 生态：世界会话、日程、Mass 模拟与执行、正式角色接入、资源、复制与保存，分 11 个子目录 | `UStarryEcologyWorldSubsystem`、`UStarryEcologyScenario`、`AStarryExplorationGameMode` |
+| `Monster`  | 疲劳、耗竭、异常、耐力、捕获等怪物状态的具体规则                                      | `UStarryMonsterStatusInstance_Tired`、`FStarryMonsterCaptureStatus`                    |
+| `Combat`   | 怪物伤害规则、伤口、濒死、模型材质与显隐                                              | `FStarryMonsterDamageRules`、`UStarryMonsterScarComponent`                             |
+| `Missions` | 任务定义，GameState 上由权威端维护的任务生命周期                                      | `UStarryMissionComponent`、`UStarryMissionDefinition`                                  |
+| `Frontend` | 前端流程与大厅背景                                                                    | `UStarryFrontendStateComponent`、`UStarryLobbyBackground`                              |
+
+框架与玩法的分界举例：
+
+- **怪物状态**：管理器 `UStarryMonsterStatusComponent` 和基础规则在 `Framework/AI/Monster`，疲劳、耗竭等具体状态在 `Gameplay/Monster`。
+- **伤害**：伤害批次与属性递进在 `Gameplay/Combat`。
+
+## 项目插件
+
+| 插件                            | 来源                        | 提供什么                                                                                                     | 专题                                      |
+| ------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------- |
+| StellaAI                        | 自研                        | 组合决策：Objective、行为选择、Modifier Stack、BT／StateTree／HTN Logic、区域、命令                          | [StellaAI](/read/stellaai-overview)       |
+| StellaNavigation                | 移植 Havok AI 2020.2 的算法 | 项目的导航系统：移动参考系、NavLink、遍历、切割、避让、异步查询                                              | 待整理                                    |
+| StellaPatrol                    | FlexPatrol 1.1              | 巡逻区域、连接、选点与原生 MoveTo 管理                                                                       | 待整理                                    |
+| StellaDebug                     | Cog                         | ImGui 调试窗口、场景绘制、输入调试、netImgui                                                                 | [StellaDebug](/read/stelladebug-overview) |
+| HierarchicalTaskNetworkPlanning | HTN Planning 1.19.2         | HTN 规划，StellaAI 的 HTN 后端基于它                                                                         | [后端](/read/stellaai-backends)           |
+| AsyncMixin                      | Epic（Lyra）                | 异步加载与有序回调                                                                                           | [AsyncMixin](/read/asyncmixin-overview)   |
+| GameSystems 下的插件            | Epic（Lyra）                | CommonGame、CommonUser、CommonLoadingScreen、GameSettings、GameSubtitles、ModularGameplayActors、UIExtension | —                                         |
+| BlockoutToolkit                 | Blockout Tools 1.52         | 白盒形状与原型工具，示例地图用它搭建                                                                         | —                                         |
+
+另外还有两个默认禁用的测试插件 StellaAITests 与 StellaNavigationTests，以及未启用的 LanguageOne（编辑器中英切换）、PocketWorlds、CommonStartupLoadingScreen。
+
+## 主要引擎插件由谁使用
+
+| 引擎插件                                                         | 使用者                                                                                            |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| GameplayAbilities                                                | 能力系统、战斗、生态动作                                                                          |
+| Mover、NetworkPrediction                                         | 角色移动                                                                                          |
+| StateTree、GameplayStateTree                                     | AI 状态树、连招树                                                                                 |
+| MassGameplay、MassAI、NavCorridor                                | 生态模拟与群体导航                                                                                |
+| SmartObjects、WorldConditions                                    | 生态资源点                                                                                        |
+| EnhancedInput                                                    | 输入                                                                                              |
+| PoseSearch、Chooser、BlendStack、AnimationWarping、MotionWarping | 玩家动画                                                                                          |
+| PhysicsControl                                                   | 布娃娃与起身                                                                                      |
+| GameplayCameras                                                  | 玩家相机                                                                                          |
+| CommonUI、ModelViewViewModel                                     | 界面与 MVVM 展示                                                                                  |
+| GameFeatures、ModularGameplay                                    | Experience 装配与组件初始化。仓库里目前没有独立的 GameFeature 插件，Action 直接写在 Experience 中 |
+| AsyncMessageSystem                                               | 项目消息                                                                                          |
+
+UAF 系列插件在 `Starry.uproject` 中显式禁用：项目曾尝试迁移到 UAF，后来全部回退到 AnimBP 方案。
+
+## 继续阅读
+
+- 一局游戏从启动到角色可操作的完整过程：[一局游戏怎样启动](/read/arch-startup)
+- 角色、Controller 与组件的类体系和所有权：[角色与组件](/read/arch-characters)
+- 主资产、数据类型和资源目录：[数据与资源](/read/arch-data)
+- 输入、能力、AI 和消息怎样串起来：[系统怎样协作](/read/arch-collaboration)
+- 网络现状与规划：[网络与权威](/read/arch-network)
+- 各部分来自哪里、改了什么：[来源与改造](/read/arch-sources)
+
+代码位置：`Source/StarryGame/Framework`、`Source/StarryGame/Gameplay`、`Source/StarrySample`、`Source/StarryEditor`、`Plugins/`。

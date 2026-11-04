@@ -52,6 +52,6 @@ Modifier 的每条请求属于 `AddGroup`、`AddBehavior`、`RemoveGroup` 或 `R
 
 多个 NPC 可以引用同一套 Modifier、Group、Behavior 模板。每个 NPC 的应用 Handle、评估结果、冷却与活动执行独立；不要把当前目标、Owner、执行下标写进共享模板成员。
 
-评分与抢占的具体规则见[评分与抢占](/read/astraai-selection)，动作中的独立数据与清理见[Logic 与生命周期](/read/astraai-logic)。区域应用的来源管理见[行为区域](/read/astraai-zones)。
+评分与抢占的具体规则见[评分与抢占](/read/stellaai-selection)，动作中的独立数据与清理见[Logic 与生命周期](/read/stellaai-logic)。区域应用的来源管理见[行为区域](/read/stellaai-zones)。
 
 实现入口：插件的 `Behavior/AstraAIBehaviorModifier`、`AstraAIBehaviorModifierStack`、`AstraAIBehaviorTypes` 与 `AstraAIComponent`。

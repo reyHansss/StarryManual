@@ -1,0 +1,85 @@
+---
+title: 角色、Controller 与组件
+description: 四类角色的继承关系与各自职责，Controller、PlayerState、GameState 上的关键组件，以及 ASC、输入、AI Brain 等由谁持有。
+order: 12
+---
+
+## 四类角色
+
+所有角色都从 `AStarryCharacter` 派生，它本身继承 ModularGameplay 的 `AModularPawn`，使用 Mover 而不是 CharacterMovement 移动。
+
+<Diagram
+  title="角色继承关系"
+  source={
+    'classDiagram\n  AModularPawn <|-- AStarryCharacter\n  AStarryCharacter <|-- AStarryPlayerCharacter\n  AStarryCharacter <|-- AStarryCharacterWithAbilities\n  AStarryCharacterWithAbilities <|-- AStarryAICharacter\n  AStarryAICharacter <|-- AStarryNPCCharacter\n  AStarryAICharacter <|-- AStarryMonsterCharacter'
+  }
+/>
+
+| 类                                               | 职责与关键组件                                                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AStarryCharacter`                               | 公共基类，提供以下能力：<br />· 胶囊碰撞、主网格（默认的 `Mesh` 成员）<br />· `UStarryCharacterMoverComponent` 与 StellaNavigation 的 NavMover 组件<br />· CharacterExtension<br />· 阵营、战斗相关组件（战斗管理、连招、锁定、MotionWarping）、装备、生命<br />自身不持有 ASC，需要时经 CharacterExtension 取得；关闭了引擎的 `ReplicateMovement`，移动由 Mover 复制 |
+| `AStarryPlayerCharacter`                         | 玩家角色：Hero 组件、GameplayCamera 相机、PhysicsControl 布娃娃、翻越；实现输入配置 Provider，返回 CharacterData 的 `InputSetups`。使用 PlayerState 上的 ASC                                                                                                                                                                                                          |
+| `AStarryCharacterWithAbilities`                  | 自带 ASC（Mixed 复制模式）以及 HealthSet、CombatSet，给不使用 PlayerState 的角色用                                                                                                                                                                                                                                                                                    |
+| `AStarryAICharacter`                             | AI 角色：提供 `AISetup` 配置，默认 Controller 类为 `AStarryAIController`                                                                                                                                                                                                                                                                                              |
+| `AStarryNPCCharacter`、`AStarryMonsterCharacter` | 目前是 NPC 与怪物的玩法入口类，尚未加入额外逻辑                                                                                                                                                                                                                                                                                                                       |
+
+生态模块另有派生的 `AStarryEcologyMonsterCharacter`，它会自行设置 CharacterData，也会被生成后自动 Possess。
+
+## 运行时谁持有什么
+
+<Diagram
+  title="主要运行时对象与持有关系"
+  source={
+    'flowchart LR\n  GS(GameState) --> EMC(ExperienceManager)\n  GS --> GASC(全局 ASC)\n  PS(PlayerState) --> PASC(玩家 ASC 与属性集)\n  PC(PlayerController) --> IM(InputManager)\n  PC -->|Possess| Player(玩家角色)\n  Player --> CE(CharacterExtension)\n  Player --> Hero(Hero)\n  CE -->|绑定 Avatar| PASC\n  Hero -->|刷新 InputSetups| IM\n  AIC(AIController) -->|Possess| AIPawn(AI 角色，自带 ASC)\n  AIC --> Brain(主 Brain 与后端)\n  AIC --> Percep(感知、黑板、Objective)'
+  }
+/>
+
+| 对象                                    | 挂在哪里                               | 由谁创建                                                              |
+| --------------------------------------- | -------------------------------------- | --------------------------------------------------------------------- |
+| 玩家的 ASC 与 HealthSet、CombatSet      | PlayerState                            | PlayerState 构造；CharacterExtension 把角色绑定为 Avatar              |
+| AI、NPC、怪物的 ASC 与属性集            | 角色自身                               | `AStarryCharacterWithAbilities` 构造                                  |
+| AbilitySet 授予的属性集                 | ASC 的 Owner                           | 授予时创建，随句柄收回                                                |
+| 全局 ASC                                | GameState                              | GameState 构造，Owner 与 Avatar 都是 GameState                        |
+| InputManager                            | PlayerController（角色不挂）           | PlayerController 构造                                                 |
+| 输入绑定目标                            | Controller 的 `EnhancedInputComponent` | 引擎                                                                  |
+| CharacterExtension、Hero                | 角色                                   | 角色构造（Hero 只在玩家角色上）                                       |
+| AI 主 Brain                             | AIController                           | 装配时创建，名为 `DecisionBrainComponent`                             |
+| StellaAI 使用的 BT／StateTree／HTN 组件 | AIController                           | Logic 或 StateTree 任务按需创建并复用                                 |
+| 黑板                                    | AIController                           | BehaviorTree 模式由 Controller 创建；Composition 模式在后端需要时取得 |
+| 感知、Objective 组件                    | AIController                           | 装配时创建；Objective 只在 Composition 模式下创建                     |
+
+**这张表带来的几条实际约束：**
+
+- **玩家的能力和属性挂在 PlayerState 上**：换角色、重生时它们不随角色销毁。授予内容由 CharacterExtension 按句柄授予与收回，所以换角色时不会残留。
+- **玩家输入跟着 Controller 走**：InputManager 在 PlayerController 上，可以跨角色复用；角色只负责提供自己的输入配置。见 [Input](/read/input-overview)。
+- **AI 的决策资源都在 Controller 上**：撤销控制时由 Controller 统一拆卸，先停 Brain，再销毁 Objective、黑板与感知。
+
+## Controller、PlayerState 与 GameState
+
+| 类                           | 父类                      | 关键内容                                                                           |
+| ---------------------------- | ------------------------- | ---------------------------------------------------------------------------------- |
+| `AStarryPlayerController`    | `ACommonPlayerController` | InputManager、相机管理器、把输入交给能力系统，以及客户端出生能力的补偿激活         |
+| `AStarryAIController`        | `AAIController`           | 使用 StellaNavigation 的路径跟随组件；按 AISetup 装配感知、Brain、黑板与 Objective |
+| `AStarryPlayerBotController` | `AModularAIController`    | 带 PlayerState 的机器人玩家；处理重生，撤销控制时清除 ASC 的 Avatar                |
+| `AStarryPlayerState`         | `AModularPlayerState`     | 持久的 ASC 与属性集、阵营组件、复制的 CharacterData                                |
+| `AStarryGameState`           | `AModularGameStateBase`   | Experience 管理器、阵营关系、全局 ASC                                              |
+| `UStarryLocalPlayer`         | `UCommonLocalPlayer`      | 本机与共享设置、音频输出设备切换                                                   |
+
+## 角色上的两个关键组件
+
+- **CharacterExtension（`UStarryCharacterExtensionComponent`）**
+  - 持有并复制 CharacterData；
+  - 在初始化链的 DataInitialized 阶段绑定 ASC，授予 AbilitySets 与默认装备；
+  - 退出时按句柄全部收回。
+  - 其他组件通过它判断角色是否已经 GameplayReady。
+- **Hero（`UStarryHeroComponent`）**：只在玩家角色上。
+  - 角色数据就绪后请求 InputManager 刷新输入配置，并发出 GameFeature 的输入绑定事件；
+  - 也负责技能驱动的相机 Rig。
+
+两者的初始化条件和顺序见[一局游戏怎样启动](/read/arch-startup#角色初始化initstate-链)。
+
+代码位置（相对 `Source/StarryGame/Framework`）：
+
+- 角色：`Character/StarryCharacter`、`Character/StarryPlayerCharacter`、`Character/StarryCharacterWithAbilities`、`Character/StarryAICharacter`。
+- 关键组件：`Character/StarryCharacterExtensionComponent`、`Character/StarryHeroComponent`。
+- 玩家与世界：`Player/StarryPlayerController`、`Player/StarryPlayerState`、`GameModes/StarryGameState`、`AI/StarryAIController`。

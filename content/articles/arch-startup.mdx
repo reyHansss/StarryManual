@@ -1,0 +1,171 @@
+---
+title: 一局游戏怎样启动
+description: 从引擎初始化、Experience 加载、玩家与角色生成，到能力和输入就绪的完整顺序，以及 AI 控制器怎样装配决策。
+order: 11
+---
+
+这一篇按时间顺序讲一局游戏从进程启动到角色可以操作的过程。理解它之后，就能判断一个功能应该挂在哪个时间点，例如“要在 Experience 加载完成后才做”或“要等 ASC 绑定后再授予能力”。
+
+## 总览
+
+<Diagram
+  title="玩家侧启动顺序"
+  steps
+  source={
+    'sequenceDiagram\n  participant Eng as 引擎\n  participant AM as AssetManager\n  participant GM as GameMode\n  participant EMC as ExperienceManager\n  participant PS as PlayerState\n  participant PC as PlayerController\n  participant Pawn as 玩家角色\n  Eng->>AM: StartInitialLoading：GameplayCue 与 GameData\n  Eng->>GM: InitGame，下一帧选择 Experience\n  GM->>EMC: SetCurrentExperience\n  EMC->>EMC: 加载资源、激活 GameFeature、执行 Action\n  PC->>PC: SetupInputComponent 后 InputManager 绑定输入组件\n  EMC-->>PS: Experience 加载完成：设置 CharacterData\n  EMC-->>GM: Experience 加载完成：RestartPlayer\n  GM->>Pawn: 延迟生成，FinishSpawning 前写入 CharacterData\n  PC->>Pawn: Possess\n  Pawn->>Pawn: CharacterExtension 绑定 ASC，授予能力与默认装备\n  Pawn->>PC: Hero 请求刷新角色的 InputSetups\n  PC->>PC: 输入就绪，玩家可以操作'
+  }
+/>
+
+点“逐步播放”可以按消息顺序逐条查看。下面分段说明每一步。
+
+## 引擎启动：全局数据
+
+`Config/DefaultEngine.ini` 把 GameInstance、GameEngine、AssetManager、LocalPlayer、ViewportClient、WorldSettings 和默认 GameMode 都换成了 Starry 的类。启动时：
+
+- **`UStarryAssetManager::StartInitialLoading`**：扫描主资产后排两项启动任务：
+  - 初始化 GameplayCue 管理器并预载常驻 Cue；
+  - 加载全局数据 `DA_StarryGameData`。它加载失败时直接致命报错；PIE 开始前也会再确保加载一次。
+- **`UStarryGameInstance::Init`**：在 CommonGame 的基础上注册组件初始化状态链 Spawned → DataAvailable → DataInitialized → GameplayReady。玩家登录成功后，读取本地共享设置。
+
+## 选择并加载 Experience
+
+`AStarryGameMode::InitGame` 在下一帧确定本局的 Experience，顺序为：URL 参数 → PIE 开发者设置 → 命令行 → WorldSettings → 默认 `B_StarryDefaultExperience`。详见[第一次运行](/read/start-first-run#experience-是怎样选中的)。
+
+选中后交给 GameState 上的 `UStarryExperienceManagerComponent`。Experience 只允许设置一次；客户端通过复制得到同一个 Experience，再在本机推进自己的加载。
+
+<Diagram
+  title="Experience 加载状态"
+  source={
+    'stateDiagram-v2\n  [*] --> Unloaded\n  Unloaded --> Loading: SetCurrentExperience\n  Loading --> LoadingGameFeatures: 有需要启用的 GameFeature\n  Loading --> ExecutingActions: 没有 GameFeature\n  LoadingGameFeatures --> ExecutingActions: 全部插件加载并激活\n  ExecutingActions --> Loaded: Action 依次注册、加载、激活\n  Loaded --> Deactivating: EndPlay\n  Deactivating --> [*]'
+  }
+/>
+
+- **Loading**：加载 Experience 及其 ActionSet 的资源 Bundle。客户端加载 Client Bundle，服务器加载 Server Bundle，编辑器两者都加载。
+- **LoadingGameFeatures**：汇总 Experience 与各 ActionSet 的 `GameFeaturesToEnable`，逐个加载并激活。仓库里目前没有独立的 GameFeature 插件，这一步通常直接跳过。另有一个只用于测试的人为延迟状态 `LoadingChaosTestingDelay`，由控制台变量 `starry.chaos.ExperienceDelayLoad.MinSecs` 与 `starry.chaos.ExperienceDelayLoad.RandomSecs` 开启，可用来检查依赖 Experience 的功能是否正确等待。
+- **ExecutingActions**：先执行 Experience 自己的 `Actions`，再执行各 ActionSet 的，每个 Action 依次注册、加载、激活，只作用于当前世界。
+- **Loaded**：按高、普通、低三档优先级广播完成通知。加载完成前，加载屏保持显示。
+
+需要等 Experience 就绪的功能，在 C++ 中调用 `CallOrRegister_OnExperienceLoaded`（另有 `_HighPriority`、`_LowPriority` 两个版本），在蓝图中使用 `Wait For Experience Ready` 异步节点。已经加载完成时，回调会立即执行。
+
+<Note title="同一优先级内的先后不保证">
+
+PlayerState 和 GameMode 都注册了普通优先级的完成回调，引擎广播时不保证两者的先后。所以两边各自从同一条回退链取得角色数据，不依赖对方先执行。
+
+</Note>
+
+## 玩家加入与角色生成
+
+**玩家登录时**
+
+- `AStarryPlayerState` 在构造时创建玩家的 ASC（Mixed 复制模式）、HealthSet、CombatSet 和阵营组件。
+- `AStarryPlayerController` 在构造时创建 `UStarryInputManagerComponent`。本地玩家走到 `SetupInputComponent` 之后，InputManager 绑定到 Controller 的输入组件。
+- 如果此时 Experience 还没加载完，GameMode 会推迟生成角色，等完成通知到来后再处理。
+
+**Experience 加载完成后**
+
+- PlayerState 取得角色数据并调用 `SetCharacterData`。这一步只在权威端执行、只设置一次，**不授予能力**。
+- GameMode 对还没有角色的玩家调用 `RestartPlayer`。
+
+**角色怎样生成**
+
+- **CharacterData 的来源**：依次取 PlayerState 上的、Experience 的 `DefaultCharacterData`、AssetManager 配置的 `DefaultCharacterData`。
+- **角色类**：取 CharacterData 的 `CharacterClass`，没有时退回 `AStarryCharacter`。
+- **生成方式**：延迟生成。在 `FinishSpawning` 之前把 CharacterData 写进角色的 CharacterExtension 组件，然后 Possess。
+- **出生点**：GameState 上有出生点管理组件时交给它选择，否则使用引擎默认规则。
+
+<Note title="CharacterData 要填 CharacterClass">
+
+CharacterData 没有填 `CharacterClass` 时，生成的是不带 Hero 组件的 `AStarryCharacter`，玩家输入不会接入。这是按代码推断的结果，没有经过运行验证。
+
+</Note>
+
+## 角色初始化：InitState 链
+
+角色上有两个组件参与 ModularGameplay 的初始化状态链：`UStarryCharacterExtensionComponent`（所有角色都有）和 `UStarryHeroComponent`（只有玩家角色有）。每个组件满足条件后才能进入下一个状态，没满足就停在原地，等复制或 Possess 事件到来再尝试推进。
+
+| 组件               | 进入 DataAvailable                                                     | 进入 DataInitialized                      |
+| ------------------ | ---------------------------------------------------------------------- | ----------------------------------------- |
+| CharacterExtension | 已有 CharacterData；权威端或本地控制时还要求已有 Controller            | 角色上所有组件都已达到 DataAvailable      |
+| Hero               | 已有 PlayerState；本地玩家还要求 Controller 已有输入组件和 LocalPlayer | CharacterExtension 已达到 DataInitialized |
+
+两者进入 GameplayReady 都没有额外条件。怪物状态、濒死、伤口等组件只观察 CharacterExtension 何时到达 GameplayReady。
+
+**CharacterExtension 到达 DataInitialized 时，绑定能力系统：**
+
+1. 取得 ASC：角色自己有 ASC 时用自己的，否则用 PlayerState 的。玩家的 Owner 是 PlayerState，Avatar 是角色。
+2. 设置标签关系映射；在权威端把生命值设为最大值。
+3. 广播能力系统已初始化，角色据此初始化生命与战斗属性。
+4. 授予 CharacterData 中的 AbilitySets，装备默认装备。
+5. 通知 Avatar 已就绪、初始化动画，并激活“出生时激活”的能力。
+
+**Hero 到达 DataInitialized 时，接入玩家输入：**
+
+- 调用 InputManager 的 `RefreshPawnInputSetups`。玩家角色通过 Provider 接口返回 CharacterData 中的 `InputSetups`。
+- 发出 `BindInputsNow` 事件，GameFeature 的 `AddInputBinding` Action 据此追加它负责的输入配置。
+
+**授予的执行端**
+
+- **只在权威端授予**：AbilitySet 中的初始标签、GE 和能力，以及默认装备。
+- **属性集**：按配置的范围在对应端创建。
+- **客户端**：在 PlayerState 复制到达时补做“出生时激活”能力的激活。
+
+## AI 控制器怎样装配
+
+<Diagram
+  title="AI 侧装配顺序"
+  steps
+  source={
+    'sequenceDiagram\n  participant Pawn as AI 角色\n  participant AIC as StarryAIController\n  participant AM as AssetManager\n  participant Obj as Objective 组件\n  participant SAI as StellaAI 组件\n  Pawn->>AIC: 生成默认 Controller 并 Possess（客户端不执行）\n  AIC->>Pawn: 读取 AISetup\n  AIC->>AM: 异步加载 AISetup 的 Brain 与 Perception Bundle\n  AM-->>AIC: 加载完成，核对仍是同一次会话\n  AIC->>AIC: 创建感知组件\n  AIC->>Obj: Composition：创建并初始化 Objective 组件\n  AIC->>SAI: 创建主 Brain 并 Initialize\n  AIC->>AIC: 进入 Ready，广播 OnAISetupComplete\n  AIC->>SAI: StartLogic，开始组合决策'
+  }
+/>
+
+- **角色这一侧**：AI 角色继承 `AStarryCharacterWithAbilities`，自己持有 ASC、HealthSet 和 CombatSet，Owner 和 Avatar 都是角色本身。引擎在非客户端世界为它生成默认的 `AStarryAIController` 并 Possess。
+- **读取配置**：Controller 通过 `IStarryAISetupProviderInterface` 从角色读取 AISetup。缺少配置时直接失败；全局关闭 AI 逻辑时进入 Stopped。
+- **加载**：异步加载 AISetup 的 Brain 与 Perception 两个 Bundle。完成回调会核对代次、Pawn 和会话，过期的回调直接丢弃。
+
+**进入初始化后，先创建感知组件，再按 `BrainType` 创建主 Brain：**
+
+| BrainType      | 装配内容                                                                           |
+| -------------- | ---------------------------------------------------------------------------------- |
+| `BehaviorTree` | 创建黑板与行为树组件，启动行为树并注入动态子树                                     |
+| `StateTree`    | 创建状态树组件，设置树后启动                                                       |
+| `Custom`       | 创建自定义 Brain 组件并启动                                                        |
+| `Composition`  | 创建 Objective 组件与 `UStellaAIComponent`，见 [StellaAI](/read/stellaai-overview) |
+
+**结束初始化：**
+
+- 成功时进入 Ready，广播 `OnAISetupComplete`。Composition 在此之后才调用 `StartLogic`；其他三种在 Ready 之前就已启动。
+- 失败时广播 `OnAISetupFailed`，并清理已经创建的资源。
+
+**关闭**：撤销控制、结束游戏或失败时进入关闭流程，按以下顺序清理：
+
+1. 取消加载句柄；
+2. 先终止主 Brain，再终止其他 Brain，然后销毁它们；
+3. 关闭 Objective，最后销毁黑板和感知。
+
+**客户端**：引擎不在客户端生成 AI 控制器，Controller 的 `OnPossess` 也拒绝客户端世界，所以客户端不装配决策与感知。
+
+## 退出时的清理
+
+- **Hero**：发出 `UnbindInputsNow`，清空能力输入。
+- **CharacterExtension**：取消能力（保留标记为死亡后存活的能力），卸下装备，按句柄收回授予的内容，清理 Cue，解除 ASC 的 Avatar。
+- **Experience 管理器**：在 EndPlay 时停用 GameFeature 与已激活的 Action。
+
+## 与 Lyra 的主要区别
+
+如果你熟悉 Lyra，下面几处最容易看错：
+
+| 方面       | Lyra                                 | Starry                                                        |
+| ---------- | ------------------------------------ | ------------------------------------------------------------- |
+| 角色数据   | PawnData                             | CharacterData，输入配置改为 `InputSetups` 数组，新增默认装备  |
+| 扩展组件   | PawnExtension                        | CharacterExtension；玩家 ASC 的绑定从 Hero 移到这里           |
+| 能力集授予 | PlayerState 设置 PawnData 时授予     | CharacterExtension 随 Avatar 授予与收回，PlayerState 不授予   |
+| 输入       | 绑定 Pawn 的输入组件                 | PlayerController 上的 InputManager 绑定 Controller 的输入组件 |
+| 移动       | ModularCharacter + CharacterMovement | ModularPawn + Mover                                           |
+| 队伍与消息 | Teams、GameplayMessageRouter         | 阵营组件、引擎的 Async Message System                         |
+
+代码位置（相对 `Source/StarryGame/Framework`）：
+
+- 启动与 Experience：`System/StarryAssetManager`、`GameModes/StarryGameMode`、`Experience/StarryExperienceManagerComponent`。
+- 角色初始化：`Character/StarryCharacterExtensionComponent`、`Character/StarryHeroComponent`、`Player/StarryPlayerState`。
+- AI 装配：`AI/StarryAIController`。

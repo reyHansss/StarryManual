@@ -1,22 +1,36 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { Waypoints } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ListOrdered, Waypoints } from 'lucide-react';
 import { getDiagramKind, type DiagramSize, type DiagramView } from '@/lib/diagram';
+import { applySequenceStep, getSequenceSteps } from '@/lib/diagram-steps';
 
 const DiagramViewport = dynamic(() =>
   import('./diagram-viewport').then((module) => module.DiagramViewport),
 );
 
-/** 文章只提供关系文本；自动布局、字体和配色统一复用手册主题。 */
-export function Diagram({ title, source }: { title: string; source: string }) {
+/**
+ * 文章只提供关系文本；自动布局、字体和配色统一复用手册主题。
+ * `steps` 为时序图开启逐步播放：读者可以按消息顺序逐条查看，其余消息淡化显示。
+ */
+export function Diagram({
+  title,
+  source,
+  steps = false,
+}: {
+  title: string;
+  source: string;
+  steps?: boolean;
+}) {
   const element = useRef<HTMLElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const inline = useRef<HTMLDivElement>(null);
   const inlineView = useRef<DiagramView | null>(null);
   const [inlineHeight, setInlineHeight] = useState<number>();
   const [expanded, setExpanded] = useState(false);
+  // null 表示显示全部；数字为从 1 开始的当前步骤。
+  const [step, setStep] = useState<number | null>(null);
   const id = `diagram-${useId().replace(/[^a-zA-Z0-9-]/g, '')}`;
   const [rendered, setRendered] = useState<{
     source: string;
@@ -166,31 +180,82 @@ export function Diagram({ title, source }: { title: string; source: string }) {
   }, [expanded]);
 
   const current = rendered?.source === source ? rendered : null;
-  const viewer = current?.svg ? (
-    <DiagramViewport
-      key={source}
-      title={title}
-      svg={current.svg}
-      size={current.size}
-      expanded={expanded}
-      toggleExpanded={() => {
-        if (!expanded) setInlineHeight(inline.current?.getBoundingClientRect().height);
-        setExpanded(!expanded);
-      }}
-      savedView={expanded ? null : inlineView.current}
-      rememberView={
-        expanded
-          ? undefined
-          : (view) => {
-              inlineView.current = view;
-            }
-      }
-    />
-  ) : (
-    <div className="diagram-placeholder" role="status">
-      {current?.error ? '这段图表暂时无法绘制，请检查下面的源码。' : '正在整理图表…'}
+  const sequence = steps && getDiagramKind(source) === '时序';
+  const stepLabels = useMemo(
+    () => (sequence && current?.svg ? getSequenceSteps(current.svg) : []),
+    [sequence, current?.svg],
+  );
+  // 只替换图形中的状态属性，画布尺寸不变，读者当前的缩放与平移位置保持不动。
+  const svg = useMemo(
+    () => (current?.svg && stepLabels.length ? applySequenceStep(current.svg, step) : current?.svg),
+    [current?.svg, stepLabels.length, step],
+  );
+  const stepper = stepLabels.length > 0 && (
+    <div className="diagram-steps" role="group" aria-label="逐步播放">
+      {step === null ? (
+        <button type="button" className="diagram-step-start" onClick={() => setStep(1)}>
+          <ListOrdered size={15} aria-hidden="true" />
+          逐步播放 {stepLabels.length} 条消息
+        </button>
+      ) : (
+        <>
+          <button
+            type="button"
+            className="icon-button"
+            disabled={step <= 1}
+            onClick={() => setStep(step - 1)}
+            aria-label="上一步"
+          >
+            <ChevronLeft size={16} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="icon-button"
+            disabled={step >= stepLabels.length}
+            onClick={() => setStep(step + 1)}
+            aria-label="下一步"
+          >
+            <ChevronRight size={16} aria-hidden="true" />
+          </button>
+          <span className="diagram-step-label" aria-live="polite">
+            <strong>
+              {step} / {stepLabels.length}
+            </strong>
+            {stepLabels[step - 1]}
+          </span>
+          <button type="button" className="diagram-step-start" onClick={() => setStep(null)}>
+            显示全部
+          </button>
+        </>
+      )}
     </div>
   );
+  const viewer =
+    svg && current ? (
+      <DiagramViewport
+        key={source}
+        title={title}
+        svg={svg}
+        size={current.size}
+        expanded={expanded}
+        toggleExpanded={() => {
+          if (!expanded) setInlineHeight(inline.current?.getBoundingClientRect().height);
+          setExpanded(!expanded);
+        }}
+        savedView={expanded ? null : inlineView.current}
+        rememberView={
+          expanded
+            ? undefined
+            : (view) => {
+                inlineView.current = view;
+              }
+        }
+      />
+    ) : (
+      <div className="diagram-placeholder" role="status">
+        {current?.error ? '这段图表暂时无法绘制，请检查下面的源码。' : '正在整理图表…'}
+      </div>
+    );
   return (
     <figure className="article-diagram" ref={element}>
       <figcaption>
@@ -200,6 +265,7 @@ export function Diagram({ title, source }: { title: string; source: string }) {
         </span>
         <span className="diagram-kind">{getDiagramKind(source)}</span>
       </figcaption>
+      {!expanded && stepper}
       <div ref={inline} style={{ height: expanded ? inlineHeight : undefined }}>
         {expanded ? null : viewer}
       </div>
@@ -217,6 +283,7 @@ export function Diagram({ title, source }: { title: string; source: string }) {
           <Waypoints size={18} />
           {title}
         </div>
+        {expanded && stepper}
         {expanded ? viewer : null}
       </dialog>
       <details className="diagram-source" open={current?.error || undefined}>

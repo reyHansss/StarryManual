@@ -1,34 +1,34 @@
 import type { Article } from './types';
 
-// 模块只登记一次，子模块层级由文章的 section 路径生成，不用维护第二份文章清单。
+// 模块只登记一次：文章按网址前缀（模块键加短横线）归入模块，子模块层级由文章的 section 路径生成。
 export const articleModules = {
-  manual: {
-    label: '工程总览',
-    shortLabel: '工程总览',
+  start: {
+    label: '入门',
+    shortLabel: '入门',
     color: '#9f6744',
     nodeColor: '#f4a65f',
     overview: 'start-here',
   },
-  project: {
-    label: '项目系统',
-    shortLabel: '项目系统',
-    color: '#496f87',
-    nodeColor: '#8bb8df',
-    overview: '',
+  arch: {
+    label: '架构设计',
+    shortLabel: '架构设计',
+    color: '#4d58a3',
+    nodeColor: '#8c97ee',
+    overview: 'arch-overview',
   },
-  astraai: {
-    label: 'AstraAI · AI 决策',
-    shortLabel: 'AstraAI',
+  stellaai: {
+    label: 'StellaAI · AI 决策',
+    shortLabel: 'StellaAI',
     color: '#496f87',
     nodeColor: '#69b6ec',
-    overview: 'astraai-overview',
+    overview: 'stellaai-overview',
   },
-  halodebug: {
-    label: 'HaloDebug · 调试工具',
-    shortLabel: 'HaloDebug',
+  stelladebug: {
+    label: 'StellaDebug · 调试工具',
+    shortLabel: 'StellaDebug',
     color: '#ad5360',
     nodeColor: '#ed819a',
-    overview: 'halodebug-overview',
+    overview: 'stelladebug-overview',
   },
   input: {
     label: 'Input · 玩家输入',
@@ -50,6 +50,14 @@ export const articleModules = {
     color: '#a25a76',
     nodeColor: '#ee9dbb',
     overview: 'asyncmixin-overview',
+  },
+  // 尚未登记模块的文章归入这里，等内容成形后再单独登记。
+  project: {
+    label: '项目系统',
+    shortLabel: '项目系统',
+    color: '#496f87',
+    nodeColor: '#8bb8df',
+    overview: '',
   },
   authoring: {
     label: '手册维护',
@@ -73,7 +81,6 @@ export type ModuleNavigation = {
 };
 
 export function getArticleModule(slug: string): ModuleKey {
-  if (slug === 'start-here' || slug === 'architecture') return 'manual';
   if (slug === 'writing' || slug === 'blueprint-nodes') return 'authoring';
   for (const key of Object.keys(articleModules) as ModuleKey[]) {
     if (slug.startsWith(`${key}-`)) return key;
@@ -129,8 +136,15 @@ export function getReadingNeighbors(module: ModuleNavigation, slug: string) {
   };
 }
 
+// 模块文章标题以“模块短名 · ”开头时，目录与面包屑省略这一段，新模块登记后自动生效。
+const titlePrefix = new RegExp(
+  `^(?:${Object.values(articleModules)
+    .map((module) => module.shortLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('|')}) · `,
+);
+
 export function getArticleLabel(article: Article) {
-  return article.title.replace(/^(AstraAI|HaloDebug|Input|Async Message|AsyncMixin) · /, '');
+  return article.title.replace(titlePrefix, '');
 }
 
 export function getSectionAnchor(path: string[]) {

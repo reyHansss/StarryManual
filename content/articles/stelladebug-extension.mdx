@@ -76,6 +76,6 @@ FHaloDebugPropertyInspector::DrawReadOnly("ExecutionData", StructType, StructMem
 
 绘制留在本进程，不自动复制到其他玩家。日志使用 `UE_LOG`，通知可用 `LogHaloDebugNotify`；蓝图曲线入口为 `UHaloDebugPaintPlotBlueprint::Plot`，不要依赖已移除的旧 Draw／Log 蓝图库。
 
-构建中保持 `HaloDebugCommon` 可用，具体面板依赖和实现按 `ENABLE_HALODEBUG`／非 Shipping 条件组织。[调试工具入门](/read/halodebug-overview)解释模块分工，[远程面板](/read/halodebug-remote)解释 UI 传输边界。
+构建中保持 `HaloDebugCommon` 可用，具体面板依赖和实现按 `ENABLE_HALODEBUG`／非 Shipping 条件组织。[调试工具入门](/read/stelladebug-overview)解释模块分工，[远程面板](/read/stelladebug-remote)解释 UI 传输边界。
 
 实现入口：`HaloDebugWindow.h`、`HaloDebugSubsystem.h`、`HaloDebugWidgets.h`、`HaloDebugPropertyInspector.h` 与 `HaloDebugPaintDraw.h`，均在 HaloDebug 插件对应模块中。

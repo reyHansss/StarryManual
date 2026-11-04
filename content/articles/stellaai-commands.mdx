@@ -56,6 +56,6 @@ Behavior 使用只读的 `CanTake` 评估机会；不要在评分时先 Take。L
 
 撤销与超时会让命令失去有效性，已经使用它的执行仍须按取消与清理协议退场。不能在命令失效时直接丢掉任务引用、跳过归还。
 
-若出现“有命令却没人执行”，先检查发布通知、要求交集、生成器过滤、当前 Objective，再检查 Behavior 分数与 Logic 的 Take 结果。[AI 调试](/read/astraai-debugging)与 [Logic 生命周期](/read/astraai-logic)提供对应排查入口。
+若出现“有命令却没人执行”，先检查发布通知、要求交集、生成器过滤、当前 Objective，再检查 Behavior 分数与 Logic 的 Take 结果。[AI 调试](/read/stellaai-debugging)与 [Logic 生命周期](/read/stellaai-logic)提供对应排查入口。
 
 实现入口：插件 `Commands/AstraAICommand`、`AstraAICommandSubsystem`、`AstraAIObjective_Commands` 与 `AstraAIAsyncIssueCommand`。

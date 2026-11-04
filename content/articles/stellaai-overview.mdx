@@ -2,6 +2,40 @@
 title: StellaAI · 模块总览
 description: StellaAI 解决什么问题、由哪些概念组成、各类资产在哪里创建，以及它怎样接入 Starry 的 AI 控制器。
 order: 20
+terms:
+  - term: Objective
+    aliases: [AIO_]
+    brief: 供决策读取的机会数据，例如“有可接取的命令”“我在分配区域之外”。由 Generator 创建和维护，只保存事实，不选择行为。
+  - term: Generator
+    aliases: [Objective Generator, AIOG_]
+    brief: 负责创建、更新和标记失效 Objective 的生成器，挂在所属 NPC 的 Objective 组件上。
+  - term: Objective Setup
+    aliases: [AIObjectiveComponentSetup, AIOCS_]
+    brief: 列出 Objective 组件要使用的生成器模板，由 AISetup 的 ObjectiveSetup 引用。
+  - term: Modifier
+    aliases: [Behavior Modifier, AIBM_]
+    brief: 对行为集合的一层修改：添加或移除 Group 与 Behavior，可以按角色、状态、区域叠加和撤销。
+  - term: Modifier Stack
+    aliases: [AIBehaviorModifierStack, AIBMS_]
+    brief: 一组按顺序应用的 Modifier 类，后层可以覆盖前层；多个 NPC 可以共用同一份。
+  - term: Group
+    aliases: [Behavior Group, AIBG_]
+    brief: 行为的分组：筛选新候选，并决定子项的优先级。
+  - term: Critical 与 Normal
+    aliases: [Critical, Normal, 优先级]
+    brief: 行为的两档优先级。Critical 候选每次选择都评估，可以抢占正在执行的 Normal 行为；执行 Critical 时，Normal 候选直接跳过。
+  - term: Behavior
+    aliases: [AIB_]
+    brief: 一个可选行为：判断能否激活、给机会打分，并指定执行它的 Logic。
+  - term: Logic
+    aliases: [BehaviorLogic, AIBL_]
+    brief: 一次执行的实际负责者，生命周期为 Start → Tick → Cancel → Cleanup；可以直接调用移动、技能，也可以交给 BT、StateTree 或 HTN。
+  - term: Command
+    aliases: [AIC_, 命令]
+    brief: 由玩法发布、可被符合条件的 NPC 领取的任务。
+  - term: Behavior Zone
+    aliases: [行为区域]
+    brief: 挂在普通 Actor 上的区域组件，按分配关系给 NPC 应用 Modifier，并提供区域几何查询。
 ---
 
 ## 它解决什么问题
@@ -13,7 +47,7 @@ order: 20
 - **哪件事最值得做**：Behavior 判断能否开始，并给机会打分；选择器按优先级与分数选出一个。
 - **这一次具体怎么做**：被选中行为的 Logic 负责执行，可以直接调用移动、技能，也可以交给行为树、状态树或 HTN。
 
-这样，“行为配置”可以像积木一样按角色、状态、区域叠加和撤销，而“执行”只关心这一次动作的开始、取消和清理。StellaAI 的设计以 Unreal Fest 2024 的一场 AI 架构分享为基线。
+这样，“行为配置”可以像积木一样按角色、状态、区域叠加和撤销，而“执行”只关心这一次动作的开始、取消和清理。
 
 <Diagram
   title="从配置到一次执行"
@@ -24,16 +58,7 @@ order: 20
 
 ## 核心概念
 
-| 概念           | 是什么                                                                          |
-| -------------- | ------------------------------------------------------------------------------- |
-| Objective      | 供决策读取的机会数据，由 Generator 创建和维护                                   |
-| Modifier       | 对行为集合的一层修改：添加或移除 Group 与 Behavior                              |
-| Modifier Stack | 一组按顺序应用的 Modifier 类，多个 NPC 可以共用同一份                           |
-| Group          | 行为的分组，筛选新候选，并决定子项的优先级（Critical 或 Normal）                |
-| Behavior       | 一个可选行为：判断能否激活、给机会打分，并指定执行它的 Logic                    |
-| Logic          | 一次执行的实际负责者，生命周期为 Start → Tick → Cancel → Cleanup                |
-| Command        | 由玩法发布、可被符合条件的 NPC 领取的任务                                       |
-| Behavior Zone  | 挂在普通 Actor 上的区域组件，按分配关系给 NPC 应用 Modifier，并提供区域几何查询 |
+<Terms />
 
 主决策组件是 Controller 上的 `UStellaAIComponent`，Objective 由同一个 Controller 上的 `UStellaAIObjectiveComponent` 管理。两者分开：Objective 只维护事实，不选择行为。
 
@@ -70,7 +95,7 @@ Starry 通过 `AStarryAIController` 接入 StellaAI，配置入口是角色的 A
 4. 创建 `UStellaAIComponent` 并初始化；
 5. 进入 `Ready`，广播 `OnAISetupComplete`，开始组合决策。
 
-完整过程见[一局游戏怎样启动](/read/arch-startup#ai-控制器怎样装配)。
+完整过程见[游戏框架 · 一局游戏怎样启动](/read/framework-startup#ai-控制器怎样装配)。
 
 **装配时要注意：**
 

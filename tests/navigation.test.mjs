@@ -73,13 +73,13 @@ test('不同模块中的同名子模块独立，阅读顺序按功能树且不�
 test('未填写层级的导览仍可阅读，新系统文章保留项目系统入口', () => {
   const modules = buildModuleNavigation([
     article('start-here', 1),
-    article('arch-overview', 2),
+    article('framework-overview', 2),
     article('ecology-overview', 3),
     article('writing', 99),
   ]);
   assert.deepEqual(
     modules.map((module) => module.key),
-    ['start', 'arch', 'project', 'authoring'],
+    ['start', 'framework', 'project', 'authoring'],
   );
   assert.equal(modules[2].entries[0].article.slug, 'ecology-overview');
 });

@@ -52,10 +52,7 @@ jobs:
           pnpm format:check
           pnpm check:content
           pnpm typecheck
-          pnpm test:blueprint
-          pnpm test:graph
-          pnpm test:particles
-          pnpm test:search
+          pnpm test
 
       - name: 生成并检查静态文件
         env:

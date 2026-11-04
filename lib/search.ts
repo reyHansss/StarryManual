@@ -41,20 +41,31 @@ export function getSearchTerms(query: string) {
   return [...new Set(query.toLowerCase().split(/\s+/).filter(Boolean))];
 }
 
-/** 多个关键词须全部命中；标题优先于简介，简介优先于正文，同分保持目录顺序。 */
+/**
+ * 多个关键词须全部命中；标题优先于登记的术语名，术语名优先于简介，简介优先于正文，同分保持目录顺序。
+ * 命中术语时结果片段显示该术语的一句话解释。
+ */
 export function searchArticles(articles: Article[], query: string): SearchHit[] {
   const terms = getSearchTerms(query);
   if (!terms.length) return articles.map((article) => ({ article }));
   const hits: (SearchHit & { score: number })[] = [];
   for (const article of articles) {
     const title = article.title.toLowerCase();
+    const termNames = (article.terms ?? [])
+      .flatMap((entry) => [entry.term, ...entry.aliases])
+      .join('\n')
+      .toLowerCase();
     const description = article.description.toLowerCase();
     const text = article.text.toLowerCase();
     let score = 0;
     let bodyTerm: string | undefined;
+    let termKeyword: string | undefined;
     for (const term of terms) {
       if (title.includes(term)) score += 10;
-      else if (description.includes(term)) score += 4;
+      else if (termNames.includes(term)) {
+        score += 6;
+        termKeyword ??= term;
+      } else if (description.includes(term)) score += 4;
       else if (text.includes(term)) {
         score += 1;
         bodyTerm ??= term;
@@ -64,17 +75,27 @@ export function searchArticles(articles: Article[], query: string): SearchHit[] 
       }
     }
     if (score < 0) continue;
+    const matchedTerm = termKeyword ? findTermByName(article, termKeyword) : undefined;
     hits.push({
       article,
       score,
-      excerpt: bodyTerm
-        ? getExcerpt(article.text, text.indexOf(bodyTerm), bodyTerm.length)
-        : undefined,
+      excerpt: matchedTerm
+        ? `${matchedTerm.term}：${matchedTerm.brief}`
+        : bodyTerm
+          ? getExcerpt(article.text, text.indexOf(bodyTerm), bodyTerm.length)
+          : undefined,
     });
   }
   return hits
     .sort((a, b) => b.score - a.score || a.article.order - b.article.order)
     .map(({ article, excerpt }) => ({ article, excerpt }));
+}
+
+/** 文章中名称或别名包含关键词的第一个术语，供搜索结果显示定义。 */
+export function findTermByName(article: Pick<Article, 'terms'>, keyword: string) {
+  return (article.terms ?? []).find((entry) =>
+    [entry.term, ...entry.aliases].some((name) => name.toLowerCase().includes(keyword)),
+  );
 }
 
 function getExcerpt(text: string, index: number, length: number) {

@@ -84,6 +84,6 @@ order: 54
 
 `Get Message Native Queue Callstack` 和 `Get Message Blueprint Script Callstack` 可在接收端查看入队来源，前提是已启用 `bShouldRecordQueueCallstackOnMessages` 且当前构建开启 `ENABLE_ASYNC_MESSAGES_DEBUG`。默认编辑器和非 Shipping 构建启用该宏，普通 Shipping 不提供同样信息；不要把缺少堆栈直接判断为没有发生消息。
 
-项目的自动化测试 `Starry.Framework.AsyncMessages` 覆盖了双 World 隔离、父标签保留原始来源、延迟回调、入队时的值副本，以及派发前解绑。改动消息相关代码后可以运行它，方法见[第一次运行](/read/start-first-run#运行自动化测试)。
+项目的自动化测试 `Starry.Framework.AsyncMessages` 覆盖了双 World 隔离、父标签保留原始来源、延迟回调、入队时的值副本，以及派发前解绑。改动消息相关代码后可以运行它，方法见[开发约定](/read/start-workflow#运行自动化测试)。
 
 代码位置：项目 `Framework/AbilitySystem/Abilities/StarryGameplayAbility`、`StarryGameplayAbility_Reset`、`Framework/AbilitySystem/Attributes/StarryHealthSet`、`Framework/Character/StarryHealthComponent`、`Framework/Inventory/StarryInventoryManagerComponent`、`Framework/Equipment/StarryQuickBarComponent`、`Framework/GameModes/StarryGameState`、`Framework/Player/StarryPlayerState` 与 `Framework/Messages`。

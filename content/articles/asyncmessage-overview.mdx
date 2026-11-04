@@ -2,6 +2,18 @@
 title: Async Message · 模块总览
 description: 用 UE 5.8 原生的 Async Message System 在系统之间发布“已经发生了什么”：它适合做什么、接入前要定的四件事，以及默认的派发时机与边界。
 order: 50
+terms:
+  - term: Async Message System
+    aliases: [AsyncMessageSystem, 异步消息]
+    brief: UE 5.8 自带的消息插件：用 Gameplay Tag 标识消息、结构体承载数据，发送方不需要知道谁在接收，监听者在自己的接收阶段处理。
+  - term: Message Id
+    aliases: [FAsyncMessageId, 消息身份]
+    brief: 消息的身份，由一个已注册的 Gameplay Tag 封装而成；监听父标签也能收到子标签的消息。
+  - term: Endpoint
+    brief: 在同一个 World 内进一步隔离收发的范围，发送方与监听方要使用同一个有效实例；Starry 的项目消息都走默认 Endpoint。
+  - term: 载荷
+    aliases: [Payload, PayloadCopy]
+    brief: 随消息发送的结构体，类型由同一个 Message Id 约定；入队时复制一份，之后修改原结构体不影响已排队的消息。
 ---
 
 ## 它适合做什么
@@ -66,7 +78,5 @@ Starry 用它发布“已经发生了什么”，例如技能激活失败、受�
 | 在 C++ 中取得系统、监听、发送与解绑 | [C++ 收发与解绑](/read/asyncmessage-cpp)           |
 | 理解父子标签、Endpoint、时机与载荷  | [标签、时机与生命周期](/read/asyncmessage-routing) |
 | 查现有消息、网络转发与排查问题      | [项目消息与排查](/read/asyncmessage-project)       |
-
-项目层面的消息用法见[系统怎样协作](/read/arch-collaboration#系统之间发通知)。
 
 代码位置：引擎 `Engine/Plugins/Experimental/AsyncMessageSystem`；项目 `Source/StarryGame/Framework/Messages`。

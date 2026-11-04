@@ -1,0 +1,124 @@
+---
+title: 整体设计
+description: Starry 由哪几层组成、各层之间的依赖规则、源码模块与插件的分工，以及全项目共同遵守的设计原则。
+order: 2
+terms:
+  - term: StarryUE
+    aliases: [源码引擎]
+    brief: 项目使用的自维护 UE 5.8 源码引擎，带有项目需要的引擎修改；Starry 只能用它编译。
+  - term: STARRY_SOURCE_MODIFY
+    aliases: [STARRY MOD]
+    brief: StarryUE 中所有项目修改的条件宏，默认开启；每处修改用成对的 STARRY MOD 标记包住。
+  - term: PIE
+    aliases: [Play In Editor]
+    brief: 在编辑器里直接运行游戏。
+  - term: Authority
+    aliases: [权威端]
+    brief: 对某个 Actor 拥有最终决定权的一端。单机与服务器上为权威端，客户端上的副本不是；玩法规则遵循当前世界的 Authority。
+  - term: Listen Server
+    aliases: [房主]
+    brief: 由一名玩家的游戏同时充当服务器的联机方式。
+  - term: Dedicated Server
+    aliases: [专用服务器, StarryServer]
+    brief: 没有本地玩家的专用服务器进程，对应编译目标 StarryServer。
+  - term: GameFeature
+    aliases: [GameFeatureAction]
+    brief: UE 的功能插件机制；激活时执行一组 Action，向世界添加能力、输入、界面等。
+  - term: GAS
+    aliases: [Gameplay Ability System]
+    brief: UE 的技能框架，由能力（GA）、效果（GE）、属性集与表现（Cue）组成，项目的技能与战斗建立在它之上。
+  - term: Mass
+    aliases: [MassEntity]
+    brief: UE 的 ECS 式实体框架，适合大量个体；生态系统用它模拟远处的生物。
+  - term: StellaNavigation
+    brief: 项目的导航插件，在 UE Recast 导航网格上提供路径、移动平台、NavLink、遍历、切割、避让与异步查询。
+  - term: StellaPatrol
+    brief: 项目的巡逻插件，提供巡逻区域、连接与选点，移动使用引擎原生的 MoveTo。
+---
+
+## 分层
+
+Starry 从下往上分四层：
+
+- **引擎**：StarryUE，带有项目需要的引擎修改。
+- **插件**：引擎插件、项目自维护的 Stella 系列插件，以及少量直接使用的第三方插件。
+- **`StarryGame`**：项目主模块，分为可复用的 `Framework` 与具体玩法 `Gameplay`。
+- **辅助模块**：`StarrySample` 放示例，`StarryEditor` 放编辑器扩展与测试。
+
+<Diagram
+  title="依赖方向：上层使用下层，下层不知道上层"
+  source={
+    'flowchart TB\n  Editor(StarryEditor 编辑器扩展与测试)\n  Sample(StarrySample 示例)\n  subgraph Game[StarryGame 主模块]\n    Gameplay(Gameplay 具体玩法)\n    Framework(Framework 可复用框架)\n  end\n  Project(项目插件：StellaAI · StellaNavigation · StellaPatrol · StellaDebug)\n  Third(直接使用的第三方插件：HTN · AsyncMixin · GameSystems 等)\n  Builtin(引擎插件：GAS · Mover · StateTree · Mass · Enhanced Input · CommonUI)\n  Engine(StarryUE 引擎)\n  Editor --> Gameplay\n  Editor --> Sample\n  Gameplay --> Framework\n  Framework --> Project\n  Framework --> Third\n  Framework --> Builtin\n  Sample --> Project\n  Project --> Builtin\n  Third --> Builtin\n  Builtin --> Engine'
+  }
+/>
+
+**依赖规则：**
+
+- `Framework` 不 include `Gameplay` 的头文件；
+- `StarryGame` 不依赖 `StarrySample` 与 `StarryEditor`；
+- 项目插件不依赖 `StarryGame`；
+- 正式代码、配置与资产不引用任何测试内容。
+
+这些规则由 `Scripts` 下的检查脚本把关，见[开发约定](/read/start-workflow#测试与检查脚本)。
+
+## 源码模块
+
+| 模块           | 类型    | 进入的编译目标       | 内容                                                 |
+| -------------- | ------- | -------------------- | ---------------------------------------------------- |
+| `StarryGame`   | Runtime | Editor、Game、Server | 全部框架与玩法代码                                   |
+| `StarrySample` | Runtime | Editor、Game、Server | 可运行的示例（目前是导航示例），只依赖引擎与导航插件 |
+| `StarryEditor` | Editor  | Editor               | 资产定义与创建菜单、编辑器扩展、项目的编辑器测试     |
+
+## 功能领域
+
+| 领域           | 负责什么                                           | 手册                                                                                  |
+| -------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| 游戏框架       | 一局游戏的启动与装配、玩家与角色、全局数据与资源   | [游戏框架](/read/framework-overview)                                                  |
+| 输入           | 把设备输入分派给移动、技能与界面                   | [Input](/read/input-overview)                                                         |
+| AI 决策        | NPC 选择做什么、怎样执行                           | [StellaAI](/read/stellaai-overview)                                                   |
+| 调试工具       | 游戏内调试面板、场景绘制、远程查看                 | [StellaDebug](/read/stelladebug-overview)                                             |
+| 消息与异步加载 | 系统之间的解耦通知、按序的异步资源加载             | [Async Message](/read/asyncmessage-overview)、[AsyncMixin](/read/asyncmixin-overview) |
+| 移动与动画     | 角色移动、翻越、动画与布娃娃                       | 待整理                                                                                |
+| 能力与战斗     | 技能、属性、伤害、连招、锁定，以及装备、背包与阵营 | 待整理                                                                                |
+| 导航与巡逻     | 导航网格上的寻路与移动、巡逻路线                   | 待整理                                                                                |
+| 生态           | 大量生物的需求、日程、资源与群体行为               | 待整理                                                                                |
+| 界面与设置     | HUD、界面层级、玩家设置                            | 待整理                                                                                |
+
+## 插件
+
+**项目自维护的插件**统一以 Stella 命名：
+
+- **StellaAI**：组合决策；
+- **StellaNavigation**：导航；
+- **StellaPatrol**：巡逻；
+- **StellaDebug**：调试工具。
+
+另有两个默认禁用的测试插件 StellaAITests 与 StellaNavigationTests，正式工程不会加载它们。
+
+**直接使用的第三方插件与代码**保留原名；确需修改时，和引擎修改一样用 `STARRY_SOURCE_MODIFY` 标记：
+
+| 插件或库                                                                                                     | 用途                                     |
+| ------------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
+| HierarchicalTaskNetworkPlanning                                                                              | HTN 规划，StellaAI 的 HTN 后端使用它     |
+| Dear ImGui、ImPlot、netImgui                                                                                 | StellaDebug 的界面库与远程显示           |
+| CommonGame、CommonUser、CommonLoadingScreen、GameSettings、GameSubtitles、ModularGameplayActors、UIExtension | Epic 提供的通用游戏框架组件              |
+| AsyncMixin                                                                                                   | 按序的异步加载工具                       |
+| LanguageOne                                                                                                  | 编辑器的中英界面切换、注释与资产翻译工具 |
+| BlockoutToolkit                                                                                              | 白盒形状与原型工具，示例地图用它搭建     |
+
+**主要的引擎插件**：GameplayAbilities、Mover 与 NetworkPrediction、StateTree、Mass 系列、SmartObjects、Enhanced Input、CommonUI、GameFeatures 与 ModularGameplay、PoseSearch 等动画插件、PhysicsControl、GameplayCameras、AsyncMessageSystem。
+
+## 全项目的设计原则
+
+- **领域拥有规则与状态，使用方拥有接入代码**：例如输入只负责把操作交给处理器，移动和技能各自决定能不能执行。
+- **配置与运行状态分开**：数据资产描述能力和规则，会被多个角色共享，不保存某个玩家或某个 NPC 的运行状态。
+- **谁登记，谁撤销**：订阅、绑定、授予的能力和启动的任务，由发起方在退出时成对撤销。异步回调要核对原来的请求或执行身份，过期的结果直接丢弃。
+- **遵循当前世界的 Authority**：
+  - 玩法规则在权威端执行；
+  - 服务器上的逻辑不依赖 LocalPlayer、界面或本地存档；
+  - 客户端发起的修改要显式走服务器，消息和调试工具都不会自动变成 RPC。
+- **网络按玩法选择部署**：离线单人用 Standalone；好友合作、休闲 PvP、公平竞技与公共大厅的部署方式已有规划，尚未实施。
+- **正式内容不依赖测试**：测试代码、测试资产和测试插件可以整体移除。
+- **引擎修改有边界**：只为修复已确认的缺陷，或解决现有公共接口无法解决的问题才修改引擎，所有修改都受 `STARRY_SOURCE_MODIFY` 控制。
+
+代码位置：`Source/StarryGame/Framework`、`Source/StarryGame/Gameplay`、`Source/StarrySample`、`Source/StarryEditor`、`Plugins/`。

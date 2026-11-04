@@ -5,6 +5,7 @@ import matter from 'gray-matter';
 import type { Article } from './types';
 import { getArticleModule } from './navigation';
 import { getSearchText } from './search';
+import { countTermPlacements, normalizeTerms } from './terms';
 
 // 关系只从本站文章的真实链接提取，正文和图谱共用一个内容来源。
 export async function getCatalog(): Promise<Article[]> {
@@ -14,6 +15,7 @@ export async function getCatalog(): Promise<Article[]> {
     files.map(async (file) => {
       const { data, content } = matter(await readFile(path.join(directory, file), 'utf8'));
       const slug = file.slice(0, -4);
+      const terms = normalizeTerms(data.terms);
       return {
         slug,
         title: String(data.title),
@@ -29,7 +31,10 @@ export async function getCatalog(): Promise<Article[]> {
             ),
           ),
         ],
-        text: getSearchText(content),
+        // 术语解释也显示在页面上，一并参与正文搜索。
+        text: [getSearchText(content), ...terms.map((entry) => entry.brief)].join(' '),
+        terms,
+        inlineTerms: countTermPlacements(content) > 0,
       } satisfies Article;
     }),
   );

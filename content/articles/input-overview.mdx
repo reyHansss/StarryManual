@@ -2,23 +2,34 @@
 title: Input · 模块总览
 description: 一次按键怎样经过 Enhanced Input、InputManager、缓存与 Handler 到达移动和技能；配置来源、初始化要求和相关项目设置。
 order: 40
+terms:
+  - term: Enhanced Input
+    brief: UE 的输入插件，用 Input Action 与 Input Mapping Context 描述输入；Starry 在它之后加了一层项目分派。
+  - term: Input Action
+    aliases: [IA]
+    brief: 定义一个动作和它的值类型，以及动作自身的修饰器与触发器。
+  - term: Input Mapping Context
+    aliases: [IMC]
+    brief: 把设备按键映射到 Input Action。
+  - term: Input Setup
+    aliases: [UStarryInputSetupDataAsset, IS_]
+    brief: 把一个 IMC、优先级和若干 Handler 组织成一份可以整体增删的配置。
+  - term: InputManager
+    aliases: [UStarryInputManagerComponent]
+    brief: PlayerController 上的组件：应用 Input Setup，为每个 Action 的事件绑定一次，再分派给登记的 Handler。
+  - term: Input Handler
+    aliases: [Handler]
+    brief: 收到输入事件后调用实际能力的对象，例如移动、技能或界面；所有使用者共用同一个对象。
+  - term: 输入缓存
+    aliases: [Input Buffer]
+    brief: 在动画指定的窗口内暂存可缓存的输入，窗口正常结束时执行保留的命令，中断时丢弃；不同通道的窗口互不影响。
 ---
 
 ## 输入经过哪几层
 
-Starry 的玩家输入建立在 UE 的 Enhanced Input 之上，在它后面加了一层**项目分派**。
+Starry 的玩家输入建立在 UE 的 Enhanced Input 之上，在它后面加了一层**项目分派**：Enhanced Input 的 Input Action 与 Input Mapping Context 把设备按键变成动作事件，项目的 Input Setup、InputManager、Input Handler 与输入缓存再把事件交给移动、技能和界面。
 
-**Enhanced Input 负责**
-
-- **Input Action（IA）**：定义一个动作和它的值类型，以及动作自身的修饰器与触发器。
-- **Input Mapping Context（IMC）**：把设备按键映射到 Action。
-
-**项目分派层负责**
-
-- **Input Setup**：把一个 IMC、优先级和若干 Handler 组织成一份可以整体增删的配置。
-- **InputManager**：`UStarryInputManagerComponent` 应用这些配置，为每个 Action 的事件绑定一次，再分派给登记的 Handler。
-- **Input Handler**：收到事件后调用实际的能力，比如移动、技能或界面。
-- **输入缓存**：在动画指定的窗口内把可缓存的输入延后执行。
+<Terms />
 
 <Diagram
   title="从按键到项目能力"

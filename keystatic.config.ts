@@ -56,6 +56,27 @@ export default config({
           },
         ),
         order: fields.integer({ label: '阅读顺序', defaultValue: 10 }),
+        terms: fields.array(
+          fields.object({
+            term: fields.text({ label: '术语', validation: { isRequired: true } }),
+            aliases: fields.array(fields.text({ label: '别名' }), {
+              label: '别名',
+              description: '英文名、类名或常见叫法，只用于搜索与筛选。',
+              itemLabel: (props) => props.value || '别名',
+            }),
+            brief: fields.text({
+              label: '一句话解释',
+              multiline: true,
+              validation: { isRequired: true },
+            }),
+          }),
+          {
+            label: '本页术语',
+            description:
+              '本模块定义的概念写在这里；同一术语只在一篇文章中定义。文章末尾、术语页与全站搜索会自动收录。',
+            itemLabel: (props) => props.fields.term.value || '新术语',
+          },
+        ),
         content: fields.mdx({
           label: '正文',
           components: {
@@ -102,6 +123,11 @@ export default config({
                 }),
                 title: fields.text({ label: '图注', validation: { isRequired: true } }),
               },
+            }),
+            Terms: block({
+              label: '本页术语列表',
+              description: '在这里列出元信息中登记的术语；不放置时列在文末。每篇最多放一次。',
+              schema: {},
             }),
             ModifierStackDemo: block({
               label: 'StellaAI 叠加演示',

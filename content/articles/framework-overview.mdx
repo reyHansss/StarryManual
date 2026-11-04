@@ -1,0 +1,86 @@
+---
+title: 游戏框架 · 模块总览
+description: 游戏框架负责什么，一局游戏怎样由 Experience 与 CharacterData 装配起来，以及启动、角色、数据三篇各讲什么。
+order: 10
+terms:
+  - term: Experience
+    aliases: [UStarryExperienceDefinition]
+    brief: 一局游戏的装配清单：默认角色数据、要启用的 GameFeature，以及要执行的 Action 与 ActionSet。每局只设置一次，客户端通过复制得到同一个。
+  - term: ActionSet
+    aliases: [UStarryExperienceActionSet]
+    brief: 可被多个 Experience 复用的一组 Action 与要启用的 GameFeature。
+  - term: UserFacingExperience
+    aliases: [Playlist, UStarryUserFacingExperienceDefinition]
+    brief: 供界面展示并开启会话的配置，指定地图、Experience 与卡片信息，放在 Content/Blueprints/Playlists。
+  - term: CharacterData
+    aliases: [UStarryCharacterData, 角色数据]
+    brief: 描述一类角色的数据资产：角色类、AbilitySets、默认装备、标签关系、InputSetups 与默认相机模式。
+  - term: CharacterExtension
+    aliases: [UStarryCharacterExtensionComponent]
+    brief: 所有角色都有的组件：持有 CharacterData，在 InitState 链中绑定 ASC、授予能力集与默认装备，退出时按句柄收回。
+  - term: Hero
+    aliases: [UStarryHeroComponent]
+    brief: 只在玩家角色上的组件：角色数据就绪后请求 InputManager 应用角色的输入配置，并负责技能驱动的相机 Rig。
+  - term: InitState
+    aliases: [初始化状态链]
+    brief: 组件的初始化状态链 Spawned → DataAvailable → DataInitialized → GameplayReady；组件满足条件后才进入下一个状态。
+  - term: ASC
+    aliases: [AbilitySystemComponent, 能力系统组件]
+    brief: GAS 的能力系统组件。玩家的挂在 PlayerState 上，AI、NPC 与怪物的挂在角色自身。
+  - term: AbilitySet
+    aliases: [UStarryAbilitySet, 能力集]
+    brief: 一组能力、GE 与属性集，资产名以 AS_ 开头；由 CharacterExtension 按句柄授予，退出时收回。
+  - term: Mover
+    brief: UE 的移动组件框架。Starry 的角色用它代替 CharacterMovement，移动的复制也由它负责。
+  - term: GameData
+    aliases: [UStarryGameData, DA_StarryGameData]
+    brief: 全局唯一的数据资产，保存全局伤害、治疗与动态标签所用的 GE，启动时加载。
+  - term: AISetup
+    aliases: [UStarryAISetupDataAsset, Starry AI Setup]
+    brief: AI 角色的配置入口：BrainType、Modifier Stack、Objective 配置、感知与移动适配。AI 控制器按它装配感知与决策。
+  - term: BrainType
+    brief: AISetup 中选择主 Brain 的方式，可选 BehaviorTree、StateTree、Custom 与 Composition；Composition 使用 StellaAI。
+  - term: Brain
+    aliases: [UBrainComponent, 主 Brain]
+    brief: AIController 上负责决策的组件。Starry 的 AI 控制器按 BrainType 创建一个主 Brain，其他 Brain 组件可以并存，按类型查找。
+  - term: Bundle
+    aliases: [Asset Bundle, 资源包]
+    brief: 主资产中按名称分组的软引用资源，例如 Experience 的 Client 与 Server 包；加载主资产时可以指定一并加载哪些 Bundle。
+  - term: 主资产
+    aliases: [Primary Asset, AssetManager]
+    brief: AssetManager 按类型和目录扫描、可以按 ID 查找与加载的资产。新建的 Experience、AISetup 必须放在对应的扫描目录里。
+---
+
+## 它负责什么
+
+游戏框架是 `Source/StarryGame/Framework` 中把一局游戏组装起来的部分：
+
+- **启动与装配**：进程启动时加载全局数据；开局时选定 Experience，按它启用功能、执行 Action，再生成玩家与角色。
+- **玩家与角色**：四类角色的继承关系，Controller、PlayerState、GameState 上的组件，以及 ASC、输入、AI Brain 等对象由谁持有。
+- **数据与资源**：主资产的扫描与加载、主要配置资产、Content 与 Config 目录的归属、GameplayTag 的来源。
+
+`Framework` 下的输入、能力与战斗、相机等目录各有专题，例如 [Input](/read/input-overview)；AI 控制器怎样装配决策在本模块讲，决策本身见 [StellaAI](/read/stellaai-overview)。
+
+## 一局游戏由数据装配
+
+框架用数据资产描述“这一局装配什么”和“这类角色有什么”，再由少数几个对象在确定的时间点把它们应用到运行时：
+
+<Diagram
+  title="从数据资产到运行时对象"
+  source={
+    'flowchart LR\n  Exp(Experience) -->|启用并执行| GF(GameFeature 与 Action)\n  Exp -->|默认角色数据| CD(CharacterData)\n  CD -->|角色类| Pawn(角色)\n  Pawn --> CE(CharacterExtension)\n  Pawn --> Hero(Hero，仅玩家角色)\n  CD -.->|AbilitySets、默认装备| CE\n  CD -.->|InputSetups| Hero\n  CE -->|绑定并授予| ASC(ASC)\n  Hero -->|请求应用输入配置| IM(Controller 上的 InputManager)'
+  }
+/>
+
+- **Experience** 决定一局装配什么：GameState 上的 Experience 管理器加载它、启用其中的 GameFeature 并执行 Action，完成后通知等待它的功能。
+- **CharacterData** 决定一类角色有什么：GameMode 按它的角色类生成角色，并在生成完成前把它交给角色的 CharacterExtension。
+- **CharacterExtension 与 Hero** 在初始化状态链上分阶段应用这些数据：先等数据与 Controller 就绪，再绑定 ASC、授予能力，最后接入玩家输入。
+
+## 设计要点
+
+- **等待条件，而不是假设顺序**：依赖 Experience 的功能注册“加载完成”回调，已经完成时立即执行；角色组件在 InitState 链上等条件满足再推进。复制与 Possess 事件到达的先后不固定，组件在每次事件后重新尝试推进。
+- **授予的内容随句柄收回**：AbilitySet、默认装备都由 CharacterExtension 按句柄授予，角色退出或换角色时全部收回，不留残余。
+- **玩家状态不随角色销毁**：玩家的 ASC 与属性集挂在 PlayerState 上，输入由 PlayerController 上的 InputManager 管理，角色只提供自己的配置。
+- **权威端决定，客户端跟随**：Experience 与 CharacterData 在权威端设置，能力与默认装备在权威端授予；客户端通过复制得到相同的 Experience 与角色数据，再在本机推进加载与初始化。客户端不生成 AI 控制器。
+
+代码位置（相对 `Source/StarryGame/Framework`）：`Experience`、`GameModes`、`System`、`Character`、`Player`、`AI/StarryAIController`。

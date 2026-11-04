@@ -3,18 +3,18 @@ import type { Article } from './types';
 // 模块只登记一次：文章按网址前缀（模块键加短横线）归入模块，子模块层级由文章的 section 路径生成。
 export const articleModules = {
   start: {
-    label: '入门',
-    shortLabel: '入门',
+    label: '项目总介绍',
+    shortLabel: '项目总介绍',
     color: '#9f6744',
     nodeColor: '#f4a65f',
     overview: 'start-here',
   },
-  arch: {
-    label: '架构设计',
-    shortLabel: '架构设计',
+  framework: {
+    label: '游戏框架',
+    shortLabel: '游戏框架',
     color: '#4d58a3',
     nodeColor: '#8c97ee',
-    overview: 'arch-overview',
+    overview: 'framework-overview',
   },
   stellaai: {
     label: 'StellaAI · AI 决策',

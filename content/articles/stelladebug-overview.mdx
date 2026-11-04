@@ -2,11 +2,24 @@
 title: StellaDebug · 模块总览
 description: 打开游戏内 ImGui 调试面板，认识菜单、菜单栏小部件、快捷键与控制台命令，了解插件的模块分工和使用边界。
 order: 30
+terms:
+  - term: 调试输入
+    aliases: [StellaDebug.ToggleInput]
+    brief: 按 F1 切换：鼠标和键盘交给调试面板，再按一次回到游戏操作。
+  - term: 拾取模式
+    aliases: [StellaDebug.ToggleSelectionMode]
+    brief: 按 F5 切换：在游戏视口中左键选择要检查的 Actor，右键取消。
+  - term: 窗口布局
+    aliases: [Layout]
+    brief: 保存下来的一套调试窗口排布，共 4 套；F2～F4 载入第 1～3 套。
+  - term: Dear ImGui
+    aliases: [ImGui]
+    brief: 直接使用的即时模式界面库，StellaDebug 的窗口与控件都用它绘制。
 ---
 
 ## 它是什么
 
-StellaDebug 是项目的游戏内调试工具，源自开源插件 Cog（MIT 许可）。它提供：
+StellaDebug 是项目自维护的游戏内调试工具，提供：
 
 - **调试窗口与菜单**：基于 Dear ImGui；
 - **属性检查器**：查看和修改反射属性；

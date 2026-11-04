@@ -3,6 +3,10 @@ title: StellaDebug · netImgui 远程面板
 description: 构建桌面查看器，把游戏进程的调试面板显示到独立窗口；两种连接方向、自动连接设置、控制台命令，以及远程显示的边界。
 section: [远程调试]
 order: 31
+terms:
+  - term: netImgui
+    aliases: [NetImguiServer]
+    brief: 直接使用的远程显示库：把游戏进程的 ImGui 面板显示到独立的桌面查看器，也能连接没有窗口的专用服务器。
 ---
 
 ## 什么时候用
@@ -12,7 +16,7 @@ order: 31
 - 游戏画面保持干净，面板可以放在另一块屏幕上；
 - 可以连接没有窗口的进程，例如专用服务器，查看它的面板。
 
-上游把桌面程序叫作 Server，游戏插件叫作 client。这只是界面传输中的命名，和 UE 的游戏服务器无关。
+netImgui 把桌面程序叫作 Server，游戏一端叫作 Client。这只是界面传输中的命名，和 UE 的游戏服务器无关。
 
 ## 构建桌面查看器
 

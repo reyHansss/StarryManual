@@ -1,76 +1,75 @@
 ---
-title: Starry 是什么
-description: Starry 的技术基线、当前进展与仓库组成，以及按你要做的事选择阅读路线。
+title: 项目介绍
+description: Starry 是什么、现在做到了哪一步、由哪几个仓库组成，以及按你要做的事从哪里开始读。
 order: 1
 ---
 
-## 一句话介绍
+## Starry 是什么
 
-Starry 是一个 Unreal Engine 5.8 游戏项目，运行在自维护的源码引擎 **StarryUE** 上。项目以 C++ 框架为主体：
+Starry 是一个 Unreal Engine 5.8 游戏项目，运行在自维护的源码引擎 StarryUE 上。玩法与框架以 C++ 为主：
 
-- **玩法装配**：采用 Lyra 风格的 Experience。
-- **角色**：使用 Mover 移动，动画沿用 GASP（Game Animation Sample）的方案。
-- **技能与战斗**：基于 GAS，融合了 Ninja 系列插件的能力。
-- **AI**：由项目自研的 StellaAI 决策、StellaNavigation 导航。
-- **生态**：按《怪物猎人：荒野》的规则复刻怪物与生物的日常生态。
+- **玩法装配**：由 Experience 描述一局游戏要装配哪些内容；
+- **角色**：使用 Mover 移动；
+- **技能与战斗**：建立在 GAS 之上；
+- **AI**：由项目的 StellaAI 决策、StellaNavigation 导航；
+- **生态**：由生态系统模拟大量生物的需求、日程与资源。
 
 ## 游戏方向
 
-以下是已经确定的方向。它们决定了框架的设计，但大部分联机能力还没有实现：
+以下方向已经确定，它们约束着框架设计，其中大部分联机能力还没有实现：
 
-- **探索与存档**：探索可以离线进行，非付费内容和进度走本地存档。
-- **网络部署**：按玩法选择。PvP 这类玩法可以由服务器权威执行；本地存档不等于客户端拥有战斗权威。
+- **探索与存档**：探索可以离线进行，非付费内容与进度走本地存档。
+- **网络部署**：按玩法选择部署方式。PvP 这类玩法可以由服务器权威执行；本地存档不等于客户端拥有战斗权威。
 - **公共大厅**：可以看到大量陌生玩家。
 - **合作探索**：朋友进入同一环境后可以连续自由探索，承接任务时可以有过渡。
 
-具体的部署方案和尚待决定的规则见[网络与权威](/read/arch-network)。
-
 ## 现在有什么
 
-| 范围      | 已有能力                                                                                              |
-| --------- | ----------------------------------------------------------------------------------------------------- |
-| 框架      | 四类角色（玩家、AI、NPC、怪物）、Mover 移动、GAS 能力与战斗、输入、装备、背包、阵营、相机、设置与界面 |
-| 玩法      | 生态运行框架、怪物状态、任务、前端流程                                                                |
-| AI 与导航 | StellaAI 组合决策及 BT／StateTree／HTN 后端、StellaNavigation、StellaPatrol 巡逻                      |
-| 工具      | StellaDebug 调试面板、netImgui 远程查看、模块化编译工具 Starry UE Build                               |
+| 范围      | 已有能力                                                                                    |
+| --------- | ------------------------------------------------------------------------------------------- |
+| 框架      | 四类角色（玩家、AI、NPC、怪物）、移动、能力与战斗、输入、装备、背包、阵营、相机、设置与界面 |
+| 玩法      | 生态运行框架、怪物状态、任务、前端流程                                                      |
+| AI 与导航 | StellaAI 组合决策及 BT／StateTree／HTN 后端、StellaNavigation、StellaPatrol                 |
+| 工具      | StellaDebug 调试面板与远程查看、模块化编译工具 Starry UE Build                              |
 
-目前**还没有**正式关卡（`Content/Maps` 为空），游戏流程尚未定稿，玩家进度的本地存档也还没有实现。可以运行的是示例地图与各系统的测试地图，见[第一次运行](/read/start-first-run)。
+目前**还没有**正式关卡（`Content/Maps` 为空），游戏流程尚未定稿，玩家进度的本地存档也还没有实现。
 
 ## 三个仓库
 
-| 仓库                                                      | 内容                                                                                                   |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| [Starry](https://github.com/reyHansss/Starry)             | 游戏项目，也就是本手册描述的对象                                                                       |
-| [StarryUE](https://github.com/reyHansss/StarryUE)         | Epic 官方 UnrealEngine 的 fork，基线 `5.8.3-release`，维护分支 `starry-master`，带有项目需要的引擎修改 |
-| [StarryManual](https://github.com/reyHansss/StarryManual) | 这本手册的网站源码                                                                                     |
+| 仓库                                                      | 内容                                                                 |
+| --------------------------------------------------------- | -------------------------------------------------------------------- |
+| [Starry](https://github.com/reyHansss/Starry)             | 游戏项目，也就是本手册描述的对象                                     |
+| [StarryUE](https://github.com/reyHansss/StarryUE)         | 项目使用的源码引擎，基线为 `5.8.3-release`，维护分支 `starry-master` |
+| [StarryManual](https://github.com/reyHansss/StarryManual) | 这本手册的网站源码                                                   |
 
-Starry 只能用 StarryUE 编译。原因见[环境搭建](/read/start-setup)。
+Starry 只能用 StarryUE 编译，原因见[环境搭建](/read/start-setup)。
 
 ## 按你要做的事阅读
 
-| 你要做的事                   | 从这里开始                                                                            |
-| ---------------------------- | ------------------------------------------------------------------------------------- |
-| 第一次拿到项目               | [环境搭建](/read/start-setup) → [第一次运行](/read/start-first-run)                   |
-| 写代码前了解规范与流程       | [日常开发](/read/start-workflow)                                                      |
-| 理解整体结构                 | [架构总览](/read/arch-overview) → [一局游戏怎样启动](/read/arch-startup)              |
-| 搞清楚角色、能力、输入归谁   | [角色与组件](/read/arch-characters)                                                   |
-| 配置 AI 决策                 | [StellaAI](/read/stellaai-overview)                                                   |
-| 新增玩家操作                 | [Input](/read/input-overview)                                                         |
-| 运行时观察与调试             | [StellaDebug](/read/stelladebug-overview)                                             |
-| 系统之间发通知、异步加载资源 | [Async Message](/read/asyncmessage-overview)、[AsyncMixin](/read/asyncmixin-overview) |
-| 遇到不认识的名词             | [术语表](/read/start-glossary)                                                        |
+| 你要做的事                     | 从这里开始                                                                            |
+| ------------------------------ | ------------------------------------------------------------------------------------- |
+| 第一次拿到项目                 | [环境搭建](/read/start-setup)                                                         |
+| 写代码前了解规范与流程         | [开发约定](/read/start-workflow)                                                      |
+| 了解项目的整体结构             | [整体设计](/read/start-design)                                                        |
+| 一局游戏怎样启动、角色怎样组成 | [游戏框架](/read/framework-overview)                                                  |
+| 配置 AI 决策                   | [StellaAI](/read/stellaai-overview)                                                   |
+| 新增玩家操作                   | [Input](/read/input-overview)                                                         |
+| 运行时观察与调试               | [StellaDebug](/read/stelladebug-overview)                                             |
+| 系统之间发通知、异步加载资源   | [Async Message](/read/asyncmessage-overview)、[AsyncMixin](/read/asyncmixin-overview) |
+| 遇到不认识的名词               | 页眉的“术语”，或按 `Ctrl K` 搜索                                                      |
 
 ## 这本手册怎样用
 
-- **找内容**：左侧用模块菜单切换系统，按 `Ctrl K` 全文搜索标题、概念和 API 名称。
-- **看图**：正文图表可以滚轮缩放、拖动和全屏查看；部分时序图可以“逐步播放”，按消息顺序逐条看。
+- **找内容**：左侧用模块菜单切换系统，按 `Ctrl K` 全文搜索标题、术语、概念和 API 名称。
+- **查术语**：每个模块在自己的文章里定义术语，文章末尾列出“本页术语”；页眉的“术语”汇总全部术语，可以按模块浏览和筛选。
+- **看图**：正文图表可以滚轮缩放、拖动和全屏查看；部分时序图可以“逐步播放”。
 - **交互演示**：带“交互演示”标签的卡片可以直接操作，计算规则与项目源码一致。
 - **关系图谱**：根据文章之间的链接生成，表示“可以一起读”，不表示代码依赖。
 
-目前已经写成专题的模块有 StellaAI、StellaDebug、Input、Async Message 与 AsyncMixin。角色与移动、能力与战斗、导航、生态等系统暂时只在架构篇中概述，专题会陆续补齐。
+目前已经写成专题的模块有游戏框架、StellaAI、StellaDebug、Input、Async Message 与 AsyncMixin，其余系统会陆续补齐。
 
 文中的约定：
 
-- 标为“示例”的资产名称需要你自己创建，项目里不一定存在。
-- 标为“规划”的内容尚未实现。
+- 标为“示例”的资产名称需要你自己创建；
+- 标为“规划”的内容尚未实现；
 - 每篇末尾的“代码位置”给出阅读源码的起点。

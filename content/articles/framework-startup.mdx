@@ -1,5 +1,5 @@
 ---
-title: 一局游戏怎样启动
+title: 游戏框架 · 一局游戏怎样启动
 description: 从引擎初始化、Experience 加载、玩家与角色生成，到能力和输入就绪的完整顺序，以及 AI 控制器怎样装配决策。
 order: 11
 ---
@@ -29,7 +29,15 @@ order: 11
 
 ## 选择并加载 Experience
 
-`AStarryGameMode::InitGame` 在下一帧确定本局的 Experience，顺序为：URL 参数 → PIE 开发者设置 → 命令行 → WorldSettings → 默认 `B_StarryDefaultExperience`。详见[第一次运行](/read/start-first-run#experience-是怎样选中的)。
+`AStarryGameMode::InitGame` 在下一帧确定本局的 Experience，按下面的顺序查找，先找到的生效：
+
+1. 地图 URL 参数 `?Experience=`；
+2. PIE 时的开发者设置：项目设置 → Starry → Starry Developer Settings → **Experience Override**。这是保存在本机的个人设置，不影响其他人；
+3. 命令行参数 `-Experience=`；
+4. 当前地图 WorldSettings 的 **Default Gameplay Experience**；
+5. 以上都没有时，回退到 `Content/Blueprints/Experiences` 下的 `B_StarryDefaultExperience`。
+
+指定的 Experience 找不到对应资产时，记录错误并按第 5 步回退。专用服务器加载默认地图时，在第 5 步之前改走服务器登录，再按 `-UserExperience=` 或 `-Playlist=` 选择 Playlist 开启会话。
 
 选中后交给 GameState 上的 `UStarryExperienceManagerComponent`。Experience 只允许设置一次；客户端通过复制得到同一个 Experience，再在本机推进自己的加载。
 
@@ -150,19 +158,6 @@ CharacterData 没有填 `CharacterClass` 时，生成的是不带 Hero 组件的
 - **Hero**：发出 `UnbindInputsNow`，清空能力输入。
 - **CharacterExtension**：取消能力（保留标记为死亡后存活的能力），卸下装备，按句柄收回授予的内容，清理 Cue，解除 ASC 的 Avatar。
 - **Experience 管理器**：在 EndPlay 时停用 GameFeature 与已激活的 Action。
-
-## 与 Lyra 的主要区别
-
-如果你熟悉 Lyra，下面几处最容易看错：
-
-| 方面       | Lyra                                 | Starry                                                        |
-| ---------- | ------------------------------------ | ------------------------------------------------------------- |
-| 角色数据   | PawnData                             | CharacterData，输入配置改为 `InputSetups` 数组，新增默认装备  |
-| 扩展组件   | PawnExtension                        | CharacterExtension；玩家 ASC 的绑定从 Hero 移到这里           |
-| 能力集授予 | PlayerState 设置 PawnData 时授予     | CharacterExtension 随 Avatar 授予与收回，PlayerState 不授予   |
-| 输入       | 绑定 Pawn 的输入组件                 | PlayerController 上的 InputManager 绑定 Controller 的输入组件 |
-| 移动       | ModularCharacter + CharacterMovement | ModularPawn + Mover                                           |
-| 队伍与消息 | Teams、GameplayMessageRouter         | 阵营组件、引擎的 Async Message System                         |
 
 代码位置（相对 `Source/StarryGame/Framework`）：
 

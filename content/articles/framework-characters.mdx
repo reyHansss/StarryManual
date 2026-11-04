@@ -1,5 +1,5 @@
 ---
-title: 角色、Controller 与组件
+title: 游戏框架 · 角色、Controller 与组件
 description: 四类角色的继承关系与各自职责，Controller、PlayerState、GameState 上的关键组件，以及 ASC、输入、AI Brain 等由谁持有。
 order: 12
 ---
@@ -76,7 +76,7 @@ order: 12
   - 角色数据就绪后请求 InputManager 刷新输入配置，并发出 GameFeature 的输入绑定事件；
   - 也负责技能驱动的相机 Rig。
 
-两者的初始化条件和顺序见[一局游戏怎样启动](/read/arch-startup#角色初始化initstate-链)。
+两者的初始化条件和顺序见[一局游戏怎样启动](/read/framework-startup#角色初始化initstate-链)。
 
 代码位置（相对 `Source/StarryGame/Framework`）：
 

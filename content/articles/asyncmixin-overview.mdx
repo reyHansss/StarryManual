@@ -2,6 +2,12 @@
 title: AsyncMixin · 模块总览
 description: 管理软引用加载、有序回调与任务作用域，了解指示器画布的实际接入，以及加载完成后的资源和宿主生命周期。
 order: 60
+terms:
+  - term: AsyncMixin
+    aliases: [FAsyncMixin]
+    brief: 直接使用的 C++ 工具：宿主继承 FAsyncMixin 后可以排入资源加载、普通回调与等待条件，回调按入队顺序推进，取消或析构时撤销未执行的步骤。
+  - term: FAsyncScope
+    brief: 成员形式的独立任务链。一个宿主保存多个 FAsyncScope，就能分别排队和取消，慢步骤只挡住同一条链。
 ---
 
 ## 它负责什么

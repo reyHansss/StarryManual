@@ -3,6 +3,10 @@ title: StellaAI · BT、StateTree 与 HTN
 description: 把一次动作交给行为树、状态树或 HTN：三种后端 Logic 的配置与结果映射、StateTree 调用局部树的退出方式、黑板复用和移动任务。
 section: [行为执行, 树后端]
 order: 25
+terms:
+  - term: HTN
+    aliases: [Hierarchical Task Network, 分层任务网络, UStellaAIHTNComponent]
+    brief: 把任务逐层分解成可执行步骤的规划方法，由直接使用的 HierarchicalTaskNetworkPlanning 插件提供；StellaAI 的 HTN Logic 用它编排一次动作。
 ---
 
 ## 顶层选择，局部编排

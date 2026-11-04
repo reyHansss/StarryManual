@@ -1,7 +1,7 @@
 ---
 title: 环境搭建
 description: 准备工具链，编译 Starry 使用的源码引擎 StarryUE，再关联、生成并编译项目工程。
-order: 2
+order: 3
 ---
 
 整个流程分三步：装工具 → 编译引擎 → 编译项目。第一次完整走一遍需要较长时间，主要耗在引擎编译和首次打开编辑器时的着色器编译上。
@@ -80,7 +80,7 @@ Rider 2026.2 默认选用它自带的 MSBuild 18，加载 C++ 工程时会去找
 
 三个目标共用同一组设置：`BuildSettingsVersion.V7` 与 `IncludeOrderVersion.Unreal5_8`。
 
-编译成功后双击 `Starry.uproject`，或在 Rider 中运行，即可打开编辑器。第一次打开会编译大量着色器，耐心等待。项目没有设置编辑器启动地图，打开后看到的是引擎默认的 OpenWorld 模板地图。接下来按[第一次运行](/read/start-first-run)打开示例地图。
+编译成功后双击 `Starry.uproject`，或在 Rider 中运行，即可打开编辑器。第一次打开会编译大量着色器，耐心等待。项目没有设置编辑器启动地图，打开后看到的是引擎默认的 OpenWorld 模板地图。接下来按[开发约定](/read/start-workflow)了解编译配置、代码规范与测试。
 
 ## 可选工具
 

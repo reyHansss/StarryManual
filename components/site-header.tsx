@@ -46,6 +46,13 @@ export function SiteHeader() {
           阅读文档
         </Link>
         <Link
+          href="/terms"
+          className={path.startsWith('/terms') ? 'active' : ''}
+          aria-current={path.startsWith('/terms') ? 'true' : undefined}
+        >
+          术语
+        </Link>
+        <Link
           href="/graph"
           className={path.startsWith('/graph') ? 'active' : ''}
           aria-current={path.startsWith('/graph') ? 'true' : undefined}

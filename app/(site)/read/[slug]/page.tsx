@@ -18,6 +18,7 @@ import { ModuleContents } from '@/components/module-contents';
 import { ArticleToc } from '@/components/article-toc';
 import { getMDXComponents } from '@/components/mdx';
 import { EditorLink } from '@/components/editor-link';
+import { ArticleTerms, InlineTerms } from '@/components/article-terms';
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -93,7 +94,7 @@ export default async function ArticlePage({ params }: Props) {
   const modules = buildModuleNavigation(articles);
   const module = modules.find((group) => group.key === current.module)!;
   const moduleInfo = articleModules[module.key];
-  // 入门导览自带阅读路线，手册维护页面较少，这两处不在正文前重复列出功能目录。
+  // 项目介绍自带阅读路线，手册维护页面较少，这两处不在正文前重复列出功能目录。
   const isModuleOverview =
     module.overview?.slug === slug && !['start', 'authoring'].includes(module.key);
   const outgoing = articles.filter((article) => current.links.includes(article.slug));
@@ -101,9 +102,14 @@ export default async function ArticlePage({ params }: Props) {
     (article) => article.slug !== slug && article.links.includes(slug),
   );
   const { previous, next } = getReadingNeighbors(module, slug);
-  const toc: TOCItemType[] = isModuleOverview
-    ? [{ title: '子模块与功能', url: '#module-contents', depth: 2 }, ...page.data.toc]
-    : page.data.toc;
+  const terms = current.terms ?? [];
+  // 正文用 <Terms /> 放置了术语时，文末不再重复列出。
+  const termsAtEnd = terms.length > 0 && !current.inlineTerms;
+  const toc: TOCItemType[] = [
+    ...(isModuleOverview ? [{ title: '子模块与功能', url: '#module-contents', depth: 2 }] : []),
+    ...page.data.toc,
+    ...(termsAtEnd ? [{ title: '本页术语', url: '#本页术语', depth: 2 }] : []),
+  ];
   return (
     <main id="main" className="reading-layout">
       <ReadingNavigation modules={modules} current={current} />
@@ -175,8 +181,10 @@ export default async function ArticlePage({ params }: Props) {
         )}
         {isModuleOverview && <ModuleContents module={module} />}
         <div className="prose article-prose">
-          <MDX components={getMDXComponents()} />
+          {/* Terms 依赖本页的元信息，由页面在渲染时提供。 */}
+          <MDX components={{ ...getMDXComponents(), Terms: () => <InlineTerms terms={terms} /> }} />
         </div>
+        {termsAtEnd && <ArticleTerms terms={terms} />}
         {(previous || next) && (
           <nav className="article-next" aria-label="模块内阅读顺序">
             {previous ? (

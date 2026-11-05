@@ -1,6 +1,6 @@
 ---
-title: StellaAI · 模块总览
-description: StellaAI 解决什么问题、由哪些概念组成、各类资产在哪里创建，以及它怎样接入 Starry 的 AI 控制器。
+title: StellaUtilityAI · 模块总览
+description: StellaUtilityAI 解决什么问题、由哪些概念组成、各类资产在哪里创建，以及它怎样接入 Starry 的 AI 控制器。
 order: 20
 terms:
   - term: Objective
@@ -40,7 +40,7 @@ terms:
 
 ## 它解决什么问题
 
-一个 NPC 在任何时刻都要回答“现在做什么”。StellaAI 把这个问题拆成四件事，分别交给不同的对象：
+一个 NPC 在任何时刻都要回答“现在做什么”。StellaUtilityAI 把这个问题拆成四件事，分别交给不同的对象：
 
 - **现在有哪些机会**：Objective 保存当前事实，例如“有可接取的命令”“我在分配区域之外”。
 - **我能做哪些事**：Modifier 一层层叠加出这个 NPC 当前可用的行为集合，例如“基础反应 + 人形战斗 + 持火把”。
@@ -60,11 +60,11 @@ terms:
 
 <Terms />
 
-主决策组件是 Controller 上的 `UStellaAIComponent`，Objective 由同一个 Controller 上的 `UStellaAIObjectiveComponent` 管理。两者分开：Objective 只维护事实，不选择行为。
+主决策组件是 Controller 上的 `UStellaUtilityAIComponent`，Objective 由同一个 Controller 上的 `UStellaUtilityAIObjectiveComponent` 管理。两者分开：Objective 只维护事实，不选择行为。
 
 ## 资产与创建位置
 
-在内容浏览器中右键，选择 **AI → StellaAI**，可以创建以下资产。菜单项名称带有对应的缩写：
+在内容浏览器中右键，选择 **AI → StellaUtilityAI**，可以创建以下资产。菜单项名称带有对应的缩写：
 
 | 前缀     | 菜单项                            | 用途                                 | 编辑方式                                                      |
 | -------- | --------------------------------- | ------------------------------------ | ------------------------------------------------------------- |
@@ -82,7 +82,7 @@ Modifier 里的 Group、Behavior、Logic 都是配置模板，所有使用这套
 
 ## 在 Starry 中怎样接入
 
-Starry 通过 `AStarryAIController` 接入 StellaAI，配置入口是角色的 AISetup：
+Starry 通过 `AStarryAIController` 接入 StellaUtilityAI，配置入口是角色的 AISetup：
 
 1. 在 **Starry → AI → Starry AI Setup** 创建 `UStarryAISetupDataAsset`，选择 `BrainType = Composition`，填写 `ModifierStack` 与 `ObjectiveSetup`。
 2. 在 `AStarryAICharacter` 的派生类上设置 `AISetup`。
@@ -92,7 +92,7 @@ Starry 通过 `AStarryAIController` 接入 StellaAI，配置入口是角色的 A
 1. 异步加载 AISetup；
 2. 创建感知组件；
 3. 创建并初始化 Objective 组件；
-4. 创建 `UStellaAIComponent` 并初始化；
+4. 创建 `UStellaUtilityAIComponent` 并初始化；
 5. 进入 `Ready`，广播 `OnAISetupComplete`，开始组合决策。
 
 完整过程见[游戏框架 · 一局游戏怎样启动](/read/framework-startup#ai-控制器怎样装配)。
@@ -100,21 +100,21 @@ Starry 通过 `AStarryAIController` 接入 StellaAI，配置入口是角色的 A
 **装配时要注意：**
 
 - **只在权威端运行**：客户端（`NM_Client`）世界不装配 AI 决策。
-- **等就绪信号**：依赖 StellaAI 的功能应等待 `OnAISetupComplete`，或先检查 `HasCompletedAISetup()`，不要假定角色一生成就已就绪。
+- **等就绪信号**：依赖 StellaUtilityAI 的功能应等待 `OnAISetupComplete`，或先检查 `HasCompletedAISetup()`，不要假定角色一生成就已就绪。
 - **自定义配置来源**：自定义 Pawn 可以通过 `IStarryAISetupProviderInterface::GetAISetupData` 提供配置。
 
 ## 从哪里开始读
 
-| 你要做的事                          | 阅读                                                   |
-| ----------------------------------- | ------------------------------------------------------ |
-| 第一次让一个 NPC 跑起 StellaAI      | [快速上手](/read/stellaai-quickstart)                  |
-| 叠加或撤销一组行为                  | [组合与覆盖](/read/stellaai-composition)（含交互演示） |
-| 搞清楚为什么选中了某个行为          | [评分与抢占](/read/stellaai-selection)                 |
-| 让行为真正驱动移动、技能或交互      | [Logic 与生命周期](/read/stellaai-logic)               |
-| 用行为树、状态树或 HTN 编排一次动作 | [BT、StateTree 与 HTN](/read/stellaai-backends)        |
-| 给行为提供新的机会数据              | [Objective 与生成器](/read/stellaai-objectives)        |
-| 让玩法给 NPC 派任务                 | [命令](/read/stellaai-commands)                        |
-| 按区域改变 NPC 的行为               | [行为区域](/read/stellaai-zones)                       |
-| AI 不动或行为不对                   | [调试与排查](/read/stellaai-debugging)                 |
+| 你要做的事                            | 阅读                                                          |
+| ------------------------------------- | ------------------------------------------------------------- |
+| 第一次让一个 NPC 跑起 StellaUtilityAI | [快速上手](/read/stellautilityai-quickstart)                  |
+| 叠加或撤销一组行为                    | [组合与覆盖](/read/stellautilityai-composition)（含交互演示） |
+| 搞清楚为什么选中了某个行为            | [评分与抢占](/read/stellautilityai-selection)                 |
+| 让行为真正驱动移动、技能或交互        | [Logic 与生命周期](/read/stellautilityai-logic)               |
+| 用行为树、状态树或 HTN 编排一次动作   | [BT、StateTree 与 HTN](/read/stellautilityai-backends)        |
+| 给行为提供新的机会数据                | [Objective 与生成器](/read/stellautilityai-objectives)        |
+| 让玩法给 NPC 派任务                   | [命令](/read/stellautilityai-commands)                        |
+| 按区域改变 NPC 的行为                 | [行为区域](/read/stellautilityai-zones)                       |
+| AI 不动或行为不对                     | [调试与排查](/read/stellautilityai-debugging)                 |
 
-代码位置：插件 `Plugins/AI/StellaAI`；项目接入 `Source/StarryGame/Framework/AI/StarryAIController`、`Framework/AI/StarryAISetupDataAsset`、`Framework/Character/StarryAICharacter`。
+代码位置：插件 `Plugins/AI/StellaUtilityAI`；项目接入 `Source/StarryGame/Framework/AI/StarryAIController`、`Framework/AI/StarryAISetupDataAsset`、`Framework/Character/StarryAICharacter`。

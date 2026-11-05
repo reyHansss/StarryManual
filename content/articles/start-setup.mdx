@@ -24,7 +24,7 @@ order: 3
 
 <Note title="为什么必须用源码引擎">
 
-StarryUE 在 Epic 官方 5.8.3 的基础上加入了项目需要的修改。例如 `AAIController::FindBrainComponent` 用于按类型查找 AI 的多个 Brain 组件，Starry 和 StellaAI 都直接调用它，而 Launcher 安装的 UE 5.8 里没有这个函数。所以用 Launcher 版引擎打开 Starry 无法通过编译。
+StarryUE 在 Epic 官方 5.8.3 的基础上加入了项目需要的修改。例如 `AAIController::FindBrainComponent` 用于按类型查找 AI 的多个 Brain 组件，Starry 和 StellaUtilityAI 都直接调用它，而 Launcher 安装的 UE 5.8 里没有这个函数。所以用 Launcher 版引擎打开 Starry 无法通过编译。
 
 </Note>
 

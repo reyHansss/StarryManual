@@ -16,12 +16,12 @@ export const articleModules = {
     nodeColor: '#8c97ee',
     overview: 'framework-overview',
   },
-  stellaai: {
-    label: 'StellaAI · AI 决策',
-    shortLabel: 'StellaAI',
+  stellautilityai: {
+    label: 'StellaUtilityAI · AI 决策',
+    shortLabel: 'StellaUtilityAI',
     color: '#496f87',
     nodeColor: '#69b6ec',
-    overview: 'stellaai-overview',
+    overview: 'stellautilityai-overview',
   },
   stelladebug: {
     label: 'StellaDebug · 调试工具',

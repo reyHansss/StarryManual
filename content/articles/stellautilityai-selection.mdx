@@ -1,5 +1,5 @@
 ---
-title: StellaAI · 评分与抢占
+title: StellaUtilityAI · 评分与抢占
 description: 选择器每一帧怎样筛选候选、比较优先级与分数、决定是否打断当前行为，以及激活条件、持续约束和冷却各管什么。
 section: [行为系统]
 order: 23
@@ -7,7 +7,7 @@ order: 23
 
 ## 每次选择做了什么
 
-`UStellaAIComponent` 在 Tick 中先更新当前的 Logic，然后进行一次选择。Objective 正在更新、组件正在关闭或正在等待旧执行停止时，这一帧不选择。
+`UStellaUtilityAIComponent` 在 Tick 中先更新当前的 Logic，然后进行一次选择。Objective 正在更新、组件正在关闭或正在等待旧执行停止时，这一帧不选择。
 
 <Diagram
   title="一个候选要通过的检查（按代码中的顺序）"
@@ -58,7 +58,7 @@ order: 23
 
 - **只在开始时成立**：写在 Group 或 Behavior 的激活条件里，只影响新候选。
 - **执行期间必须始终成立**：写在 Logic 的 `IsExecutionValid` 或底层任务自己的有效性检查里。检查失败时，当前执行被取消。
-- **条件或配置本身被替换**：属于配置变化，按[组合与覆盖](/read/stellaai-composition#运行时增删-modifier)的规则处理。
+- **条件或配置本身被替换**：属于配置变化，按[组合与覆盖](/read/stellautilityai-composition#运行时增删-modifier)的规则处理。
 
 ## 冷却
 
@@ -83,6 +83,6 @@ order: 23
 6. 当前行为是否被 `UninterruptibleTags` 阻止打断。
 7. 旧执行是否还在等待安全清理。
 
-[调试面板](/read/stellaai-debugging)显示的是实际发生过的评估与执行事件。调试界面本身不会为了显示而重新调用条件或评分。
+[调试面板](/read/stellautilityai-debugging)显示的是实际发生过的评估与执行事件。调试界面本身不会为了显示而重新调用条件或评分。
 
-代码位置（插件 `Source/StellaAI`）：`Behavior/StellaAIBehavior`、`Behavior/StellaAIBehaviorGroup`、`Behavior/StellaAIComponent`（选择逻辑在 `Select`）。
+代码位置（插件 `Source/StellaUtilityAI`）：`Behavior/StellaUtilityAIBehavior`、`Behavior/StellaUtilityAIBehaviorGroup`、`Behavior/StellaUtilityAIComponent`（选择逻辑在 `Select`）。

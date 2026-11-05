@@ -48,7 +48,7 @@ Starry 从下往上分四层：
 <Diagram
   title="依赖方向：上层使用下层，下层不知道上层"
   source={
-    'flowchart TB\n  Editor(StarryEditor 编辑器扩展与测试)\n  Sample(StarrySample 示例)\n  subgraph Game[StarryGame 主模块]\n    Gameplay(Gameplay 具体玩法)\n    Framework(Framework 可复用框架)\n  end\n  Project(项目插件：StellaAI · StellaNavigation · StellaPatrol · StellaDebug)\n  Third(直接使用的第三方插件：HTN · AsyncMixin · GameSystems 等)\n  Builtin(引擎插件：GAS · Mover · StateTree · Mass · Enhanced Input · CommonUI)\n  Engine(StarryUE 引擎)\n  Editor --> Gameplay\n  Editor --> Sample\n  Gameplay --> Framework\n  Framework --> Project\n  Framework --> Third\n  Framework --> Builtin\n  Sample --> Project\n  Project --> Builtin\n  Third --> Builtin\n  Builtin --> Engine'
+    'flowchart TB\n  Editor(StarryEditor 编辑器扩展与测试)\n  Sample(StarrySample 示例)\n  subgraph Game[StarryGame 主模块]\n    Gameplay(Gameplay 具体玩法)\n    Framework(Framework 可复用框架)\n  end\n  Project(项目插件：StellaUtilityAI · StellaNavigation · StellaPatrol · StellaDebug)\n  Third(直接使用的第三方插件：HTN · AsyncMixin · GameSystems 等)\n  Builtin(引擎插件：GAS · Mover · StateTree · Mass · Enhanced Input · CommonUI)\n  Engine(StarryUE 引擎)\n  Editor --> Gameplay\n  Editor --> Sample\n  Gameplay --> Framework\n  Framework --> Project\n  Framework --> Third\n  Framework --> Builtin\n  Sample --> Project\n  Project --> Builtin\n  Third --> Builtin\n  Builtin --> Engine'
   }
 />
 
@@ -75,7 +75,7 @@ Starry 从下往上分四层：
 | -------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------- |
 | 游戏框架       | 一局游戏的启动与装配、玩家与角色、全局数据与资源   | [游戏框架](/read/framework-overview)                                                  |
 | 输入           | 把设备输入分派给移动、技能与界面                   | [Input](/read/input-overview)                                                         |
-| AI 决策        | NPC 选择做什么、怎样执行                           | [StellaAI](/read/stellaai-overview)                                                   |
+| AI 决策        | NPC 选择做什么、怎样执行                           | [StellaUtilityAI](/read/stellautilityai-overview)                                     |
 | 调试工具       | 游戏内调试面板、场景绘制、远程查看                 | [StellaDebug](/read/stelladebug-overview)                                             |
 | 消息与异步加载 | 系统之间的解耦通知、按序的异步资源加载             | [Async Message](/read/asyncmessage-overview)、[AsyncMixin](/read/asyncmixin-overview) |
 | 移动与动画     | 角色移动、翻越、动画与布娃娃                       | 待整理                                                                                |
@@ -88,23 +88,23 @@ Starry 从下往上分四层：
 
 **项目自维护的插件**统一以 Stella 命名：
 
-- **StellaAI**：组合决策；
+- **StellaUtilityAI**：组合决策；
 - **StellaNavigation**：导航；
 - **StellaPatrol**：巡逻；
 - **StellaDebug**：调试工具。
 
-另有两个默认禁用的测试插件 StellaAITests 与 StellaNavigationTests，正式工程不会加载它们。
+另有两个默认禁用的测试插件 StellaUtilityAITests 与 StellaNavigationTests，正式工程不会加载它们。
 
 **直接使用的第三方插件与代码**保留原名；确需修改时，和引擎修改一样用 `STARRY_SOURCE_MODIFY` 标记：
 
-| 插件或库                                                                                                     | 用途                                     |
-| ------------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
-| HierarchicalTaskNetworkPlanning                                                                              | HTN 规划，StellaAI 的 HTN 后端使用它     |
-| Dear ImGui、ImPlot、netImgui                                                                                 | StellaDebug 的界面库与远程显示           |
-| CommonGame、CommonUser、CommonLoadingScreen、GameSettings、GameSubtitles、ModularGameplayActors、UIExtension | Epic 提供的通用游戏框架组件              |
-| AsyncMixin                                                                                                   | 按序的异步加载工具                       |
-| LanguageOne                                                                                                  | 编辑器的中英界面切换、注释与资产翻译工具 |
-| BlockoutToolkit                                                                                              | 白盒形状与原型工具，示例地图用它搭建     |
+| 插件或库                                                                                                     | 用途                                        |
+| ------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
+| HierarchicalTaskNetworkPlanning                                                                              | HTN 规划，StellaUtilityAI 的 HTN 后端使用它 |
+| Dear ImGui、ImPlot、netImgui                                                                                 | StellaDebug 的界面库与远程显示              |
+| CommonGame、CommonUser、CommonLoadingScreen、GameSettings、GameSubtitles、ModularGameplayActors、UIExtension | Epic 提供的通用游戏框架组件                 |
+| AsyncMixin                                                                                                   | 按序的异步加载工具                          |
+| LanguageOne                                                                                                  | 编辑器的中英界面切换、注释与资产翻译工具    |
+| BlockoutToolkit                                                                                              | 白盒形状与原型工具，示例地图用它搭建        |
 
 **主要的引擎插件**：GameplayAbilities、Mover 与 NetworkPrediction、StateTree、Mass 系列、SmartObjects、Enhanced Input、CommonUI、GameFeatures 与 ModularGameplay、PoseSearch 等动画插件、PhysicsControl、GameplayCameras、AsyncMessageSystem。
 

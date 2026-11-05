@@ -118,7 +118,7 @@ export default config({
                 src: fields.text({
                   label: '图片路径',
                   description:
-                    '放在 public/images/ 下的文件，填写站内路径，例如 /images/stellaai/stack-editor.png。',
+                    '放在 public/images/ 下的文件，填写站内路径，例如 /images/stellautilityai/stack-editor.png。',
                   validation: { isRequired: true },
                 }),
                 title: fields.text({ label: '图注', validation: { isRequired: true } }),
@@ -130,7 +130,7 @@ export default config({
               schema: {},
             }),
             ModifierStackDemo: block({
-              label: 'StellaAI 叠加演示',
+              label: 'StellaUtilityAI 叠加演示',
               schema: {
                 title: fields.text({ label: '演示标题' }),
                 source: fields.text({

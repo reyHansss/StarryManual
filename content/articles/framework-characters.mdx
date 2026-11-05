@@ -34,19 +34,19 @@ order: 12
   }
 />
 
-| 对象                                    | 挂在哪里                               | 由谁创建                                                              |
-| --------------------------------------- | -------------------------------------- | --------------------------------------------------------------------- |
-| 玩家的 ASC 与 HealthSet、CombatSet      | PlayerState                            | PlayerState 构造；CharacterExtension 把角色绑定为 Avatar              |
-| AI、NPC、怪物的 ASC 与属性集            | 角色自身                               | `AStarryCharacterWithAbilities` 构造                                  |
-| AbilitySet 授予的属性集                 | ASC 的 Owner                           | 授予时创建，随句柄收回                                                |
-| 全局 ASC                                | GameState                              | GameState 构造，Owner 与 Avatar 都是 GameState                        |
-| InputManager                            | PlayerController（角色不挂）           | PlayerController 构造                                                 |
-| 输入绑定目标                            | Controller 的 `EnhancedInputComponent` | 引擎                                                                  |
-| CharacterExtension、Hero                | 角色                                   | 角色构造（Hero 只在玩家角色上）                                       |
-| AI 主 Brain                             | AIController                           | 装配时创建，名为 `DecisionBrainComponent`                             |
-| StellaAI 使用的 BT／StateTree／HTN 组件 | AIController                           | Logic 或 StateTree 任务按需创建并复用                                 |
-| 黑板                                    | AIController                           | BehaviorTree 模式由 Controller 创建；Composition 模式在后端需要时取得 |
-| 感知、Objective 组件                    | AIController                           | 装配时创建；Objective 只在 Composition 模式下创建                     |
+| 对象                                           | 挂在哪里                               | 由谁创建                                                              |
+| ---------------------------------------------- | -------------------------------------- | --------------------------------------------------------------------- |
+| 玩家的 ASC 与 HealthSet、CombatSet             | PlayerState                            | PlayerState 构造；CharacterExtension 把角色绑定为 Avatar              |
+| AI、NPC、怪物的 ASC 与属性集                   | 角色自身                               | `AStarryCharacterWithAbilities` 构造                                  |
+| AbilitySet 授予的属性集                        | ASC 的 Owner                           | 授予时创建，随句柄收回                                                |
+| 全局 ASC                                       | GameState                              | GameState 构造，Owner 与 Avatar 都是 GameState                        |
+| InputManager                                   | PlayerController（角色不挂）           | PlayerController 构造                                                 |
+| 输入绑定目标                                   | Controller 的 `EnhancedInputComponent` | 引擎                                                                  |
+| CharacterExtension、Hero                       | 角色                                   | 角色构造（Hero 只在玩家角色上）                                       |
+| AI 主 Brain                                    | AIController                           | 装配时创建，名为 `DecisionBrainComponent`                             |
+| StellaUtilityAI 使用的 BT／StateTree／HTN 组件 | AIController                           | Logic 或 StateTree 任务按需创建并复用                                 |
+| 黑板                                           | AIController                           | BehaviorTree 模式由 Controller 创建；Composition 模式在后端需要时取得 |
+| 感知、Objective 组件                           | AIController                           | 装配时创建；Objective 只在 Composition 模式下创建                     |
 
 **这张表带来的几条实际约束：**
 

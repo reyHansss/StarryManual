@@ -4,7 +4,7 @@ import {
   composeModifiers,
   parseModifierScenario,
   pathToString,
-} from '../lib/stellaai-composition.ts';
+} from '../lib/stellautilityai-composition.ts';
 
 const layers = (source) => {
   const { layers, problems } = parseModifierScenario(source);
@@ -14,7 +14,7 @@ const layers = (source) => {
 const summary = (result) =>
   result.nodes.map((node) => [pathToString(node.path), node.kind, node.priority, node.layerName]);
 
-// 对应 StellaAITests 的 StellaAI.Rework.Composition.SharedDefinitionsAndRestoration。
+// 对应 StellaUtilityAITests 的 StellaUtilityAI.Rework.Composition.SharedDefinitionsAndRestoration。
 test('后层同路径完整替换组与行为，子项继承新根优先级，撤销后层恢复前层定义', () => {
   const core = `层 Core
 AddGroup Combat 战斗组

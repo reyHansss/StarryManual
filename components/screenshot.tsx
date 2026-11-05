@@ -2,7 +2,7 @@ import { ImageIcon } from 'lucide-react';
 import { assetUrl } from '@/lib/site-config';
 
 /**
- * 正文截图：`src` 为 `public` 下的站内路径（例如 `/images/stellaai/stack-editor.png`），
+ * 正文截图：`src` 为 `public` 下的站内路径（例如 `/images/stellautilityai/stack-editor.png`），
  * `title` 同时作为图注与替代文字。点击图片在新标签页打开原图，静态发布时自动补上部署路径。
  */
 export function Screenshot({ src, title }: { src: string; title: string }) {

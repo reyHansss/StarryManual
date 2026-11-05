@@ -1,5 +1,5 @@
 ---
-title: StellaAI · 组合与覆盖
+title: StellaUtilityAI · 组合与覆盖
 description: 用 Modifier 一层层叠出 NPC 的行为集合：路径与操作、编辑器用法、后层覆盖前层的规则、运行时增删，以及可以动手试的叠加演示。
 section: [行为系统]
 order: 22
@@ -24,7 +24,7 @@ Modifier 由一组条目组成，每个条目是四种操作之一：`AddGroup`�
 - **继承 AIBM**：从另一个 AIBM 派生的子蓝图，会用自己的条目列表**整体替换**父类的列表，不做合并。
 
 <Screenshot
-  src="/images/stellaai/stellaai-aibm-editor.png"
+  src="/images/stellautilityai/stellautilityai-aibm-editor.png"
   title="项目资产 AIBM_Ecology 的 Behavior Modifier 页签：Critical 与 Normal 两个优先级下挂行为节点，右侧为路径与请求工具"
 />
 
@@ -33,7 +33,7 @@ Modifier 由一组条目组成，每个条目是四种操作之一：`AddGroup`�
 **PIE 运行时的限制：**
 
 - AIBM 与 Stack 编辑器都禁止修改；
-- 在 PIE 中编译或修改 Modifier、Behavior、Group、Logic 蓝图，会关闭所有正在运行的 StellaAI 会话。
+- 在 PIE 中编译或修改 Modifier、Behavior、Group、Logic 蓝图，会关闭所有正在运行的 StellaUtilityAI 会话。
 
 ## Stack：选哪些层、按什么顺序
 
@@ -42,7 +42,7 @@ Modifier 由一组条目组成，每个条目是四种操作之一：`AddGroup`�
 Stack 编辑器带有**最终组合**的只读预览：每个节点来自哪一层、哪些条目出错、哪些 Modifier 被重复应用，都会标出来。
 
 <Screenshot
-  src="/images/stellaai/stellaai-stack-editor.png"
+  src="/images/stellautilityai/stellautilityai-stack-editor.png"
   title="AIBMS_Ecology 的 Stack 编辑器：左侧为按顺序合成的层，右侧为最终组合的只读预览，节点标出来源层"
 />
 
@@ -67,7 +67,7 @@ Stack 编辑器带有**最终组合**的只读预览：每个节点来自哪一�
 
 ## 动手试一试
 
-下面的演示按 StellaAI 的组合规则实时计算最终集合，规则与插件中的 `FStellaAIComposition::Build` 一一对应。
+下面的演示按 StellaUtilityAI 的组合规则实时计算最终集合，规则与插件中的 `FStellaUtilityAIComposition::Build` 一一对应。
 
 - **第一层**：`AIBM_Base_Core` 使用插件编辑器测试中的真实条目。
 - **后面几层**：带“示例”字样，是为演示规则准备的。
@@ -113,7 +113,7 @@ RemoveBehavior Ambient/Idle`}
 
 **添加**
 
-- `AddModifier(Class, SourceOwner)` 返回一个应用句柄 `FStellaAIModifierHandle`。相同 Modifier 类的两次应用有不同的句柄，撤回时用句柄精确定位，不要只记类型。
+- `AddModifier(Class, SourceOwner)` 返回一个应用句柄 `FStellaUtilityAIModifierHandle`。相同 Modifier 类的两次应用有不同的句柄，撤回时用句柄精确定位，不要只记类型。
 - 返回句柄只表示请求已经登记。请求在安全的边界统一处理，要知道是否生效，监听 `OnModifierChanged`：
 
 | 状态       | 何时广播                                                         |
@@ -145,6 +145,6 @@ RemoveBehavior Ambient/Idle`}
 
 所以不要把当前目标、所属角色或执行进度写进模板对象的成员里。需要独立状态时，用 Logic 的执行数据或 Modifier 的应用数据。
 
-评分怎样决定谁被选中，见[评分与抢占](/read/stellaai-selection)；区域怎样按分配应用 Modifier，见[行为区域](/read/stellaai-zones)。
+评分怎样决定谁被选中，见[评分与抢占](/read/stellautilityai-selection)；区域怎样按分配应用 Modifier，见[行为区域](/read/stellautilityai-zones)。
 
-代码位置（插件 `Source/StellaAI`）：`Behavior/StellaAIBehaviorModifier`、`Behavior/StellaAIBehaviorModifierStack`（组合规则 `FStellaAIComposition::Build`）、`Behavior/StellaAIComponent`。
+代码位置（插件 `Source/StellaUtilityAI`）：`Behavior/StellaUtilityAIBehaviorModifier`、`Behavior/StellaUtilityAIBehaviorModifierStack`（组合规则 `FStellaUtilityAIComposition::Build`）、`Behavior/StellaUtilityAIComponent`。

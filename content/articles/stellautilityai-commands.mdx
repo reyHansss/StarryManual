@@ -1,5 +1,5 @@
 ---
-title: StellaAI · 命令
+title: StellaUtilityAI · 命令
 description: 玩法怎样向 NPC 发布任务：命令的接取要求、蓝图发布节点与通知、AI 侧的领取与归还，以及完成、归还、撤销和超时的区别。
 section: [机会与调度, 命令]
 order: 27
@@ -25,7 +25,7 @@ order: 27
 
 ## 接取要求
 
-命令的 `Requirements`（`FStellaAICommandRequirements`）决定谁可以接：
+命令的 `Requirements`（`FStellaUtilityAICommandRequirements`）决定谁可以接：
 
 | 字段            | 含义                                                                                     |
 | --------------- | ---------------------------------------------------------------------------------------- |
@@ -41,7 +41,7 @@ order: 27
 
 ## 用蓝图发布
 
-使用异步节点 **Issue AI Command**（`UStellaAIAsyncIssueCommand`）：
+使用异步节点 **Issue AI Command**（`UStellaUtilityAIAsyncIssueCommand`）：
 
 1. 传入有效的 `AAIController` 和命令类，可选地传入一个同类型、尚未发布的初始化对象。
 2. 在初始化对象上发布之前，用 `SetRequirements`／`SetAllowedActors` 设置接取条件。
@@ -68,11 +68,11 @@ Taken、Returned、Finished 按**每个实际使用的角色**分别触发：一
 | Aborted             | Returned | 可以                         |
 
 - **撤销或超时**：命令被撤销或超时后，正在使用它的执行再调用 `EndUse`，一律按 Aborted 处理并发出 Returned。已经开始的执行仍要走正常的取消与清理，不能丢下任务引用就跳过归还。
-- **会话结束**：NPC 的 StellaAI 会话结束时，它对命令的使用会自动按 Aborted 结束。
+- **会话结束**：NPC 的 StellaUtilityAI 会话结束时，它对命令的使用会自动按 Aborted 结束。
 
 ## AI 侧怎样接入
 
-1. 把 `UStellaAIObjectiveGenerator_Commands` 加入 AIOCS 的 `GeneratorTemplates`。`SupportedClasses` 为空时接受所有命令类型，非空时只接受这些类型及其子类。
+1. 把 `UStellaUtilityAIObjectiveGenerator_Commands` 加入 AIOCS 的 `GeneratorTemplates`。`SupportedClasses` 为空时接受所有命令类型，非空时只接受这些类型及其子类。
 2. Behavior 用只读的 `CanTake` 评估机会，不要在评分时就 `Take`。
 3. Logic 在 `Start` 中调用 `Take(Component, ExecutionId)`，把占用绑定到本次执行；在自己的 `Cleanup` 中配对调用 `EndUse(Component, ExecutionId, Result)`。
 
@@ -89,6 +89,6 @@ Taken、Returned、Finished 按**每个实际使用的角色**分别触发：一
 5. Behavior 的分数；
 6. Logic 的 `Take` 返回值。
 
-排查工具见[调试与排查](/read/stellaai-debugging)，执行清理规则见 [Logic 与生命周期](/read/stellaai-logic)。
+排查工具见[调试与排查](/read/stellautilityai-debugging)，执行清理规则见 [Logic 与生命周期](/read/stellautilityai-logic)。
 
-代码位置（插件 `Source/StellaAI`）：`Commands/StellaAICommand`、`Commands/StellaAICommandSubsystem`、`Commands/StellaAIObjective_Commands`、`Commands/StellaAIAsyncIssueCommand`。
+代码位置（插件 `Source/StellaUtilityAI`）：`Commands/StellaUtilityAICommand`、`Commands/StellaUtilityAICommandSubsystem`、`Commands/StellaUtilityAIObjective_Commands`、`Commands/StellaUtilityAIAsyncIssueCommand`。

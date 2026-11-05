@@ -1,5 +1,5 @@
 ---
-title: StellaAI · Objective 与生成器
+title: StellaUtilityAI · Objective 与生成器
 description: 把领域事实变成行为可以读取的机会：Objective 与 Generator 的分工、新增一种机会的步骤、写入规则与失效处理。
 section: [机会与调度]
 order: 26
@@ -9,10 +9,10 @@ order: 26
 
 **Objective（机会）**：供决策读取的事实数据，例如“有一条可以接取的命令”“我在分配区域之外”。它不负责选择 Behavior，也不是各模块随意塞数据的通用容器。
 
-**Generator（生成器）**：负责创建、更新和标记失效这些机会，挂在所属 NPC 的 `UStellaAIObjectiveComponent` 上。
+**Generator（生成器）**：负责创建、更新和标记失效这些机会，挂在所属 NPC 的 `UStellaUtilityAIObjectiveComponent` 上。
 
 - 组件以**批次**为单位更新：一个批次结束后，选择器才读取完整的结果，不会读到同一批次里只写了一半的数据。
-- 每个批次结束时，会自动请求 StellaAI 重新评估。
+- 每个批次结束时，会自动请求 StellaUtilityAI 重新评估。
 
 <Diagram
   title="领域通知 → 机会 → 行为评估"
@@ -23,8 +23,8 @@ order: 26
 
 ## 新增一种机会
 
-1. 创建 `UStellaAIObjective` 的派生类（菜单项 Objective (AIO)），只放这种机会需要的事实字段。
-2. 创建 `UStellaAIObjectiveGenerator` 的派生类（菜单项 Objective Generator (AIOG)）：
+1. 创建 `UStellaUtilityAIObjective` 的派生类（菜单项 Objective (AIO)），只放这种机会需要的事实字段。
+2. 创建 `UStellaUtilityAIObjectiveGenerator` 的派生类（菜单项 Objective Generator (AIOG)）：
    - 在 `OnInitialize` 中绑定领域通知，在 `OnShutdown` 中解除；
    - 在 `OnUpdate` 中用 `GetOrCreateObjective(Class, WasCreated)` 创建或取得自己负责的机会，再更新字段。
 3. 把生成器模板加入 `AIOCS_` 资产的 `GeneratorTemplates`。
@@ -55,13 +55,13 @@ order: 26
 
 ## 现有的生成器
 
-| 生成器                                     | 产生的机会                                              | 详细说明                         |
-| ------------------------------------------ | ------------------------------------------------------- | -------------------------------- |
-| `UStellaAIObjectiveGenerator_Commands`     | 可接取的命令                                            | [命令](/read/stellaai-commands)  |
-| `UStellaAIObjectiveGenerator_ReturnToZone` | 角色在分配区域之外（`UStellaAIObjective_ReturnToZone`） | [行为区域](/read/stellaai-zones) |
+| 生成器                                            | 产生的机会                                                     | 详细说明                                |
+| ------------------------------------------------- | -------------------------------------------------------------- | --------------------------------------- |
+| `UStellaUtilityAIObjectiveGenerator_Commands`     | 可接取的命令                                                   | [命令](/read/stellautilityai-commands)  |
+| `UStellaUtilityAIObjectiveGenerator_ReturnToZone` | 角色在分配区域之外（`UStellaUtilityAIObjective_ReturnToZone`） | [行为区域](/read/stellautilityai-zones) |
 
 感知、生态或玩法目标由所属的项目领域接入。不要因为它们都叫“目标”，就塞进同一个没有边界的共享数据对象。
 
-机会没有出现时，到 **AI → Objectives** 面板查看当前机会，排查方法见[调试与排查](/read/stellaai-debugging)。
+机会没有出现时，到 **AI → Objectives** 面板查看当前机会，排查方法见[调试与排查](/read/stellautilityai-debugging)。
 
-代码位置：插件 `Source/StellaAI/Public/Objectives` 中的 Objective、Generator、ObjectiveComponent 与 ObjectiveComponentSetup。
+代码位置：插件 `Source/StellaUtilityAI/Public/Objectives` 中的 Objective、Generator、ObjectiveComponent 与 ObjectiveComponentSetup。

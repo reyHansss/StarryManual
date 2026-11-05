@@ -1,5 +1,5 @@
 ---
-title: StellaAI · Logic 与生命周期
+title: StellaUtilityAI · Logic 与生命周期
 description: 一次执行怎样启动、更新、取消和清理；共享模板、执行数据与蓝图实例怎样选；异步回调怎样避免结束错误的执行。
 section: [行为执行]
 order: 24
@@ -7,7 +7,7 @@ order: 24
 
 ## Logic 负责“这一次”
 
-Behavior 决定做什么，Logic 负责这一次怎么做：取得目标与资源、启动任务、在结束时全部归还。具体的移动、技能或交互由所属领域实现，StellaAI 不要求交互必须经过 GAS。
+Behavior 决定做什么，Logic 负责这一次怎么做：取得目标与资源、启动任务、在结束时全部归还。具体的移动、技能或交互由所属领域实现，StellaUtilityAI 不要求交互必须经过 GAS。
 
 每个 Controller 同一时间最多有一个顶层活动的 Logic。旧执行完全清理之后，下一次执行才会开始，不会和旧执行争抢同一批资源。这个限制只针对顶层；BT 或 StateTree 内部照常可以并行组织多个任务。
 
@@ -20,11 +20,11 @@ Behavior 决定做什么，Logic 负责这一次怎么做：取得目标与资�
 
 ## 选择状态放在哪里
 
-| 实现方式                                | 状态放在哪里                                                                                            |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| 原生 Logic，没有 UObject 成员状态       | 所有 NPC 共享同一个模板；本次执行的数据存在 `GetInstanceDataType()` 声明的 Struct 中                    |
-| 原生 Logic，需要独立的 UObject 成员状态 | 在构造函数中把 `bCreateInstance` 设为 true，实际开始执行时才复制一个实例                                |
-| 蓝图 Logic                              | 以 `UStellaAIBehaviorLogic_BlueprintBase` 为父类（菜单项 BehaviorLogic (AIBL)），实际执行时创建独立对象 |
+| 实现方式                                | 状态放在哪里                                                                                                   |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| 原生 Logic，没有 UObject 成员状态       | 所有 NPC 共享同一个模板；本次执行的数据存在 `GetInstanceDataType()` 声明的 Struct 中                           |
+| 原生 Logic，需要独立的 UObject 成员状态 | 在构造函数中把 `bCreateInstance` 设为 true，实际开始执行时才复制一个实例                                       |
+| 蓝图 Logic                              | 以 `UStellaUtilityAIBehaviorLogic_BlueprintBase` 为父类（菜单项 BehaviorLogic (AIBL)），实际执行时创建独立对象 |
 
 需要蓝图事件图或 latent 节点时，一律从 BlueprintBase 派生。Logic 基类和原生的 BehaviorTree、StateTree、Wait Logic 都不允许蓝图派生。组件不会预先为每个候选复制 Logic，也不会连同所属的 Modifier、Group、Behavior 一起复制。
 
@@ -56,7 +56,7 @@ Behavior 决定做什么，Logic 负责这一次怎么做：取得目标与资�
 
 ## 异步回调要带着原来的 Id
 
-**启动时**：保存组件的弱引用和本次的 `FStellaAIExecutionId`。
+**启动时**：保存组件的弱引用和本次的 `FStellaUtilityAIExecutionId`。
 
 **回调到来时**：
 
@@ -92,6 +92,6 @@ Behavior 决定做什么，Logic 负责这一次怎么做：取得目标与资�
    - 取消后角色是否还在继续动作；
    - 下一次执行有没有读到上一次的目标。
 
-把动作交给行为树、状态树或 HTN 时的结果与退出规则，见 [BT、StateTree 与 HTN](/read/stellaai-backends)；命令的领取与归还，见[命令](/read/stellaai-commands)。
+把动作交给行为树、状态树或 HTN 时的结果与退出规则，见 [BT、StateTree 与 HTN](/read/stellautilityai-backends)；命令的领取与归还，见[命令](/read/stellautilityai-commands)。
 
-代码位置（插件 `Source/StellaAI`）：`Behavior/StellaAIBehaviorLogic`、`Behavior/StellaAIBehaviorLogic_BlueprintBase`、`Behavior/StellaAIBehaviorLogic_Wait`、`Behavior/StellaAIComponent`。
+代码位置（插件 `Source/StellaUtilityAI`）：`Behavior/StellaUtilityAIBehaviorLogic`、`Behavior/StellaUtilityAIBehaviorLogic_BlueprintBase`、`Behavior/StellaUtilityAIBehaviorLogic_Wait`、`Behavior/StellaUtilityAIComponent`。

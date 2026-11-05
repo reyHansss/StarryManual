@@ -68,7 +68,7 @@ virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 | 脚本                                     | 做什么                                                                                       |
 | ---------------------------------------- | -------------------------------------------------------------------------------------------- |
 | `TestSourceStructure.ps1`                | 检查 include 是否从模块根写起、有无反向依赖、已撤销目录是否重建、`Build.cs` 规则与源码映射表 |
-| `TestStellaAIBoundaries.ps1`             | 检查 StellaAI 的命名与依赖边界、测试插件默认禁用、正式代码不引用测试                         |
+| `TestStellaUtilityAIBoundaries.ps1`      | 检查 StellaUtilityAI 的命名与依赖边界、测试插件默认禁用、正式代码不引用测试                  |
 | `OpenStellaNavigationTest.ps1`／`.bat`   | 建立导航测试的隔离工程，编译并打开测试地图；需要传 `-EngineRoot`                             |
 | `TestStellaNavigationRuntime.ps1`        | 导航的 Standalone 与 Dedicated 无界面验收                                                    |
 | `TestStellaNavigationWorldPartition.ps1` | 转换 World Partition 地图、构建导航数据并验收流送                                            |
@@ -91,16 +91,16 @@ UnrealEditor-Cmd.exe Starry.uproject /Engine/Maps/Entry -unattended -nop4 -nosou
 
 把 `Starry.Input` 换成要运行的测试名称前缀：
 
-| 前缀                                                          | 范围                                  |
-| ------------------------------------------------------------- | ------------------------------------- |
-| `Starry.Ecology`                                              | 生态（数量最多）                      |
-| `Starry.Combat`、`Starry.GAS`、`Starry.AI`、`Starry.Input` 等 | 项目各系统                            |
-| `StellaAI.Rework`                                             | StellaAI 插件，需要启用 StellaAITests |
-| `StellaNavigation`、`StellaPatrol`                            | 导航与巡逻插件                        |
+| 前缀                                                          | 范围                                                |
+| ------------------------------------------------------------- | --------------------------------------------------- |
+| `Starry.Ecology`                                              | 生态（数量最多）                                    |
+| `Starry.Combat`、`Starry.GAS`、`Starry.AI`、`Starry.Input` 等 | 项目各系统                                          |
+| `StellaUtilityAI.Rework`                                      | StellaUtilityAI 插件，需要启用 StellaUtilityAITests |
+| `StellaNavigation`、`StellaPatrol`                            | 导航与巡逻插件                                      |
 
 **测试插件**：
 
-- **StellaAITests**：编译时加 `-EnablePlugin=StellaAITests`，启动编辑器时加 `-EnablePlugins=StellaAITests`，再运行 `StellaAI.Rework.` 开头的测试。
+- **StellaUtilityAITests**：编译时加 `-EnablePlugin=StellaUtilityAITests`，启动编辑器时加 `-EnablePlugins=StellaUtilityAITests`，再运行 `StellaUtilityAI.Rework.` 开头的测试。
 - **StellaNavigationTests**：不在正式工程中启用。`Scripts/OpenStellaNavigationTest.ps1` 会把插件复制到 `Saved/StellaNavigationSandbox` 的隔离工程，编译后打开测试地图。在当前目录布局下，需要显式传入 `-EngineRoot <引擎目录>/Engine`。
 
 项目自己的测试源码在 `Source/StarryEditor/Tests` 与 `Source/StarryGame/Tests`。

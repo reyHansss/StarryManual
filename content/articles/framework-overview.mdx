@@ -39,7 +39,7 @@ terms:
     aliases: [UStarryAISetupDataAsset, Starry AI Setup]
     brief: AI 角色的配置入口：BrainType、Modifier Stack、Objective 配置、感知与移动适配。AI 控制器按它装配感知与决策。
   - term: BrainType
-    brief: AISetup 中选择主 Brain 的方式，可选 BehaviorTree、StateTree、Custom 与 Composition；Composition 使用 StellaAI。
+    brief: AISetup 中选择主 Brain 的方式，可选 BehaviorTree、StateTree、Custom 与 Composition；Composition 使用 StellaUtilityAI。
   - term: Brain
     aliases: [UBrainComponent, 主 Brain]
     brief: AIController 上负责决策的组件。Starry 的 AI 控制器按 BrainType 创建一个主 Brain，其他 Brain 组件可以并存，按类型查找。
@@ -59,7 +59,7 @@ terms:
 - **玩家与角色**：四类角色的继承关系，Controller、PlayerState、GameState 上的组件，以及 ASC、输入、AI Brain 等对象由谁持有。
 - **数据与资源**：主资产的扫描与加载、主要配置资产、Content 与 Config 目录的归属、GameplayTag 的来源。
 
-`Framework` 下的输入、能力与战斗、相机等目录各有专题，例如 [Input](/read/input-overview)；AI 控制器怎样装配决策在本模块讲，决策本身见 [StellaAI](/read/stellaai-overview)。
+`Framework` 下的输入、能力与战斗、相机等目录各有专题，例如 [Input](/read/input-overview)；AI 控制器怎样装配决策在本模块讲，决策本身见 [StellaUtilityAI](/read/stellautilityai-overview)。
 
 ## 一局游戏由数据装配
 

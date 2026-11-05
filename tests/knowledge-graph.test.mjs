@@ -51,7 +51,7 @@ const article = (slug, links, module = 'input', section = []) => ({
 });
 const articles = [
   article('a', ['a', 'b', 'missing'], 'input', ['动作处理']),
-  article('b', ['a', 'd'], 'stellaai', ['行为执行']),
+  article('b', ['a', 'd'], 'stellautilityai', ['行为执行']),
   article('c', ['a'], 'stelladebug'),
   article('d', [], 'input', ['动作处理', '值与触发规则']),
   article('isolated', [], 'start'),
@@ -119,11 +119,11 @@ test('模块总览聚合全部文章的跨模块阅读链接并去重，保留�
     article('input-overview', [], 'input'),
     article(
       'input-detail',
-      ['stellaai-detail', 'stellaai-overview', 'input-overview', 'missing'],
+      ['stellautilityai-detail', 'stellautilityai-overview', 'input-overview', 'missing'],
       'input',
     ),
-    article('stellaai-overview', ['input-detail'], 'stellaai'),
-    article('stellaai-detail', [], 'stellaai'),
+    article('stellautilityai-overview', ['input-detail'], 'stellautilityai'),
+    article('stellautilityai-detail', [], 'stellautilityai'),
     article('stelladebug-alone', [], 'stelladebug'),
   ];
   const before = structuredClone(pages);
@@ -136,11 +136,15 @@ test('模块总览聚合全部文章的跨模块阅读链接并去重，保留�
   assert.equal(modules.find((module) => module.module === 'input').articleCount, 2);
   assert.equal(modules.find((module) => module.module === 'input').url, '/read/input-overview');
   assert.deepEqual(getGraphRelations(modules), [
-    { id: 'module:input::module:stellaai', source: 'module:input', target: 'module:stellaai' },
+    {
+      id: 'module:input::module:stellautilityai',
+      source: 'module:input',
+      target: 'module:stellautilityai',
+    },
   ]);
   assert.deepEqual(
     getLocalArticles(modules, 'module:input').map((module) => module.module),
-    ['stellaai', 'input'],
+    ['stellautilityai', 'input'],
   );
   const isolated = modules.find((module) => module.module === 'stelladebug');
   assert.equal(isolated.url, undefined, '没有总览文章时不伪造模块说明链接');

@@ -123,7 +123,7 @@ CharacterData 没有填 `CharacterClass` 时，生成的是不带 Hero 组件的
   title="AI 侧装配顺序"
   steps
   source={
-    'sequenceDiagram\n  participant Pawn as AI 角色\n  participant AIC as StarryAIController\n  participant AM as AssetManager\n  participant Obj as Objective 组件\n  participant SAI as StellaAI 组件\n  Pawn->>AIC: 生成默认 Controller 并 Possess（客户端不执行）\n  AIC->>Pawn: 读取 AISetup\n  AIC->>AM: 异步加载 AISetup 的 Brain 与 Perception Bundle\n  AM-->>AIC: 加载完成，核对仍是同一次会话\n  AIC->>AIC: 创建感知组件\n  AIC->>Obj: Composition：创建并初始化 Objective 组件\n  AIC->>SAI: 创建主 Brain 并 Initialize\n  AIC->>AIC: 进入 Ready，广播 OnAISetupComplete\n  AIC->>SAI: StartLogic，开始组合决策'
+    'sequenceDiagram\n  participant Pawn as AI 角色\n  participant AIC as StarryAIController\n  participant AM as AssetManager\n  participant Obj as Objective 组件\n  participant SAI as StellaUtilityAI 组件\n  Pawn->>AIC: 生成默认 Controller 并 Possess（客户端不执行）\n  AIC->>Pawn: 读取 AISetup\n  AIC->>AM: 异步加载 AISetup 的 Brain 与 Perception Bundle\n  AM-->>AIC: 加载完成，核对仍是同一次会话\n  AIC->>AIC: 创建感知组件\n  AIC->>Obj: Composition：创建并初始化 Objective 组件\n  AIC->>SAI: 创建主 Brain 并 Initialize\n  AIC->>AIC: 进入 Ready，广播 OnAISetupComplete\n  AIC->>SAI: StartLogic，开始组合决策'
   }
 />
 
@@ -133,12 +133,12 @@ CharacterData 没有填 `CharacterClass` 时，生成的是不带 Hero 组件的
 
 **进入初始化后，先创建感知组件，再按 `BrainType` 创建主 Brain：**
 
-| BrainType      | 装配内容                                                                           |
-| -------------- | ---------------------------------------------------------------------------------- |
-| `BehaviorTree` | 创建黑板与行为树组件，启动行为树并注入动态子树                                     |
-| `StateTree`    | 创建状态树组件，设置树后启动                                                       |
-| `Custom`       | 创建自定义 Brain 组件并启动                                                        |
-| `Composition`  | 创建 Objective 组件与 `UStellaAIComponent`，见 [StellaAI](/read/stellaai-overview) |
+| BrainType      | 装配内容                                                                                                |
+| -------------- | ------------------------------------------------------------------------------------------------------- |
+| `BehaviorTree` | 创建黑板与行为树组件，启动行为树并注入动态子树                                                          |
+| `StateTree`    | 创建状态树组件，设置树后启动                                                                            |
+| `Custom`       | 创建自定义 Brain 组件并启动                                                                             |
+| `Composition`  | 创建 Objective 组件与 `UStellaUtilityAIComponent`，见 [StellaUtilityAI](/read/stellautilityai-overview) |
 
 **结束初始化：**
 

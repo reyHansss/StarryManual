@@ -1,5 +1,5 @@
 ---
-title: StellaAI · 调试与排查
+title: StellaUtilityAI · 调试与排查
 description: AI 调试面板各窗口能看到什么、节点标签和颜色的含义、Timeline 的用法，以及 AI 不行动或行为不对时按运行链逐层排查。
 section: [调试与排查]
 order: 29
@@ -9,20 +9,20 @@ order: 29
 
 在非 Shipping 构建的 PIE 中按 **F1** 切换调试输入，打开顶部的 **AI** 菜单。下面这些窗口共用同一个 AI 调试会话，由 Agents 窗口每帧驱动：
 
-| 窗口               | 看什么                                                                                                                                                                      |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Agents**         | 列出带 StellaAI 组件的角色并选择其一，选择结果同步到 StellaDebug 顶栏。<br />显示 Controller、Pawn、移动模式，以及寻路、Objective 组件和 Controller 上全部 Brain 的运行状态 |
-| **StellaBehavior** | 当前行为集合的树、节点的评估结果、当前执行的详情，下方是 Timeline                                                                                                           |
-| **Objectives**     | 当前的机会与生成器                                                                                                                                                          |
-| **Modifiers**      | 应用的层与组合结果；可以给选中的 NPC 临时增删 Modifier，并显示被拒绝的原因                                                                                                  |
-| **BehaviorTree**   | 节点树（可搜索），活动节点为绿色                                                                                                                                            |
-| **StateTree**      | 同上，针对 StateTree                                                                                                                                                        |
-| **HTN**            | 节点树、计划实例与每一步的代价                                                                                                                                              |
-| **Blackboard**     | 全部键值，包括父资产中的键                                                                                                                                                  |
+| 窗口               | 看什么                                                                                                                                                                             |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Agents**         | 列出带 StellaUtilityAI 组件的角色并选择其一，选择结果同步到 StellaDebug 顶栏。<br />显示 Controller、Pawn、移动模式，以及寻路、Objective 组件和 Controller 上全部 Brain 的运行状态 |
+| **StellaBehavior** | 当前行为集合的树、节点的评估结果、当前执行的详情，下方是 Timeline                                                                                                                  |
+| **Objectives**     | 当前的机会与生成器                                                                                                                                                                 |
+| **Modifiers**      | 应用的层与组合结果；可以给选中的 NPC 临时增删 Modifier，并显示被拒绝的原因                                                                                                         |
+| **BehaviorTree**   | 节点树（可搜索），活动节点为绿色                                                                                                                                                   |
+| **StateTree**      | 同上，针对 StateTree                                                                                                                                                               |
+| **HTN**            | 节点树、计划实例与每一步的代价                                                                                                                                                     |
+| **Blackboard**     | 全部键值，包括父资产中的键                                                                                                                                                         |
 
-BehaviorTree、StateTree、HTN、Blackboard 四个窗口不要求角色带 StellaAI 组件，独立使用的原生后端也能看。
+BehaviorTree、StateTree、HTN、Blackboard 四个窗口不要求角色带 StellaUtilityAI 组件，独立使用的原生后端也能看。
 
-面板显示的是 StellaAI 实际发布的评估与执行事件。打开面板不会让组件额外调用条件或评分。
+面板显示的是 StellaUtilityAI 实际发布的评估与执行事件。打开面板不会让组件额外调用条件或评分。
 
 ## 读懂 StellaBehavior
 
@@ -98,6 +98,6 @@ Timeline 位于 StellaBehavior 窗口下方：
 
 一次手动赋值或延迟能绕过问题，不代表找到了原因。
 
-调试工具本身的操作与远程显示见 [StellaDebug](/read/stelladebug-overview) 和[远程面板](/read/stelladebug-remote)；执行与清理规则见 [Logic 与生命周期](/read/stellaai-logic)。
+调试工具本身的操作与远程显示见 [StellaDebug](/read/stelladebug-overview) 和[远程面板](/read/stelladebug-remote)；执行与清理规则见 [Logic 与生命周期](/read/stellautilityai-logic)。
 
-代码位置：`Source/StarryGame/Framework/Development/StarryDebugSubsystem`（窗口注册）、`Framework/AI/Debug`（各窗口与调试会话 `FStarryAIDebugSession`）；运行事件由插件的 `UStellaAIComponent` 发布。
+代码位置：`Source/StarryGame/Framework/Development/StarryDebugSubsystem`（窗口注册）、`Framework/AI/Debug`（各窗口与调试会话 `FStarryAIDebugSession`）；运行事件由插件的 `UStellaUtilityAIComponent` 发布。

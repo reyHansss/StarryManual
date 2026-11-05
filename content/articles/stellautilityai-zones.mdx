@@ -1,5 +1,5 @@
 ---
-title: StellaAI · 行为区域
+title: StellaUtilityAI · 行为区域
 description: 用可挂载的区域组件按分配关系给 NPC 应用 Modifier，并提供区内判断、最近点与回区机会；以及编辑器批量分配和分配的寿命。
 section: [机会与调度, 行为区域]
 order: 28
@@ -7,7 +7,7 @@ order: 28
 
 ## 区域做两件事
 
-`UStellaAIBehaviorZoneComponent` 挂在关卡里的普通 Actor 上，不需要专用的区域 Actor。它做两件相关的事：
+`UStellaUtilityAIBehaviorZoneComponent` 挂在关卡里的普通 Actor 上，不需要专用的区域 Actor。它做两件相关的事：
 
 - **按分配关系应用 Modifier**：分配给这个区域的 NPC，会被应用区域配置的 Modifier，例如“守卫这片营地时使用警戒行为”。
 - **提供区域几何**：判断位置是否在区内、离区域最近的点有多远，并为分配的 NPC 生成“回到区域”的机会。
@@ -23,7 +23,7 @@ order: 28
 
 ## 配置一个区域
 
-1. 在 Actor 上添加 Box 或 Sphere 组件作为区域形状，再添加 `UStellaAIBehaviorZoneComponent`。
+1. 在 Actor 上添加 Box 或 Sphere 组件作为区域形状，再添加 `UStellaUtilityAIBehaviorZoneComponent`。
 2. 在 `Shape` 中引用这个形状组件；留空时取 Actor 的根形状。组件不会修改形状的碰撞设置。
 3. 在 `ModifierApplications` 中添加应用条目：
 
@@ -42,7 +42,7 @@ order: 28
 
 - **先登记、后应用**：NPC 的 AI 还没就绪时，也可以先登记分配，等就绪后再应用。`Assign` 返回成功不代表那一刻已经完成应用。它要求区域已经注册：区域组件在 BeginPlay 时（处于激活状态才会）注册，开始游戏后再 `Activate` 也会注册，`Deactivate` 时注销。
 - **刷新资格**：NPC 的标签变化后，资格不会自动重新判断，需要显式调用 `RefreshEligibility`。仍然适用的条目保留原来的应用句柄，不会先删后加而重复触发事件。
-- **分配随会话结束**：NPC 的 StellaAI 会话结束或 Pawn 结束游戏时，它的分配整条删除，下次会话不会自动恢复。
+- **分配随会话结束**：NPC 的 StellaUtilityAI 会话结束或 Pawn 结束游戏时，它的分配整条删除，下次会话不会自动恢复。
 
 ## 编辑器里批量分配
 
@@ -56,19 +56,19 @@ order: 28
 
 ## 几何查询与回区机会
 
-| 接口                                                        | 作用                                                             |
-| ----------------------------------------------------------- | ---------------------------------------------------------------- |
-| `ContainsLocation(Location)`                                | 判断位置是否在区域内                                             |
-| `GetClosestLocation(Location, Closest, Distance)`           | 取区域上离该位置最近的点，以及距离（厘米）                       |
-| `UStellaAIZoneSubsystem::GetAssignedZones(Pawn)`            | 取得 NPC 当前的全部有效分配区域                                  |
-| `UStellaAIZoneSubsystem::IsLocationAllowed(Pawn, Location)` | 位置在 NPC 的**所有**有效分配区域内时返回 true；没有分配时不限制 |
+| 接口                                                               | 作用                                                             |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| `ContainsLocation(Location)`                                       | 判断位置是否在区域内                                             |
+| `GetClosestLocation(Location, Closest, Distance)`                  | 取区域上离该位置最近的点，以及距离（厘米）                       |
+| `UStellaUtilityAIZoneSubsystem::GetAssignedZones(Pawn)`            | 取得 NPC 当前的全部有效分配区域                                  |
+| `UStellaUtilityAIZoneSubsystem::IsLocationAllowed(Pawn, Location)` | 位置在 NPC 的**所有**有效分配区域内时返回 true；没有分配时不限制 |
 
 最近的几何点不保证 NavMesh 可达，也不保证角色能站立。
 
-`UStellaAIObjectiveGenerator_ReturnToZone` 为在区外的分配角色生成回区机会，覆盖所有有效的分配区域；角色在区内时没有这项机会。选择回哪个区域、怎样投影到导航网格、怎样移动以及失败后怎么办，都由具体的 Behavior 与 Logic 决定。
+`UStellaUtilityAIObjectiveGenerator_ReturnToZone` 为在区外的分配角色生成回区机会，覆盖所有有效的分配区域；角色在区内时没有这项机会。选择回哪个区域、怎样投影到导航网格、怎样移动以及失败后怎么办，都由具体的 Behavior 与 Logic 决定。
 
 只挂一个 Zone 不会让 NPC 被自动传送或被限制移动。需要“软束缚”或“硬束缚”时，由具体行为的条件、评分和持续约束来表达。
 
-行为层的覆盖规则见[组合与覆盖](/read/stellaai-composition)，机会的写入规则见 [Objective 与生成器](/read/stellaai-objectives)。
+行为层的覆盖规则见[组合与覆盖](/read/stellautilityai-composition)，机会的写入规则见 [Objective 与生成器](/read/stellautilityai-objectives)。
 
-代码位置（插件 `Source/StellaAI`）：`Zones/StellaAIBehaviorZoneComponent`、`Zones/StellaAIZoneSubsystem`、`Zones/StellaAIObjective_ReturnToZone`。
+代码位置（插件 `Source/StellaUtilityAI`）：`Zones/StellaUtilityAIBehaviorZoneComponent`、`Zones/StellaUtilityAIZoneSubsystem`、`Zones/StellaUtilityAIObjective_ReturnToZone`。

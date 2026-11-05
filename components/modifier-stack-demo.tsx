@@ -8,7 +8,7 @@ import {
   pathToString,
   type CompositionErrorReason,
   type CompositionTrace,
-} from '@/lib/stellaai-composition';
+} from '@/lib/stellautilityai-composition';
 import styles from './demo.module.css';
 
 const reasonText: Record<CompositionErrorReason, string> = {
@@ -35,7 +35,7 @@ function describe(item: CompositionTrace) {
 }
 
 /**
- * 按 StellaAI 的组合规则实时计算最终行为集合：读者可以启用、停用或调整各层顺序。
+ * 按 StellaUtilityAI 的组合规则实时计算最终行为集合：读者可以启用、停用或调整各层顺序。
  * 场景文本由文章提供，格式见 `parseModifierScenario`。
  */
 export function ModifierStackDemo({ title, source }: { title: string; source: string }) {
@@ -65,7 +65,7 @@ export function ModifierStackDemo({ title, source }: { title: string; source: st
           <Layers size={17} aria-hidden="true" />
           {title}
         </span>
-        <span className={styles.kind}>交互演示 · 规则同 FStellaAIComposition::Build</span>
+        <span className={styles.kind}>交互演示 · 规则同 FStellaUtilityAIComposition::Build</span>
       </figcaption>
       <div className={styles.body}>
         {problems.length > 0 && <p className={styles.problems}>{problems.join('；')}</p>}

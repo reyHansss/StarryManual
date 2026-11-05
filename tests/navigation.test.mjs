@@ -22,47 +22,60 @@ const article = (slug, order, section = []) => ({
 
 test('同一功能的使用与架构留在同一子模块，多层功能路径保持完整', () => {
   const pages = [
-    article('stellaai-backends', 4, ['行为执行', '树后端']),
-    article('stellaai-overview', 1),
-    article('stellaai-logic', 3, ['行为执行']),
-    article('stellaai-usage', 2, ['行为执行']),
+    article('stellautilityai-backends', 4, ['行为执行', '树后端']),
+    article('stellautilityai-overview', 1),
+    article('stellautilityai-logic', 3, ['行为执行']),
+    article('stellautilityai-usage', 2, ['行为执行']),
   ];
   const original = structuredClone(pages);
   const modules = buildModuleNavigation(pages);
   assert.equal(modules.length, 1, '未整理内容的模块不显示');
   const [module] = modules;
-  assert.equal(module.overview.slug, 'stellaai-overview');
+  assert.equal(module.overview.slug, 'stellautilityai-overview');
   const execution = module.entries[1];
   assert.equal(execution.label, '行为执行');
   assert.deepEqual(execution.entries[2].path, ['行为执行', '树后端']);
   assert.deepEqual(
     flattenNavigation(module.entries).map((page) => page.slug),
-    ['stellaai-overview', 'stellaai-usage', 'stellaai-logic', 'stellaai-backends'],
+    [
+      'stellautilityai-overview',
+      'stellautilityai-usage',
+      'stellautilityai-logic',
+      'stellautilityai-backends',
+    ],
   );
   assert.deepEqual(pages, original, '构建目录不改写文章元信息');
 });
 
 test('不同模块中的同名子模块独立，阅读顺序按功能树且不越过模块边界', () => {
   const modules = buildModuleNavigation([
-    article('stellaai-overview', 1),
-    article('stellaai-logic', 2, ['运行']),
-    article('stellaai-objectives', 3, ['机会']),
-    article('stellaai-backends', 4, ['运行', '树后端']),
+    article('stellautilityai-overview', 1),
+    article('stellautilityai-logic', 2, ['运行']),
+    article('stellautilityai-objectives', 3, ['机会']),
+    article('stellautilityai-backends', 4, ['运行', '树后端']),
     article('input-overview', 5),
     article('input-binding', 6, ['运行']),
   ]);
-  const stella = modules.find((module) => module.key === 'stellaai');
+  const stella = modules.find((module) => module.key === 'stellautilityai');
   const input = modules.find((module) => module.key === 'input');
   assert.deepEqual(
     flattenNavigation(stella.entries).map((page) => page.slug),
-    ['stellaai-overview', 'stellaai-logic', 'stellaai-backends', 'stellaai-objectives'],
+    [
+      'stellautilityai-overview',
+      'stellautilityai-logic',
+      'stellautilityai-backends',
+      'stellautilityai-objectives',
+    ],
   );
   assert.deepEqual(
     flattenNavigation(input.entries).map((page) => page.slug),
     ['input-overview', 'input-binding'],
   );
-  assert.equal(getReadingNeighbors(stella, 'stellaai-logic').next.slug, 'stellaai-backends');
-  assert.equal(getReadingNeighbors(stella, 'stellaai-objectives').next, undefined);
+  assert.equal(
+    getReadingNeighbors(stella, 'stellautilityai-logic').next.slug,
+    'stellautilityai-backends',
+  );
+  assert.equal(getReadingNeighbors(stella, 'stellautilityai-objectives').next, undefined);
   assert.equal(getReadingNeighbors(input, 'input-overview').previous, undefined);
   assert.deepEqual(getReadingNeighbors(stella, 'missing'), {
     previous: undefined,

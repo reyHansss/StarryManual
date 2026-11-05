@@ -1,6 +1,6 @@
 /**
- * StellaAI Modifier 叠加规则的网页演示版本，逐条对应插件中的 `FStellaAIComposition::Build`
- * （`Plugins/AI/StellaAI/Source/StellaAI/Private/Behavior/StellaAIBehaviorModifierStack.cpp`）。
+ * StellaUtilityAI Modifier 叠加规则的网页演示版本，逐条对应插件中的 `FStellaUtilityAIComposition::Build`
+ * （`Plugins/AI/StellaUtilityAI/Source/StellaUtilityAI/Private/Behavior/StellaUtilityAIBehaviorModifierStack.cpp`）。
  * 只计算组合结果，不模拟评分、执行或 Modifier 事件；源码规则变化时同步修改这里和对应测试。
  */
 
@@ -76,13 +76,13 @@ export function samePath(a: BehaviorPath, b: BehaviorPath) {
   );
 }
 
-/** 对应 `FStellaAIBehaviorPath::Parent`：根路径的父路径为空名称，不会匹配任何节点。 */
+/** 对应 `FStellaUtilityAIBehaviorPath::Parent`：根路径的父路径为空名称，不会匹配任何节点。 */
 export function parentPath(path: BehaviorPath): BehaviorPath {
   if (!path.groups.length) return { groups: [], name: '' };
   return { groups: path.groups.slice(0, -1), name: path.groups[path.groups.length - 1] };
 }
 
-/** 对应 `FStellaAIBehaviorPath::IsWithin`：path 位于 group 这个组路径之下（任意深度）。 */
+/** 对应 `FStellaUtilityAIBehaviorPath::IsWithin`：path 位于 group 这个组路径之下（任意深度）。 */
 export function isWithin(path: BehaviorPath, group: BehaviorPath) {
   if (path.groups.length <= group.groups.length) return false;
   for (let index = 0; index < group.groups.length; index++) {

@@ -11,7 +11,7 @@ Starry 的大部分可调内容都是数据资产：Experience、CharacterData�
 同一份资产会被多个角色共享，所以资产里不保存某个玩家或某个 NPC 的运行状态：
 
 - **Input Handler**：所有使用者共用同一个对象。
-- **StellaAI 的 Behavior**：作为共享模板引用，每个 NPC 的执行数据另外存放。
+- **StellaUtilityAI 的 Behavior**：作为共享模板引用，每个 NPC 的执行数据另外存放。
 
 ## 主资产与 AssetManager
 
@@ -36,20 +36,20 @@ Starry 的大部分可调内容都是数据资产：Experience、CharacterData�
 
 **Cook 相关的配置：**
 
-- `/StellaPatrol/Tests`、`/Game/Tests/StellaAI`、`/Game/Tests/GAS` 配置为永不 Cook。
+- `/StellaPatrol/Tests`、`/Game/Tests/StellaUtilityAI`、`/Game/Tests/GAS` 配置为永不 Cook。
 - GameplayCue 从 `/Game/Blueprints/AbilitySystem/GameplayCues` 收集。
 
 ## 主要配置资产
 
-| 类型                                        | 管什么                                                                                               | 现有实例                                                                                          |
-| ------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Experience（`UStarryExperienceDefinition`） | 默认角色数据、要启用的 GameFeature、Action 与 ActionSet                                              | `B_StarryDefaultExperience`、`Experiences/Ecology/*`、`Samples/Navigation/B_NavigationExperience` |
-| ActionSet、UserFacingExperience             | 可复用的 Action 组；前端展示用的地图、Experience 与卡片信息                                          | 暂无实例                                                                                          |
-| CharacterData（`UStarryCharacterData`）     | 角色类、AbilitySets、默认装备、标签关系、InputSetups、默认相机模式                                   | `DA_StarryDefaultCharacter`、`Characters/Player/DA_PlayerCharacter`、生态角色                     |
-| Input Setup（`UStarryInputSetupDataAsset`） | 一个 IMC、优先级与一组 Handler                                                                       | `Blueprints/Input/Setups/IS_Locomotion`                                                           |
-| AISetup（`UStarryAISetupDataAsset`）        | BrainType、Modifier Stack、Objective 配置、感知与移动适配                                            | `Blueprints/Ecology/AI/AI_Ecology`、`Samples/Navigation/AI_Navigation`                            |
-| GameData（`UStarryGameData`）               | 全局 GE                                                                                              | `Core/System/DA_StarryGameData`                                                                   |
-| 其他                                        | AbilitySet（`AS_`）、生态场景（`DA_Ecology*`）、StellaAI 资产（`AIBM_`、`AIBMS_`、`AIOCS_`）、声望表 | 按功能分布在 `Content/Blueprints`，声望表在 `Content/Core/Factions`                               |
+| 类型                                        | 管什么                                                                                                      | 现有实例                                                                                          |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Experience（`UStarryExperienceDefinition`） | 默认角色数据、要启用的 GameFeature、Action 与 ActionSet                                                     | `B_StarryDefaultExperience`、`Experiences/Ecology/*`、`Samples/Navigation/B_NavigationExperience` |
+| ActionSet、UserFacingExperience             | 可复用的 Action 组；前端展示用的地图、Experience 与卡片信息                                                 | 暂无实例                                                                                          |
+| CharacterData（`UStarryCharacterData`）     | 角色类、AbilitySets、默认装备、标签关系、InputSetups、默认相机模式                                          | `DA_StarryDefaultCharacter`、`Characters/Player/DA_PlayerCharacter`、生态角色                     |
+| Input Setup（`UStarryInputSetupDataAsset`） | 一个 IMC、优先级与一组 Handler                                                                              | `Blueprints/Input/Setups/IS_Locomotion`                                                           |
+| AISetup（`UStarryAISetupDataAsset`）        | BrainType、Modifier Stack、Objective 配置、感知与移动适配                                                   | `Blueprints/Ecology/AI/AI_Ecology`、`Samples/Navigation/AI_Navigation`                            |
+| GameData（`UStarryGameData`）               | 全局 GE                                                                                                     | `Core/System/DA_StarryGameData`                                                                   |
+| 其他                                        | AbilitySet（`AS_`）、生态场景（`DA_Ecology*`）、StellaUtilityAI 资产（`AIBM_`、`AIBMS_`、`AIOCS_`）、声望表 | 按功能分布在 `Content/Blueprints`，声望表在 `Content/Core/Factions`                               |
 
 ## Content 目录
 

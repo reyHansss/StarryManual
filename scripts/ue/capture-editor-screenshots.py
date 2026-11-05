@@ -17,9 +17,9 @@ import unreal
 
 # (资产路径, 输出名称)；名称同时用作手册 public/images 下的文件名。
 CAPTURES = [
-    ("/Game/Blueprints/Ecology/AI/AIBM_Ecology", "stellaai-aibm-editor"),
-    ("/Game/Blueprints/Ecology/AI/AIBMS_Ecology", "stellaai-stack-editor"),
-    ("/Game/Blueprints/Ecology/AI/AI_Ecology", "stellaai-aisetup"),
+    ("/Game/Blueprints/Ecology/AI/AIBM_Ecology", "stellautilityai-aibm-editor"),
+    ("/Game/Blueprints/Ecology/AI/AIBMS_Ecology", "stellautilityai-stack-editor"),
+    ("/Game/Blueprints/Ecology/AI/AI_Ecology", "stellautilityai-aisetup"),
 ]
 
 # 打开编辑器后等待的帧数，让延迟创建的页签与列表完成首次布局。

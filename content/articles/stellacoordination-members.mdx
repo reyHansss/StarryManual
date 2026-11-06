@@ -1,0 +1,127 @@
+---
+title: StellaCoordination · 成员接入
+description: 成员怎样加入协调并执行安排：登记与入组，StellaUtilityAI 成员通过命令接取安排，StateTree 成员用成员侧节点读取与持有安排，以及自定义投递方式与成员附加处理。
+section: [安排与执行]
+order: 75
+terms:
+  - term: 参与者
+    aliases: [Participant, FStellaCoordinationParticipantHandle]
+    brief: 在协调宿主登记的 Actor，通常是 AI 的 Pawn。登记后得到会话内身份，凭它入组、离开和注销。
+  - term: 成员附加处理
+    aliases: [Member Extension, UStellaCoordinationMemberExtension]
+    brief: 模式上的内联对象，在成员加入与离开实例时成对执行，例如参与期间给成员附加行为；需要撤销的内容交给宿主按成员保存。
+  - term: 成员侧节点
+    aliases: [Coordination|Member]
+    brief: 供成员自己的 StateTree 使用的协调节点，按 Schema 的 Actor 上下文找到参与者，读取、持有安排或申请配额；群体树中不能使用。
+---
+
+## 登记与入组
+
+成员要先在宿主登记为参与者，再提交入组。这些接口都可以在蓝图中调用，只在服务器或单机世界受理：
+
+| 接口                                            | 作用                                                                           |
+| ----------------------------------------------- | ------------------------------------------------------------------------------ |
+| `RegisterParticipant(Agent, bCommandable)`      | 登记 Actor，返回参与者身份；同一 Actor 重复登记返回原身份                      |
+| `RequestJoin(Participant, Mode, Key, Priority)` | 加入以模式和键对象标识的实例，不存在时创建；返回实例身份，被拒绝时返回无效身份 |
+| `Leave(Participant)`                            | 离开所在实例，参与者仍保持登记                                                 |
+| `UnregisterParticipant(Participant)`            | 注销：离开实例，全部安排以失效结束                                             |
+| `FindParticipant`／`FindInstanceOf`             | 按 Actor 找参与者，按参与者找它所在的实例                                      |
+
+```cpp
+// 示例：Mode 与 Leader 由业务提供，只在权威端调用
+if (UStellaCoordinationSubsystem* Host = UWorld::GetSubsystem<UStellaCoordinationSubsystem>(GetWorld()))
+{
+	const FStellaCoordinationParticipantHandle Participant = Host->RegisterParticipant(Pawn);
+	Host->RequestJoin(Participant, Mode, Leader);
+}
+```
+
+**入组的规则**：
+
+- **同模式、同键进入同一实例**：例如以首领为键对象，跟随同一首领的成员在一起。
+- **同一时间只属于一个实例**：参与者已在别的实例中时，新请求的 `Priority` 更高才会离开旧实例、加入新实例，否则请求被拒绝。
+- **会被拒绝的情况**：参与者不可用，或模式没有设置群体树。
+- **不可指挥的成员**：`bCommandable` 为否的成员留在实例中，但不参与配对，例如只想让它的战术或存在影响群体（示例）。
+- **实例的共享目标**：入组后可以调用实例的 `SetTarget` 设置共享目标，例如首领当前攻击的玩家。职责任务没有指定目标时使用它。
+
+**登记哪个 Actor**：通常登记 AI 的 Pawn。成员侧节点、`Utility AI Command` 与战术组件在登记 Pawn 与登记控制器之间都能互相找到对方；但标签资格只读取登记的那个 Actor 的标签，所以用到 `Eligibility` 时应登记 Pawn。
+
+## StellaUtilityAI 成员
+
+StellaUtilityAI 成员通过命令接取安排。职责的投递方式选 `Utility AI Command`：
+
+- **定向发布**：投递时发布一条命令，`AllowedActors` 只包含被安排成员的 Pawn（登记控制器时取它控制的 Pawn）。
+- **命令类**：`CommandClass` 默认是 `UStellaCoordinationAssignmentCommand`，带有安排身份 `Assignment`、职责 `Role` 与目标 `Target`。模式需要更多字段时选择派生类。
+- **期限**：有效期等接取要求沿用命令类的默认值，基类默认不限期；撤回由协调方撤销命令完成。
+- **事件转换**：命令的 Taken 记为采用；Finished 按结果记为成功或失败；Returned 记为中断，已请求停止时记为撤回。
+
+AI 一侧要自己提供接取安排的 Behavior 与 Logic，插件不自带：
+
+| 位置                        | 做什么                                                                                                                                                                                                |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AIOCS                       | 加入 `UStellaUtilityAIObjectiveGenerator_Commands`，让命令成为机会                                                                                                                                    |
+| Behavior                    | `ObjectiveClass` 设为 `UStellaUtilityAIObjective_Commands`；在 `CanBeActivated` 中从机会里找 `UStellaCoordinationAssignmentCommand`，并用 `CanTake` 确认这名角色可以接；需要区分职责时看命令的 `Role` |
+| Logic 的 `Start`            | `Take(Component, ExecutionId)` 领取命令；领取失败时结束本次执行                                                                                                                                       |
+| Logic 执行期间              | 执行职责；需要时调用命令的 `ReportStarted`、`ReportProgress` 报告开始与进度；需要业务参数时，按命令的 `Assignment` 调用宿主的 `GetAssignment` 读取最新值                                              |
+| Logic 的 `IsExecutionValid` | 检查命令的 `IsAvailable()`；协调方撤销命令后返回否，执行被取消                                                                                                                                        |
+| Logic 的 `Cleanup`          | `EndUse(Component, ExecutionId, Result)` 结束使用                                                                                                                                                     |
+
+自动化测试中的白盒成员按这张表实现，验证了命令投递、到位同步、共享配额、死亡补位、成员离开与实例结束。命令的一般用法见 [StellaUtilityAI 命令](/read/stellautilityai-commands)。
+
+**参与期间才有的行为**：模式的 `MemberExtensions` 中加入 `Add Behavior Modifiers`，填写 `Modifiers`。成员加入实例时，这些 Modifier 以实例为来源加到成员控制器上的 `UStellaUtilityAIComponent`；成员离开或实例结束时按应用身份撤销。接取安排的 Behavior 适合放在这样的 Modifier 里，只在参与协调期间存在。没有使用 StellaUtilityAI 的成员不受影响。
+
+<Note title="在 AI 装配完成后再入组">
+
+`Add Behavior Modifiers` 在成员加入时查找控制器上的 `UStellaUtilityAIComponent`，找不到就跳过，之后也不会补加。Starry 的 AI 控制器异步装配 StellaUtilityAI，入组应放在 `OnAISetupComplete` 之后。这是按代码推断的结论，没有经过运行验证。
+
+</Note>
+
+## StateTree 成员
+
+StateTree 成员用自己的树读取并持有安排。职责的投递方式选 `Member Queries Assignment`：投递即对成员可见，不推送给任何决策系统；撤回时也不需要通知，成员侧节点会自己发现停止请求或结束。
+
+成员侧节点在节点列表的 `Coordination|Member` 分类中，`Actor` 上下文自动绑定，按它找到参与者（找不到时再找它的控制器或 Pawn）。成员树的 Schema 要提供 `Actor` 上下文，例如 StateTree Component 或 StateTree AI Component。各节点都有可选的 `Role`，填写后只认这个职责的安排。
+
+| 节点                           | 类型   | 用法                                                                                                                             |
+| ------------------------------ | ------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `Coordination Has Assignment`  | 条件   | 成员当前有达到 `MinState`（默认已投递）且未被请求停止的安排，可取反。用作持有状态的进入条件，或待命状态的 On Tick 转换条件       |
+| `Coordination Hold Assignment` | 任务   | 持有安排，见下文                                                                                                                 |
+| `Coordination Report Progress` | 任务   | 进入状态时报告开始（勾选 `bReportStarted`）和／或进度标签 `Progress`，之后保持运行，不结束状态；没有可见安排或已被请求停止时失败 |
+| `Coordination Assignment`      | 评估器 | 每次更新输出是否有安排、安排身份、职责、目标、参数、状态、已报告的进度，以及是否被请求停止                                       |
+| `Coordination Hold Quota`      | 任务   | 以成员为持有者在状态内申请与归还一个配额池，见[配额](/read/stellacoordination-quotas#成员自己申请)                               |
+
+**Coordination Hold Assignment**：
+
+- **进入状态**：采用已投递的安排；勾选 `bReportStarted` 时同时报告开始。没有可见安排时进入失败，所以通常先用 `Coordination Has Assignment` 判断。
+- **输出**：安排身份 `Assignment`、职责 `AssignedRole`、目标 `Target` 与业务参数 `Parameters`，供子状态绑定。参数每次更新读取最新值；同一项安排的目标不会变，目标改变会重新安排。
+- **运行中**：协调方请求停止或安排已经结束时，任务失败，使成员退出状态。
+- **退出状态**：状态成功时报告成功，失败时报告失败；被其他转换打断或树停止时报告中断。安排已被请求停止时，无论状态结果如何都报告中断，宿主记为撤回。
+
+`Coordination Hold Assignment`、`Coordination Report Progress` 与 `Coordination Hold Quota` 在所在状态被重新选中时都不会重复进入和退出：转换目标为本状态或其祖先时（例如子状态转回本状态），持有的安排与配额不变，也不重复报告。子状态之间的转换不会重新选中父状态。
+
+**典型结构**：持有状态以 `Coordination Has Assignment` 为进入条件，挂 `Coordination Hold Assignment`，子状态执行职责并用 `Coordination Report Progress` 报告开始与进度；持有状态完成后转回上层重新选择。最小的可运行结构见[快速上手](/read/stellacoordination-quickstart#第五步让成员采用安排)。
+
+<Note title="要在投递超时内进入持有状态">
+
+安排投递后，成员树要在职责的 `OfferTimeout` 内进入持有状态，否则安排记为未采用，这名成员还要冷却同样时长。待命状态用 On Tick 转换及时响应新安排。
+
+</Note>
+
+**编译检查**：`Coordination Report Progress` 既没有勾选 `bReportStarted`、也没有设置进度标签时报错；`Coordination Hold Quota` 没有设置池或权重不为正时报错。
+
+## 自定义投递方式与成员附加处理
+
+自带的投递方式不合适时，可以在蓝图或 C++ 中派生 `UStellaCoordinationRoleExecution`：
+
+- **`Deliver`**：把安排交给成员。返回假视为未采用；可以通过 `OutToken` 返回收回时需要的对象。宿主只以弱引用保存它，投递方式要自己保证它存活。投递过程中可以同步报告进展。
+- **`Revoke`**：收回投递。三种情况都会调用：撤回尚未采用的安排、请求停止执行中的安排、安排结束后清理投递对象。`Token` 可能已经失效。
+- **执行侧报告**：之后由执行侧按安排身份调用宿主的报告接口，见[安排的生命周期](/read/stellacoordination-assignments#执行侧怎样报告)。
+
+成员附加处理派生 `UStellaCoordinationMemberExtension`，实现成对的 `OnMemberJoined` 与 `OnMemberLeft`：
+
+- **按成员保存**：两个回调都带一份 `FInstancedStruct` 的 `State`，由宿主按成员保存，用来记下离开时需要撤销的内容，例如添加的 Modifier 句柄。
+- **离开回调**：成员离开、失效或实例结束时调用，`Participant` 可能已经销毁；世界关闭时不调用。
+
+投递方式与成员附加处理都是共享的内联对象，不要在对象自己身上保存某一次安排或某一名成员的状态。蓝图派生的版本只经过 C++ 实现的测试，没有用蓝图资产运行验证。
+
+代码位置：插件 `Source/StellaCoordination` 中的 `StellaCoordinationSubsystem`（登记与入组）、`StellaCoordinationExecution`（投递方式、`Member Queries Assignment` 与成员附加处理）、`StateTree/StellaCoordinationSTMemberNode` 及各成员侧节点；`Source/StellaCoordinationUtilityAI` 中的 `StellaCoordinationRoleExecution_Command`、`StellaCoordinationAssignmentCommand` 与 `StellaCoordinationMemberExtension_Modifier`。

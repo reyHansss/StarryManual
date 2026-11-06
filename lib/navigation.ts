@@ -23,6 +23,13 @@ export const articleModules = {
     nodeColor: '#69b6ec',
     overview: 'stellautilityai-overview',
   },
+  stellacoordination: {
+    label: 'StellaCoordination · 群体协调',
+    shortLabel: 'StellaCoordination',
+    color: '#5f7a32',
+    nodeColor: '#a9d46b',
+    overview: 'stellacoordination-overview',
+  },
   stelladebug: {
     label: 'StellaDebug · 调试工具',
     shortLabel: 'StellaDebug',

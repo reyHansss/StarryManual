@@ -1,0 +1,179 @@
+---
+title: StellaCoordination · 群体树
+description: 怎样用群体树声明各阶段需要的职责：职责任务的字段、进度与耗尽条件、上下文评估器、编译检查，群体树接收的事件，交给担任者的业务参数，以及成员贡献的战术子树。
+section: [群体决策]
+order: 72
+terms:
+  - term: 业务参数
+    aliases: [Parameters]
+    brief: 职责任务交给担任者的一份结构体数据，例如搜索中心与半径。类型由业务定义，框架只负责透传，不解释内容。
+  - term: 战术
+    aliases: [Tactic, UStellaCoordinationTacticsComponent]
+    brief: 成员向所在实例贡献的群体子树，按状态标签替换群体树中的链接子树状态，成员离开时撤销。
+---
+
+## 群体树写什么
+
+群体树是一棵标准的 StateTree，Schema 为 Stella Coordination，执行时的 Owner 是协调实例。它负责判断形势：当前处在哪个阶段、这个阶段需要哪些职责、什么时候切换阶段。至于哪名成员担任、成员具体怎样移动或攻击，都不写在这里：前者由宿主配对决定，后者写在成员自己的决策中。
+
+Schema 收录本插件的群体树节点，以及引擎的通用条件、评估器、任务、Utility 考量和蓝图节点；外部数据只能取世界子系统。成员侧节点（`Coordination|Member` 分类）需要成员的 `Actor` 上下文，不出现在群体树的节点列表中。
+
+<Diagram
+  title="示例：祖先状态上的职责在子状态之间保持"
+  source={
+    'flowchart TD\n  Root(Root：包围 ×2) --- Approach(接近)\n  Root --- Attack(出手：出手 ×1)\n  Approach -->|包围者到位 2 人| Attack'
+  }
+/>
+
+上图中，`Root` 上的职责任务声明“包围 ×2”，在“接近”和“出手”两个子状态中一直有效；进入“出手”后再加上“出手 ×1”。转换条件用 `Coordination Role Progress` 统计报告了“到位”进度的包围者。
+
+**同时需要的职责要挂在当前激活路径上**：同一状态上的多个任务，或者它的祖先状态。兄弟状态同一时间只有一个激活，挂在兄弟状态上的职责不会同时存在。
+
+**更新节奏**：实例按模式的 `UpdateInterval`（默认 0.25 秒，0 表示宿主每次更新都执行）推进群体树，推进之后立即配对并提交结果。
+
+## 声明职责：Coordination Role
+
+`Coordination Role` 任务在进入状态时登记一项职责需求，激活期间每次更新同步自己的字段，退出状态时撤销需求。撤销后，担任这项需求的安排在本次提交中撤回。字段可以绑定，例如把 `Capacity` 绑定到成员数，配对总是使用最新值。
+
+| 字段                     | 含义                                                                                                      |
+| ------------------------ | --------------------------------------------------------------------------------------------------------- |
+| `Role`                   | 需要的职责                                                                                                |
+| `Capacity`               | 最多同时担任的人数，默认 1                                                                                |
+| `Priority`               | 配对优先级，越大越先挑人，默认 0                                                                          |
+| `Eligibility`            | 按成员 Actor 的 GameplayTag 判断资格，空查询不限制                                                        |
+| `Conditions`             | 成员条件（内联对象），全部满足才可担任                                                                    |
+| `CostTerms`              | 代价项（内联对象），成员代价为各项“权重 × 评估值”之和，越小越优先；为空时按成员到职责目标的距离           |
+| `Target`                 | 职责针对的对象；为空时依次使用实例的共享目标、键对象。它同时是代持配额的作用域                            |
+| `Parameters`             | 交给担任者的业务参数，见下文                                                                              |
+| `CompleteAfterSuccesses` | 本需求有这么多项安排以成功结束后，任务成功；0 表示一直运行到状态退出                                      |
+| 分配设置                 | 冻结、一次性分配、按组捆绑、耗尽与保持优势，见[配对与分配设置](/read/stellacoordination-pairing#分配设置) |
+
+任务有两个输出：`Assigned` 为当前担任本需求、尚未结束的安排数量；`bExhausted` 为职责在本实例中是否已耗尽。
+
+在树视图中，任务显示为 `Role 职责名 x容量`，后面括号里列出非默认的设置，例如 `priority 2`、`2 cost terms`、`frozen`、`exhaust after 3 deaths`，不用打开细节面板就能读出配对规则。
+
+**状态被重新选中时需求不变**：转换目标是本状态或它的祖先时（例如子状态转回本状态），本状态被重新选中。这时任务不会重新登记，已有安排保持原来的身份，不会撤回后重新配对。
+
+<Note title="群体树里不能直接引用关卡 Actor">
+
+群体树是资产，StateTree 编译会拒绝节点数据直接引用关卡中的 Actor。目标从绑定取得，例如绑定 `Coordination Context` 输出的键对象或共享目标；业务可以在运行时调用实例的 `SetTarget` 更新共享目标。
+
+</Note>
+
+## 读取协调结果：条件与评估器
+
+| 节点                          | 类型   | 用法                                                                                                         |
+| ----------------------------- | ------ | ------------------------------------------------------------------------------------------------------------ |
+| `Coordination Role Progress`  | 条件   | 担任 `Role`、已报告 `Progress` 且尚未结束的安排是否达到 `MinCount`（默认 1），可取反。用于“全部到位后再行动” |
+| `Coordination Role Exhausted` | 条件   | `Role` 在本实例中是否已耗尽，可取反                                                                          |
+| `Coordination Context`        | 评估器 | 输出键对象 `KeyActor`、共享目标 `Target` 与成员数 `MemberCount`，供容量、目标与转换条件绑定                  |
+
+`Coordination Role Exhausted` 用作进入条件时，可以在选择阶段跳过职责已耗尽的状态；用作转换条件时，可以在耗尽后切换阶段，例如前压的职责耗尽后后撤。
+
+<Note title="进入条件看不到所在状态退出时才发生的耗尽">
+
+状态的进入条件在旧状态退出之前求值。职责设置了 `bExhaustOnExit` 时，它在所在状态退出时才耗尽，同一次转换中新状态的进入条件还看不到这个结果，要由之后的转换判断。
+
+</Note>
+
+## 编译与资产校验
+
+**编译群体树时直接报错**：
+
+| 节点                          | 报错的情况                                                           |
+| ----------------------------- | -------------------------------------------------------------------- |
+| `Coordination Role`           | 没有设置职责；职责没有投递方式；`Conditions` 或 `CostTerms` 中有空项 |
+| `Coordination Role Progress`  | 没有设置职责；没有设置进度标签                                       |
+| `Coordination Role Exhausted` | 没有设置职责                                                         |
+
+字段设置了绑定时不算缺失。
+
+**资产校验**：
+
+- **模式**：没有群体树，或群体树的 Schema 不是 Stella Coordination；`MemberExtensions` 中有空项。
+- **职责**：没有投递方式；配额项没有设置池，或权重不为正；内联的投递方式本身无效，例如 `Utility AI Command` 没有命令类。
+- **战术组件**：战术缺少状态标签，或者没有子树、子树的 Schema 不是 Stella Coordination。
+
+## 群体树收到的事件
+
+宿主在安排和成员发生变化时，向所在实例的群体树发送事件，可以直接用作事件转换：
+
+| 事件标签                                       | 何时发出                   |
+| ---------------------------------------------- | -------------------------- |
+| `StellaCoordination.Event.Assignment.Accepted` | 安排被成员采用             |
+| `StellaCoordination.Event.Assignment.Started`  | 执行侧报告实际行动开始     |
+| `StellaCoordination.Event.Assignment.Ended`    | 安排结束                   |
+| `StellaCoordination.Event.Member.Joined`       | 成员加入实例               |
+| `StellaCoordination.Event.Member.Left`         | 成员离开实例               |
+| `StellaCoordination.Event.Role.Exhausted`      | 职责首次耗尽               |
+| 执行侧报告的进度标签                           | 执行侧报告进度，例如“到位” |
+
+载荷为 `FStellaCoordinationEvent`，包含安排身份、参与者、职责、结束原因与进度；与事件无关的字段为空。
+
+**发送自定义事件**：成员或业务代码可以调用实例的 `SendEvent`，例如首领请求一次群体战术，或关卡触发阶段切换。事件的标签与载荷类型由发送方定义，框架只负责送达，怎样响应由群体树的转换决定。
+
+```cpp
+// 示例：Host 为当前世界的协调宿主，RequestTacticTag 是业务定义的事件标签，Participant 为已入组的参与者
+if (UStellaCoordinationInstance* Instance = Host->FindInstanceOf(Participant))
+{
+	Instance->SendEvent(FStateTreeEvent(RequestTacticTag));
+}
+```
+
+**事件什么时候送达**：
+
+- **统一排队**：宿主事件与自定义事件进入同一个队列，在实例下一次更新时交给群体树。
+- **每次最多 64 条**：这是引擎的单次上限，超出的事件按先后留到之后的更新。
+- **只在送达的那次更新中有效**：StateTree 在转换处理之后清空事件，没有转换响应的事件不会保留到下一次。
+- **实例结束后忽略**：实例结束后发送的事件不再受理。
+
+事件不会立即唤醒群体树。对时延敏感的模式，可以把 `UpdateInterval` 设为 0。
+
+## 业务参数
+
+职责任务的 `Parameters` 是一份 `FInstancedStruct`：在细节面板中选择业务定义的结构体类型，填写字段或把字段绑定到评估器输出，例如“搜索”职责的中心点与半径（示例）。框架不解释其中的内容，只把它交给担任者。
+
+- **随安排传递**：安排的 `Parameters` 字段保存当前值，成员条件与代价项的查询中也带着它。
+- **就地更新**：需求激活期间参数变化时，已有安排就地更新，不撤回、不重新投递。职责或目标改变则不同：已有安排撤回，对同一成员重新安排，见[安排的生命周期](/read/stellacoordination-assignments#职责或目标改变)。
+- **读取最新值**：成员侧的 `Coordination Hold Assignment` 与 `Coordination Assignment` 每次更新输出最新参数；其他执行侧按安排身份调用宿主的 `GetAssignment` 读取。
+- **引用的对象不会被回收**：参数中引用的对象在安排期间由宿主持有。
+
+```cpp
+// 示例：FExampleSearchParams 是业务定义的结构体，AssignmentHandle 为执行侧持有的安排身份
+FStellaCoordinationAssignment Assignment;
+if (Host->GetAssignment(AssignmentHandle, Assignment))
+{
+	if (const FExampleSearchParams* Params = Assignment.Parameters.GetPtr<FExampleSearchParams>())
+	{
+		// 按 Params->Center 与 Params->Radius 执行搜索
+	}
+}
+```
+
+参数内部字段的绑定按引擎源码核对过（StateTree 的绑定路径支持 `FInstancedStruct` 内的字段），自动化测试覆盖了参数的透传与就地更新；在编辑器中实际操作绑定，没有经过验证。
+
+## 成员贡献的战术
+
+成员可以把自己特有的战术带进群体，例如首领加入时带来一套召唤包围（示例）。做法是把群体树中可替换的部分做成链接子树状态，由成员提供替换用的子树：
+
+1. 在群体树中，把可替换的战术做成链接子树状态（状态类型为 `Linked Asset`），设置状态的 `Tag`，不要给状态参数做绑定。
+2. 在成员的 Actor（或它的控制器、Pawn）上挂 `UStellaCoordinationTacticsComponent`，在 `Tactics` 中添加一项：`StateTag` 填第 1 步的标签，`Tree` 填替换用的群体子树，Schema 同样是 Stella Coordination。
+
+<Diagram
+  title="战术怎样替换链接子树（示例）"
+  source={
+    'flowchart LR\n  Comp(成员的战术组件：标签 → 子树) -->|加入时读取| Host(宿主：按加入顺序生成覆盖)\n  Host --> Linked(群体树中带同一标签的链接状态)\n  Linked -->|下一次进入时| Sub(运行成员贡献的子树)'
+  }
+/>
+
+**生效规则**：
+
+- **加入时读取**：成员加入实例时，宿主在参与者 Actor 上找战术组件，找不到时再找登记 Pawn 的控制器或登记控制器的 Pawn。加入之后修改组件，要到下一次加入才生效。
+- **按加入顺序覆盖**：每次更新群体树时，宿主按成员加入顺序生成链接子树覆盖；同一标签由后加入的成员生效。成员离开后，它贡献的覆盖随之撤销。
+- **下一次进入时生效**：覆盖在带该标签的链接状态下一次新进入时生效，已经激活的链接状态保持原来的子树。
+- **无效项被跳过**：缺少标签、子树为空、未编译或 Schema 不对的项被跳过并输出警告，其余项照常生效。
+- **引擎规则**：状态参数有绑定的链接状态不能被覆盖。
+
+战术只能替换已有的链接子树状态，不能向群体树插入新的状态。调试面板会列出当前生效的战术和贡献者，见[调试与排查](/read/stellacoordination-debugging)。
+
+代码位置（插件 `Source/StellaCoordination`）：`StateTree/StellaCoordinationStateTreeSchema`、`StateTree/StellaCoordinationSTTask_Role`、`StateTree/StellaCoordinationSTCondition_RoleProgress`、`StateTree/StellaCoordinationSTCondition_RoleExhausted`、`StateTree/StellaCoordinationSTEvaluator_Context`、`StellaCoordinationInstance`（事件队列与战术覆盖）、`StellaCoordinationTacticsComponent`、`StellaCoordinationTags`。

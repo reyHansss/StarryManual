@@ -1,0 +1,95 @@
+---
+title: StellaCoordination · 快速上手
+description: 从零配置一套最小的群体协调：群体树声明一个职责，两名 AI 加入同一实例。先在调试面板里确认配对与投递，再让成员用 StateTree 采用安排。
+order: 71
+---
+
+这一篇搭一套最小配置：群体树只声明一个职责“出手”，容量为 1；两名 AI 加入同一个实例，宿主挑出离目标更近的一名担任。先不接执行侧，在调试面板里确认配对和投递已经接通；再给成员加一棵 StateTree，让它真正采用安排。
+
+下面的 `ACR_ExampleAttack` 等名称都是示例，需要你自己创建，项目里没有这些资产。
+
+## 第一步：职责与群体树
+
+1. 在内容浏览器右键 → **AI → StellaCoordination → Coordination Role (ACR)**，命名为 `ACR_ExampleAttack`。打开后把 `Execution` 设为 `Member Queries Assignment`：安排投递后对成员可见，由成员自己的 StateTree 读取。`OfferTimeout` 保持默认的 5 秒。
+2. 右键 → **Coordination Group Tree (ACGT)**，命名为 `ACGT_Example`。它是标准的 StateTree 资产，Schema 已经是 Stella Coordination。
+3. 打开群体树，在根状态上添加任务 **Coordination Role**，设置 `Role = ACR_ExampleAttack`、`Capacity = 1`。树视图中，这个任务显示为 `Role ACR_ExampleAttack x1`。
+4. 编译并保存。如果职责没有设置投递方式，编译会直接报错。
+
+## 第二步：模式
+
+右键 → **Coordination Mode (ACM)**，命名为 `ACM_Example`，把 `GroupTree` 设为 `ACGT_Example`。这个字段只列出 Stella Coordination Schema 的树。其余字段保持默认：`UpdateInterval = 0.25` 秒，`AssignmentKeepBonus = 500`。
+
+## 第三步：让两名 AI 加入
+
+协调宿主是世界子系统 `UStellaCoordinationSubsystem`。加入分两步：先用 `Register Participant` 登记参与者，再用 `Request Join` 加入以模式和键对象标识的实例。
+
+1. 在关卡里放一个 Actor 作为键对象，例如一个空 Actor（示例）。它标识这次协调，也是职责的默认目标：职责任务没有指定 `Target`、实例也没有共享目标时，目标就是键对象。
+2. 在关卡里放两名 AI（示例，任何 Pawn 都可以），彼此离键对象远近不同。
+3. 在关卡蓝图的 BeginPlay 中获取 `StellaCoordinationSubsystem`，对两名 AI 分别调用：
+   - `Register Participant`：`Agent` 为这名 AI，`Commandable` 保持勾选；
+   - `Request Join`：`Participant` 接上一步的返回值，`Mode = ACM_Example`，`Key` 为第 1 步的 Actor。
+
+这些节点只在权威端执行，下面在单机或服务器模式下运行。
+
+## 第四步：在面板里确认配对与投递
+
+1. 运行 PIE，按 **F1** 切换调试输入，从顶部菜单打开 **AI → Coordination**。
+2. 应该能看到：
+   - **实例列表**有一行，模式为 `ACM_Example`，成员数为 2，群体树激活路径为 `Root`；
+   - **职责需求**中 `ACR_ExampleAttack` 的容量为 1、担任为 1；
+   - **候选评估**中两名成员的数字是到键对象的距离（厘米），离得近的一名带 ★；
+   - **未结束的安排**中这名成员的安排为“已投递”，投递一列显示已经等了多久。
+3. 约 5 秒后，这项安排以“未采用”结束：还没有成员去采用它。**安排时间线**中依次出现提出、投递和结束，结束的详情为“未采用”。
+4. 未采用的成员在同样时长内不再配对这个职责，宿主改为把安排投递给另一名成员；再过 5 秒，又轮回第一名成员。
+
+看到这样的轮换，说明登记、入组、群体树、配对与投递都已接通，只差成员一侧。
+
+## 第五步：让成员采用安排
+
+成员用自己的 StateTree 读取并持有安排。新建一棵 StateTree（示例 `ST_ExampleMember`），Schema 选 StateTree Component，按下面的结构搭建：
+
+<Diagram
+  title="成员树（示例）：细线是父子关系，箭头是转换"
+  source={
+    'flowchart TD\n  Root(Root) --- Hold(Hold：持有安排)\n  Root --- Idle(Idle：待命)\n  Idle -->|On Tick，有安排时| Hold\n  Hold -->|On State Completed| Root'
+  }
+/>
+
+1. **Hold**：进入条件 `Coordination Has Assignment`；任务 `Coordination Hold Assignment`，勾选 `bReportStarted`，进入时同时报告采用与开始；转换 On State Completed → Root。
+2. **Idle**：任务 `Delay Task` 并勾选 Run Forever，让状态保持运行；转换 On Tick → Hold，条件 `Coordination Has Assignment`。
+3. 给两名 AI 各加一个 StateTree 组件，使用 `ST_ExampleMember`。成员侧节点按 Schema 的 `Actor` 上下文找到参与者，所以这棵树要运行在登记的 Actor 上，或者它的控制器、Pawn 上。
+
+再次运行，面板中的变化：
+
+- 担任者的安排很快从“已投递”变为“已开始”，并保持下去；时间线依次出现提出、投递、采用和开始。
+- 场景中，担任者到目标之间画出一条连线，标签为“ACR_ExampleAttack · 已开始”。
+- 另一名成员不再轮换上来：名额已满，担任者还享有保持优势。
+
+**试试补位**：按 F8 脱离控制，在大纲视图中删除担任者。它的安排以“失效”结束，另一名成员在下一次实例更新时接任，很快进入“已开始”。
+
+<Note title="Idle 状态要保持运行">
+
+没有任务的叶状态会立即完成，所以 Idle 要挂一个持续运行的任务，例如勾选 Run Forever 的 Delay Task。成员必须在职责的 `OfferTimeout` 内进入 Hold，否则安排记为未采用。
+
+</Note>
+
+第五步按插件源码和自动化测试整理：测试用 C++ 搭出相近的成员树（持有状态以 `Coordination Has Assignment` 为进入条件，完成后转回根状态），验证了采用、开始与结束。Idle 的 On Tick 转换，以及在编辑器中逐步搭建这棵树的流程，没有经过运行验证。
+
+## 没有按预期运行时
+
+| 现象                             | 先检查                                                                                                  |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| 面板中没有实例                   | 是否在单机或服务器世界运行；`Request Join` 是否返回有效身份：参与者已登记、模式设置了群体树、键对象有效 |
+| 有实例，但没有职责需求           | 群体树是否编译并保存；`Coordination Role` 是否在当前激活的状态上（看实例列表的激活路径）                |
+| 有需求，但没有安排               | 候选评估中成员是否标注为不可指挥，或带有不可担任的原因                                                  |
+| 安排停在“已投递”，随后变为未采用 | 职责的投递方式是否为 `Member Queries Assignment`；成员树是否运行在登记的 Actor 或它的控制器、Pawn 上    |
+
+更完整的排查路线见[调试与排查](/read/stellacoordination-debugging)。
+
+## 接下来
+
+- 给职责加优先级、成员条件和代价项，或冻结、耗尽职责：[配对与分配设置](/read/stellacoordination-pairing)。
+- 让 StellaUtilityAI 角色通过命令接取安排：[成员接入](/read/stellacoordination-members)。
+- 限制同一目标同时出手的人数：[配额](/read/stellacoordination-quotas)。
+
+代码位置（插件 `Plugins/AI/StellaCoordination/Source/StellaCoordination`）：`StellaCoordinationSubsystem`（登记、入组与配对）、`StateTree/StellaCoordinationSTTask_Role`（职责任务）、`StateTree/StellaCoordinationSTTask_HoldAssignment` 与 `StateTree/StellaCoordinationSTCondition_HasAssignment`（成员侧节点）。

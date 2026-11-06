@@ -1,0 +1,122 @@
+---
+title: StellaCoordination · 模块总览
+description: StellaCoordination 让一群 AI 按同一棵群体决策树分工行动。本文介绍它解决的问题、核心概念、资产创建位置，以及它怎样接入 Starry。
+order: 70
+terms:
+  - term: 协调宿主
+    aliases: [UStellaCoordinationSubsystem, Coordination Subsystem]
+    brief: 每个世界只有一个的协调服务。它持有参与者登记、协调实例和全部安排，统一负责配对与投递，只在服务器或单机的权威世界受理请求。
+  - term: 协调实例
+    aliases: [UStellaCoordinationInstance, Coordination Instance]
+    brief: 同一模式、同一键对象下的一组成员，运行一棵群体树。没有成员、键对象不可用或群体树停止时，实例结束。
+  - term: 键对象
+    aliases: [Key]
+    brief: 标识协调实例的 Actor，例如首领或事件源。模式与键对象都相同的成员进入同一个实例。
+  - term: 模式
+    aliases: [Coordination Mode, ACM_, UStellaCoordinationModeDefinition]
+    brief: 一类协调玩法的配置，包括使用哪棵群体树、多久更新一次、换人时的保持优势，以及成员加入与离开时的附加处理。
+  - term: 群体树
+    aliases: [Group Tree, ACGT_, Stella Coordination]
+    brief: Schema 为 Stella Coordination 的 StateTree，按当前形势声明需要哪些职责。它只负责协调，成员具体怎样行动写在成员自己的决策里。
+  - term: 职责
+    aliases: [Coordination Role, ACR_, UStellaCoordinationRoleDefinition]
+    brief: 成员可以担任的一种分工，例如出手、包围、侦察。职责资产定义投递方式、担任期间代持的配额和投递超时。
+  - term: 职责需求
+    aliases: [Role Demand]
+    brief: 群体树的某个状态激活期间登记的一项需求，说明“这个职责要几个人、怎样挑人”。它由职责任务 Coordination Role 声明，状态退出时撤销。
+  - term: 安排
+    aliases: [Assignment, FStellaCoordinationAssignment]
+    brief: 宿主把一名成员配给一项职责需求的结果，带有唯一身份和状态。执行侧按这个身份报告采用、开始、进度与结束。
+  - term: 投递方式
+    aliases: [Role Execution, UStellaCoordinationRoleExecution]
+    brief: 把安排交给成员个体决策的方式，例如发布一条 StellaUtilityAI 命令，或让成员的 StateTree 自己查询。安排撤回时，也由它负责收回。
+  - term: 配额池
+    aliases: [Quota Pool, ACQ_, UStellaCoordinationQuotaPoolDefinition]
+    brief: 限制同一作用域内同时做某件事的权重上限，例如同一目标同时只许一人出手。池资产与作用域对象共同确定一个池。
+---
+
+## 它解决什么问题
+
+一群 AI 一起行动时，如果每个个体只看自己，就会出现所有人同时扑向玩家、没人包抄、该轮流的动作挤在同一时刻的情况。StellaCoordination 把“谁做什么”从个体决策中拿出来，交给一个协调层统一决定：
+
+- **群体判断形势**：群体树按当前阶段声明需要哪些职责，例如“两人出手，其余人包围”。
+- **宿主挑人**：协调宿主每次更新后，按优先级、资格与代价把成员配给职责，结果就是安排。
+- **个体执行**：安排经投递方式交给成员自己的决策（StellaUtilityAI 或 StateTree）。成员决定具体怎样做，再把进展报告回来。
+- **共享名额**：同一目标同时能有几个人动手，由配额池限制。群体代成员申请和个体自己申请，用的是同一套名额。
+
+协调是增强，不是前提：没有加入实例的 AI 照常按自己的决策行动。插件只提供顶层框架和编辑器创作，站位分配、具体战术等业务规则由业务模块实现。
+
+<Diagram
+  title="从入组到执行"
+  source={
+    'flowchart LR\n  Biz(业务代码) -->|登记、入组| Host(协调宿主)\n  Host --> Inst(协调实例：模式 + 键对象)\n  Inst --> Tree(群体树声明职责需求)\n  Tree --> Solve(宿主配对)\n  Solve --> Assign(安排)\n  Assign -->|投递方式| Member(成员的个体决策)\n  Member -->|采用、开始、进度、结束| Host\n  Assign -->|代为申请| Quota(配额服务)'
+  }
+/>
+
+## 核心概念
+
+<Terms />
+
+**职责、需求与安排的区别**：职责是一种分工；职责需求是“某个阶段需要几个人担任这个职责”；安排是“这名成员担任这项需求”。群体树只声明需求、读取结果，不直接挑人。谁来担任，由宿主在每次实例更新后统一配对。
+
+## 宿主每次更新做什么
+
+协调宿主是一个世界子系统，随世界每帧更新一次，依次完成：
+
+1. **校验参与者**：Actor 已销毁或被判定不可用的参与者被注销，离开所在实例，它的安排以失效结束。
+2. **处理待办的投递**：收回已结束安排的投递对象，撤回配额被收回的安排，投递等待投递的安排。
+3. **更新到期的实例**：按模式的 `UpdateInterval` 推进群体树，然后配对，再把配对结果与现有安排的差异提交出去。
+4. **处理投递超时**：投递后超过职责的 `OfferTimeout` 仍未被采用的安排，记为未采用。
+
+成员的报告不必等到下一次更新：执行侧调用报告接口时，宿主立即改变安排状态，并把事件排进群体树的队列，在实例下一次更新时送达。
+
+## 资产与创建位置
+
+在内容浏览器中右键，选择 **AI → StellaCoordination**，可以创建以下资产。菜单项名称带有对应的缩写：
+
+| 前缀    | 菜单项                         | 用途                                                                   |
+| ------- | ------------------------------ | ---------------------------------------------------------------------- |
+| `ACM_`  | Coordination Mode (ACM)        | 模式：群体树、更新间隔、保持优势、成员附加处理                         |
+| `ACR_`  | Coordination Role (ACR)        | 职责：投递方式、代持配额、投递超时                                     |
+| `ACQ_`  | Coordination Quota Pool (ACQ)  | 配额池：容量                                                           |
+| `ACGT_` | Coordination Group Tree (ACGT) | 群体树：标准 StateTree 资产，创建时直接使用 Stella Coordination Schema |
+
+资产和节点上还有几类**内联对象**，在细节面板中直接新建，都可以在蓝图中派生：
+
+| 类型                                              | 填写位置                  | 自带实现                                          |
+| ------------------------------------------------- | ------------------------- | ------------------------------------------------- |
+| 投递方式 `UStellaCoordinationRoleExecution`       | 职责的 `Execution`        | `Utility AI Command`、`Member Queries Assignment` |
+| 成员附加处理 `UStellaCoordinationMemberExtension` | 模式的 `MemberExtensions` | `Add Behavior Modifiers`                          |
+| 成员条件 `UStellaCoordinationMemberCondition`     | 职责任务的 `Conditions`   | 无                                                |
+| 代价项 `UStellaCoordinationCostTerm`              | 职责任务的 `CostTerms`    | `Distance To Target`                              |
+
+内联对象被所有安排或实例共享，自身不保存某一次安排或某一名成员的状态。成员 Actor 上还可以挂 `UStellaCoordinationTacticsComponent`，向群体树贡献战术子树，见[群体树](/read/stellacoordination-group-tree#成员贡献的战术)。
+
+<Note title="配置与运行状态分开">
+
+模式、职责和群体树是共享的配置。参与者登记、实例、安排和配额申请都由宿主与配额服务在运行时持有，不复制给客户端，也不进入存档。
+
+</Note>
+
+## 在 Starry 中怎样接入
+
+Starry 已启用 StellaCoordination 插件，接入代码放在 `Framework/AI/Coordination`：
+
+- **生命状态接入**：`UStarryCoordinationAdapterSubsystem` 在游戏和 PIE 世界自动创建，把 Starry 的生命状态接到宿主上。`UStarryHealthComponent` 进入死亡流程的参与者按失效处理，以控制器登记的参与者按它的 Pawn 判断；键对象进入死亡流程时，实例结束。
+- **入组由业务决定**：Starry 不会自动把 AI 加入协调。业务代码在权威端登记参与者并提交入组，见[成员接入](/read/stellacoordination-members)。
+- **只在权威端受理**：登记、入组、报告和配额申请都只在服务器或单机世界受理，客户端调用会被拒绝。
+- **组织事实来源**：Starry 还没有接入小队等组织信息，按组捆绑的职责暂时没有组可用，每名成员自成一组。
+
+## 从哪里开始读
+
+| 你要做的事                                   | 阅读                                                   |
+| -------------------------------------------- | ------------------------------------------------------ |
+| 第一次让几名 AI 被协调起来                   | [快速上手](/read/stellacoordination-quickstart)        |
+| 写群体树、声明职责、接收事件                 | [群体树](/read/stellacoordination-group-tree)          |
+| 搞清楚为什么是这名成员担任                   | [配对与分配设置](/read/stellacoordination-pairing)     |
+| 了解安排的状态、撤回与超时                   | [安排的生命周期](/read/stellacoordination-assignments) |
+| 让 StellaUtilityAI 或 StateTree 成员执行安排 | [成员接入](/read/stellacoordination-members)           |
+| 限制同一目标同时行动的人数                   | [配额](/read/stellacoordination-quotas)                |
+| 协调结果不对                                 | [调试与排查](/read/stellacoordination-debugging)       |
+
+代码位置：插件 `Plugins/AI/StellaCoordination`，其中运行时在 `Source/StellaCoordination`，StellaUtilityAI 接入在 `Source/StellaCoordinationUtilityAI`，编辑器创作在 `Source/StellaCoordinationEditor`；项目接入在 `Source/StarryGame/Framework/AI/Coordination`。

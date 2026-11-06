@@ -11,7 +11,7 @@ Starry 是一个 Unreal Engine 5.8 游戏项目，运行在自维护的源码引
 - **玩法装配**：由 Experience 描述一局游戏要装配哪些内容；
 - **角色**：使用 Mover 移动；
 - **技能与战斗**：建立在 GAS 之上；
-- **AI**：由项目的 StellaUtilityAI 决策、StellaNavigation 导航；
+- **AI**：由项目的 StellaUtilityAI 决策、StellaCoordination 协调群体、StellaNavigation 导航；
 - **生态**：由生态系统模拟大量生物的需求、日程与资源。
 
 ## 游戏方向
@@ -25,12 +25,12 @@ Starry 是一个 Unreal Engine 5.8 游戏项目，运行在自维护的源码引
 
 ## 现在有什么
 
-| 范围      | 已有能力                                                                                    |
-| --------- | ------------------------------------------------------------------------------------------- |
-| 框架      | 四类角色（玩家、AI、NPC、怪物）、移动、能力与战斗、输入、装备、背包、阵营、相机、设置与界面 |
-| 玩法      | 生态运行框架、怪物状态、任务、前端流程                                                      |
-| AI 与导航 | StellaUtilityAI 组合决策及 BT／StateTree／HTN 后端、StellaNavigation、StellaPatrol          |
-| 工具      | StellaDebug 调试面板与远程查看、模块化编译工具 Starry UE Build                              |
+| 范围      | 已有能力                                                                                                        |
+| --------- | --------------------------------------------------------------------------------------------------------------- |
+| 框架      | 四类角色（玩家、AI、NPC、怪物）、移动、能力与战斗、输入、装备、背包、阵营、相机、设置与界面                     |
+| 玩法      | 生态运行框架、怪物状态、任务、前端流程                                                                          |
+| AI 与导航 | StellaUtilityAI 组合决策及 BT／StateTree／HTN 后端、StellaCoordination 群体协调、StellaNavigation、StellaPatrol |
+| 工具      | StellaDebug 调试面板与远程查看、模块化编译工具 Starry UE Build                                                  |
 
 目前**还没有**正式关卡（`Content/Maps` 为空），游戏流程尚未定稿，玩家进度的本地存档也还没有实现。
 
@@ -53,6 +53,7 @@ Starry 只能用 StarryUE 编译，原因见[环境搭建](/read/start-setup)。
 | 了解项目的整体结构             | [整体设计](/read/start-design)                                                        |
 | 一局游戏怎样启动、角色怎样组成 | [游戏框架](/read/framework-overview)                                                  |
 | 配置 AI 决策                   | [StellaUtilityAI](/read/stellautilityai-overview)                                     |
+| 让一群 AI 分工协作             | [StellaCoordination](/read/stellacoordination-overview)                               |
 | 新增玩家操作                   | [Input](/read/input-overview)                                                         |
 | 运行时观察与调试               | [StellaDebug](/read/stelladebug-overview)                                             |
 | 系统之间发通知、异步加载资源   | [Async Message](/read/asyncmessage-overview)、[AsyncMixin](/read/asyncmixin-overview) |
@@ -66,7 +67,7 @@ Starry 只能用 StarryUE 编译，原因见[环境搭建](/read/start-setup)。
 - **交互演示**：带“交互演示”标签的卡片可以直接操作，计算规则与项目源码一致。
 - **关系图谱**：根据文章之间的链接生成，表示“可以一起读”，不表示代码依赖。
 
-目前已经写成专题的模块有游戏框架、StellaUtilityAI、StellaDebug、Input、Async Message 与 AsyncMixin，其余系统会陆续补齐。
+目前已经写成专题的模块有游戏框架、StellaUtilityAI、StellaCoordination、StellaDebug、Input、Async Message 与 AsyncMixin，其余系统会陆续补齐。
 
 文中的约定：
 

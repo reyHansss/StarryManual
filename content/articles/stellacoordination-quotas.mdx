@@ -109,8 +109,17 @@ if (Claim.IsValid())
 
 任务进入状态时以成员为持有者申请，退出状态时归还；申请被收回时任务失败。所在状态被重新选中时，不会重复申请或提前归还。
 
-## 当前的限制
+## 配额服务不做什么
 
-配额服务目前只有权重容量、立即与排队准入、按先后授予和失效收回。租期续期、冷却、锁定、抢占、超额处理、容量倍率与覆盖，以及按小队等组织单位划分的作用域，都还没有实现。
+配额服务只按作用域对象（通常是攻击目标）或全局限额。以下规则因玩法而异，不放进配额服务：
+
+- 窗口租期与到期让出；
+- 再次申请的冷却；
+- 执行中锁定、抢占与超额处理；
+- 统计时跳过某些持有者，例如同小队的成员；
+- 临时改变容量，例如剧情把上限改为 1；
+- 按小队等组织单位的限额。
+
+需要这些规则的玩法，在 `Request`、`Release` 与 `GetUsage` 之上自己实现，或放进自己的系统与群体决策。这些规则造成的等待不会出现在 Coordination 面板中。
 
 代码位置（插件 `Source/StellaCoordination`）：`StellaCoordinationQuotaSubsystem`（申请、排队与收回）、`StellaCoordinationQuotaPoolDefinition`（池资产与申请项）、`StellaCoordinationRoleDefinition`（职责的 `Quotas`）、`StateTree/StellaCoordinationSTTask_HoldQuota`。

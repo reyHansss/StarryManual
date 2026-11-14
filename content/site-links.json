@@ -9,6 +9,11 @@
       "title": "Game AI Pro",
       "description": "游戏 AI 编程书籍与技术文章。",
       "url": "http://www.gameaipro.com/"
+    },
+    {
+      "title": "Game Makers",
+      "description": "日语游戏开发媒体，涵盖工具资讯、开发技巧与创作者访谈。",
+      "url": "https://gamemakers.jp/"
     }
   ]
 }

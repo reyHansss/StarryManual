@@ -6,13 +6,13 @@ order: 1
 
 ## Starry 是什么
 
-Starry 是一个 Unreal Engine 5.8 游戏项目，运行在自维护的源码引擎 StarryUE 上。玩法与框架以 C++ 为主：
+Starry 是一个 Unreal Engine 游戏项目，运行在自维护的源码引擎 StarryUE（基于 UE 5.9 Preview 1）上。玩法与框架以 C++ 为主：
 
 - **玩法装配**：由 Experience 描述一局游戏要装配哪些内容；
 - **角色**：使用 Mover 移动；
 - **技能与战斗**：建立在 GAS 之上；
 - **AI**：由项目的 StellaUtilityAI 决策、StellaCoordination 协调群体、StellaNavigation 导航；
-- **生态**：由生态系统模拟大量生物的需求、日程与资源。
+- **生态**：由生态系统模拟生物的需求、日程、资源与捕食。
 
 ## 游戏方向
 
@@ -28,7 +28,7 @@ Starry 是一个 Unreal Engine 5.8 游戏项目，运行在自维护的源码引
 | 范围      | 已有能力                                                                                                        |
 | --------- | --------------------------------------------------------------------------------------------------------------- |
 | 框架      | 四类角色（玩家、AI、NPC、怪物）、移动、能力与战斗、输入、装备、背包、阵营、相机、设置与界面                     |
-| 玩法      | 生态运行框架、怪物状态、任务、前端流程                                                                          |
+| 玩法      | 生态运行框架、怪物伤害与伤口、怪物状态、任务、前端流程                                                          |
 | AI 与导航 | StellaUtilityAI 组合决策及 BT／StateTree／HTN 后端、StellaCoordination 群体协调、StellaNavigation、StellaPatrol |
 | 工具      | StellaDebug 调试面板与远程查看、模块化编译工具 Starry UE Build                                                  |
 
@@ -36,11 +36,11 @@ Starry 是一个 Unreal Engine 5.8 游戏项目，运行在自维护的源码引
 
 ## 三个仓库
 
-| 仓库                                                      | 内容                                                                 |
-| --------------------------------------------------------- | -------------------------------------------------------------------- |
-| [Starry](https://github.com/reyHansss/Starry)             | 游戏项目，也就是本手册描述的对象                                     |
-| [StarryUE](https://github.com/reyHansss/StarryUE)         | 项目使用的源码引擎，基线为 `5.8.3-release`，维护分支 `starry-master` |
-| [StarryManual](https://github.com/reyHansss/StarryManual) | 这本手册的网站源码                                                   |
+| 仓库                                                      | 内容                                                                                                |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| [Starry](https://github.com/reyHansss/Starry)             | 游戏项目，也就是本手册描述的对象                                                                    |
+| [StarryUE](https://github.com/reyHansss/StarryUE)         | 项目使用的源码引擎，基线为 UE 5.9 Preview 1（官方标签 `5.9.0-preview-1`），维护分支 `starry-master` |
+| [StarryManual](https://github.com/reyHansss/StarryManual) | 这本手册的网站源码                                                                                  |
 
 Starry 只能用 StarryUE 编译，原因见[环境搭建](/read/start-setup)。
 

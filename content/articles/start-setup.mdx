@@ -12,11 +12,11 @@ order: 3
 
 | 工具               | 要求                                                                                                                                                                               |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Visual Studio 2022 | 打开 Visual Studio Installer，选“更多 → 导入配置”，导入 `<项目目录>/.vsconfig`。它会勾选所需的工作负载与组件，包括 MSVC 14.44、Windows 11 SDK 22621、LLVM Clang 与 Unreal 调试支持 |
+| Visual Studio 2022 | 打开 Visual Studio Installer，选“更多 → 导入配置”，导入 `<项目目录>/.vsconfig`。它会勾选所需的工作负载与组件，包括 MSVC 14.44、Windows 11 SDK 26100、LLVM Clang 与 Unreal 调试支持 |
 | JetBrains Rider    | 日常使用的 IDE，可选。需要额外设置一项 MSBuild 路径，见下文“编译项目”                                                                                                              |
-| Git                | 两个仓库都不使用 Git LFS                                                                                                                                                           |
+| Git 与 Git LFS     | Starry 用 Git LFS 保存 `Content/Art/Characters/MetaHumans` 下的 `.uasset`，克隆前要先启用，见下文“关联并生成项目”。StarryUE 不使用 Git LFS                                         |
 | PowerShell 7       | 运行 `Scripts` 下的检查脚本需要它。Windows 自带的 PowerShell 5.1 缺少脚本用到的 `[IO.Path]::GetRelativePath`                                                                       |
-| .NET               | 引擎工具使用引擎自带的 .NET SDK，不用单独安装。只有可选的 Starry UE Build 需要 .NET 9 桌面运行时                                                                                   |
+| .NET               | 引擎工具使用引擎自带的 .NET SDK，不用单独安装。只有可选的 Starry UE Build 需要 .NET 9 SDK：它的程序不进版本库，第一次启动时先用 SDK 生成                                           |
 
 当前的开发与验证环境是 Windows 11。
 
@@ -24,7 +24,7 @@ order: 3
 
 <Note title="为什么必须用源码引擎">
 
-StarryUE 在 Epic 官方 5.8.3 的基础上加入了项目需要的修改。例如 `AAIController::FindBrainComponent` 用于按类型查找 AI 的多个 Brain 组件，Starry 和 StellaUtilityAI 都直接调用它，而 Launcher 安装的 UE 5.8 里没有这个函数。所以用 Launcher 版引擎打开 Starry 无法通过编译。
+StarryUE 在 Epic 官方 UE 5.9 Preview 1（标签 `5.9.0-preview-1`）的基础上加入了项目需要的修改。例如 `AAIController::FindBrainComponent` 用于按类型查找 AI 的多个 Brain 组件，Starry 和 StellaUtilityAI 都直接调用它，而 Launcher 安装的官方引擎里没有这个函数。所以用 Launcher 版引擎打开 Starry 无法通过编译。
 
 </Note>
 
@@ -38,19 +38,22 @@ cd StarryUE
 .\Engine\Build\BatchFiles\Build.bat UnrealEditor Win64 Development -WaitMutex
 ```
 
-- `--depth 1` 只下载最新一层历史，体积小很多。以后需要研究历史或合并新版本时，再执行 `git fetch --unshallow`。
+- `--depth 1` 只下载最新一层历史，体积小很多。以后需要读取官方新版本或研究历史时，显式指定需要的版本标签和深度再抓取；一次抓取全部历史或标签会下载大量对象。
 - `Setup.bat` 会做四件事：下载本版本的第三方依赖，安装 Git 钩子，静默安装 VC++ 与 GameInput 运行库，并用 `UnrealVersionSelector /register` 把这份引擎登记到本机。
 - 编译完成后，应该能在 `Engine/Binaries/Win64` 下看到 `UnrealEditor.exe`。
 
 ### 引擎修改开关
 
-引擎里的项目修改都由宏 `STARRY_SOURCE_MODIFY` 控制，总开关在 `Engine/Source/Programs/Shared/StarrySourceModify.props` 的 `UseStarrySourceModify` 属性，默认开启。日常开发不需要动它。切换后要先关闭编辑器，执行 `BuildUBT.bat quiet FORCE`，再重新编译受影响的模块。修改标记的写法见[日常开发](/read/start-workflow#修改引擎或第三方源码)。
+引擎里的项目修改都由宏 `STARRY_SOURCE_MODIFY` 控制，总开关在 `Engine/Source/Programs/Shared/StarrySourceModify.props` 的 `UseStarrySourceModify` 属性，默认开启。日常开发不需要动它。切换后要先关闭编辑器，执行 `BuildUBT.bat quiet FORCE`，再重新编译受影响的模块。修改标记的写法见[开发约定](/read/start-workflow#修改引擎或第三方源码)。
 
 ## 关联并生成项目
 
 ```powershell
+git lfs install
 git clone https://github.com/reyHansss/Starry.git
 ```
+
+`git lfs install` 为当前用户启用 Git LFS，每台电脑执行一次即可；之后克隆会一并下载 `Content/Art/Characters/MetaHumans` 下的资产。
 
 `Starry.uproject` 的 `EngineAssociation` 记录的是源码引擎在**某台机器上**登记时生成的标识，换一台电脑后它对不上本机的引擎。在资源管理器中右键 `Starry.uproject`，选择“Switch Unreal Engine version…”，在弹出的版本选择器中选 StarryUE 的目录即可。这会改写 `EngineAssociation` 字段，提交代码时留意这处改动。
 
@@ -78,7 +81,7 @@ Rider 2026.2 默认选用它自带的 MSBuild 18，加载 C++ 工程时会去找
 | `StarryGame`   | Game   | 独立运行的游戏程序                               |
 | `StarryServer` | Server | 专用服务器                                       |
 
-三个目标共用同一组设置：`BuildSettingsVersion.V7` 与 `IncludeOrderVersion.Unreal5_8`。
+三个目标共用同一组设置：`BuildSettingsVersion.V8` 与 `EngineIncludeOrderVersion.Unreal5_9`。
 
 编译成功后双击 `Starry.uproject`，或在 Rider 中运行，即可打开编辑器。第一次打开会编译大量着色器，耐心等待。项目没有设置编辑器启动地图，打开后看到的是引擎默认的 OpenWorld 模板地图。接下来按[开发约定](/read/start-workflow)了解编译配置、代码规范与测试。
 
@@ -94,12 +97,13 @@ Rider 2026.2 默认选用它自带的 MSBuild 18，加载 C++ 工程时会去找
 
 ## 遇到问题
 
-| 现象                                                                | 处理                                                         |
-| ------------------------------------------------------------------- | ------------------------------------------------------------ |
-| Rider 加载 C++ 工程时报找不到 `VC/v180/Microsoft.Cpp.Default.props` | 按上文把 MSBuild 设为 Visual Studio 2022 的版本              |
-| 打开项目时提示找不到引擎，或要求选择引擎版本                        | 用“Switch Unreal Engine version…”重新关联 StarryUE           |
-| 编译报 `FindBrainComponent` 不存在                                  | 当前用的是 Launcher 版引擎，改用 StarryUE                    |
-| `Scripts` 下的 `.ps1` 脚本一运行就报解析错误                        | 用 PowerShell 7（`pwsh`）运行，不要用 Windows PowerShell 5.1 |
+| 现象                                                                                       | 处理                                                                                                 |
+| ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| Rider 加载 C++ 工程时报找不到 `VC/v180/Microsoft.Cpp.Default.props`                        | 按上文把 MSBuild 设为 Visual Studio 2022 的版本                                                      |
+| 打开项目时提示找不到引擎，或要求选择引擎版本                                               | 用“Switch Unreal Engine version…”重新关联 StarryUE                                                   |
+| 编辑器无法加载 `Content/Art/Characters/MetaHumans` 下的资产，对应 `.uasset` 只有一百多字节 | 这些是没有下载内容的 Git LFS 指针文件：执行 `git lfs install`，再在 `<项目目录>` 执行 `git lfs pull` |
+| 编译报 `FindBrainComponent` 不存在                                                         | 当前用的是 Launcher 版引擎，改用 StarryUE                                                            |
+| `Scripts` 下的 `.ps1` 脚本一运行就报解析错误                                               | 用 PowerShell 7（`pwsh`）运行，不要用 Windows PowerShell 5.1                                         |
 
 ## 当前开发机的位置
 

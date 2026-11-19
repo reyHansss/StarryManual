@@ -8,7 +8,7 @@ order: 52
 
 ## 模块与头文件
 
-在使用这些接口的模块中加入 `AsyncMessageSystem` 依赖；`StarryGame` 已具备。当前 UE 5.8 的 `FInstancedStruct` 位于 `CoreUObject`，不需要再按图中旧写法添加 `StructUtils` 模块。
+在使用这些接口的模块中加入 `AsyncMessageSystem` 依赖；`StarryGame` 已具备。`FInstancedStruct` 位于 `CoreUObject`，不需要再按图中旧写法添加 `StructUtils` 模块。
 
 ```csharp
 PublicDependencyModuleNames.AddRange(new string[]

@@ -29,7 +29,7 @@ export default function BlueprintPage() {
         <div>
           <p>
             当前画布使用本地 blueprintUE 渲染器。画布用于展示你粘贴的节点，不执行蓝图，也不直接打开
-            .uasset。其他图表类型与 UE 5.8 的复杂节点还需逐类验证。
+            .uasset。其他图表类型与复杂节点还需逐类验证。
           </p>
           <Link href="/read/blueprint-nodes">
             在文章中嵌入节点图 <ArrowRight size={16} />

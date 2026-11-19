@@ -9,7 +9,7 @@ export default function HomePage() {
       <section className="hero">
         <div className="hero-copy">
           <span className="edition-label">
-            <Sparkles size={15} /> UNREAL ENGINE 5.8
+            <Sparkles size={15} /> UNREAL ENGINE
           </span>
           <h1>
             <span className="hero-name">Starry</span>

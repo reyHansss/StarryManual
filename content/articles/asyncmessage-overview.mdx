@@ -1,11 +1,11 @@
 ---
 title: Async Message · 模块总览
-description: 用 UE 5.8 原生的 Async Message System 在系统之间发布“已经发生了什么”：它适合做什么、接入前要定的四件事，以及默认的派发时机与边界。
+description: 用 UE 原生的 Async Message System 在系统之间发布“已经发生了什么”：它适合做什么、接入前要定的四件事，以及默认的派发时机与边界。
 order: 50
 terms:
   - term: Async Message System
     aliases: [AsyncMessageSystem, 异步消息]
-    brief: UE 5.8 自带的消息插件：用 Gameplay Tag 标识消息、结构体承载数据，发送方不需要知道谁在接收，监听者在自己的接收阶段处理。
+    brief: UE 自带的消息插件：用 Gameplay Tag 标识消息、结构体承载数据，发送方不需要知道谁在接收，监听者在自己的接收阶段处理。
   - term: Message Id
     aliases: [FAsyncMessageId, 消息身份]
     brief: 消息的身份，由一个已注册的 Gameplay Tag 封装而成；监听父标签也能收到子标签的消息。
@@ -18,7 +18,7 @@ terms:
 
 ## 它适合做什么
 
-Async Message System 是 UE 5.8 自带的插件：
+Async Message System 是 UE 自带的插件：
 
 - **消息身份**：用 Gameplay Tag 标识；
 - **消息数据**：用结构体承载；
@@ -68,7 +68,7 @@ Starry 用它发布“已经发生了什么”，例如技能激活失败、受�
 
 - **不跨 World，不联网**：每个 World 有独立的消息系统。PIE 中服务器世界和客户端世界不会因为标签相同就互通，插件也不会把消息变成 RPC。要跨网络，先由状态复制或显式 RPC 把数据送到接收端，再在接收端的 World 内发布。
 - **不保存历史**：没有人监听时，消息不会被留着等后来的订阅者。界面打开时，先登记监听，再从领域接口读取当前状态，之后用消息更新。
-- **插件仍是 Experimental**：本机 UE 5.8 的插件描述中仍标为 Experimental，升级引擎时需要复核接口和行为。
+- **插件仍是 Experimental**：插件描述中仍标为 Experimental，升级引擎时需要复核接口和行为。
 
 ## 从哪里开始读
 

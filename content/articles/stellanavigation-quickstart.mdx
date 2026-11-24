@@ -1,0 +1,84 @@
+---
+title: StellaNavigation · 快速上手
+description: 先在导航示例地图中看电梯、平台跳跃、动态障碍与旋转圆盘的效果；再在新地图中构建地面导航、让 AI 走起来；最后给一块移动平台烘焙局部导航，让 AI 在平台上随平台行走。
+order: 101
+---
+
+这一篇分三部分：先运行导航示例地图，看看移动平台和连接的效果；再在一张新地图上让 AI 在地面寻路；最后给一块移动平台配置导航，让 AI 在运动的平台上行走。下面的 `BP_ExamplePlatform` 等名称是示例，需要你自己创建。
+
+## 第一部分：运行示例地图
+
+打开 `/Game/Samples/Navigation/L_Navigation`，运行 PIE。地图复用正式的玩家角色、Mover、输入与相机；场内 AI 使用正式的 `StarryAIController`。从出生入口看，四个区域分别是：
+
+| 位置 | 区域           | 看什么                                                                                      |
+| ---- | -------------- | ------------------------------------------------------------------------------------------- |
+| 左后 | 三层电梯       | 首层的 `AI TO L1／L2／L3` 面板让 AI 前往对应楼层：AI 在站台呼梯、等门、乘梯，到站后走出轿厢 |
+| 右后 | 双平台会合跳跃 | 两块独立运动的平台在窗口期内相对静止，AI 在入口等待，窗口打开后跳到对面平台                 |
+| 左前 | 动态障碍       | 两块红色挡墙来回移动，AI 在 A、B 两点之间往返，沿实时切割后的可走区域绕过挡墙               |
+| 右前 | 移动旋转圆盘   | 圆盘一边直线往返一边旋转，AI 在盘面上两个随动目标之间行走                                   |
+
+在游戏控制台输入 `show navigation` 可以显示导航网格，再输入一次关闭。电梯、跳跃都是示例业务，导航只负责规划路线并在连接入口把控制交给它们，做法见[导航连接](/read/stellanavigation-links#在入口执行自定义动作)。
+
+## 第二部分：新地图上的地面导航
+
+项目已经把默认导航系统和代理配置好，新地图只需要放置范围并构建：
+
+1. **放置范围**：放一个 Nav Mesh Bounds Volume，覆盖 AI 要走的地面。
+2. **构建**：执行 **Build → Build Paths**。在视口按 `P` 显示导航，预期看到地面铺上导航网格，不可走的边界画成红线。
+3. **核对导航数据**：在 World Outliner 中，导航系统自动创建的导航数据 Actor 应该是 `StellaNavigationData`。如果不是，检查这张地图的 World Settings 是否在 Navigation System Config 中覆盖了项目设置。
+4. **让 AI 走**：放一名由 `StarryAIController` 控制的 AI（示例 `BP_ExampleAgent`）和一个目标点 Actor。在服务器上调用蓝图节点 **AI MoveTo**，`Pawn` 接这名 AI，`Target Actor` 接目标点。
+5. **运行**：预期 AI 沿导航走到目标点，`On Success` 引脚触发。
+
+<Note title="PIE 中要单独打开导航显示">
+
+编辑器视口按 `P` 显示导航，PIE 的游戏视口使用独立的显示开关，需要在游戏控制台输入 `show navigation`。编辑器里已经显示，不代表 PIE 里也显示。
+
+</Note>
+
+## 第三部分：让 AI 在移动平台上行走
+
+### 第一步：准备平台
+
+1. 新建平台蓝图 `BP_ExamplePlatform`：一个带碰撞的平板网格，记作 `Platform`，再加一个 Interp To Movement 组件让它来回移动。
+2. 在 `Platform` 上关闭 **Can Ever Affect Navigation**，保留它的碰撞。否则平台会在初始位置被烘焙进地面导航，运行时留下一块“幽灵”网格。
+3. 添加组件 **Stella Navigation Surface**，把 `Base Component` 设为 `Platform`。默认只烘焙这个组件的碰撞，其他碰撞需要显式加入 `Additional Geometry`，见[移动平台](/read/stellanavigation-platforms#配置导航表面)。
+
+### 第二步：烘焙局部导航
+
+1. 把 `BP_ExamplePlatform` 放进关卡，在视口中右键它，选择 **导航 → StellaNavigation → 烘焙所选平台的局部导航**。
+2. 第一次烘焙会弹出文件夹选择框，选一个存放资产的文件夹。
+3. 预期结果：文件夹中生成局部导航资产 `ANM_<Actor 名>_StarryCharacter`，并自动填入导航表面的 `Mesh Assets`；视口中平台上出现自己的导航网格。
+4. 重新构建一次地面导航，清除平台此前留下的痕迹，然后保存关卡和新资产。
+
+### 第三步：在平台上移动
+
+1. 在平台上放两个目标点 Actor，把它们附加到平台上，让它们随平台移动。
+2. 让 AI 出生在平台上，用 **AI MoveTo** 在两个目标点之间往返：上一次 `On Success` 后再请求下一个目标。
+3. 运行 PIE 并输入 `show navigation`，预期看到：
+   - 平台的导航网格随平台移动；
+   - AI 在运动的平台上走向目标点，不会因为平台移动而滑出平台；
+   - 目标点是附加在平台上的 Actor，路径终点随平台移动。
+
+平台和地面是两个独立的导航实例，彼此之间默认不连通：AI 要从地面走上平台，需要用 NavLink 把两边连起来，见[导航连接](/read/stellanavigation-links)。
+
+第二、三部分按插件源码与示例地图中移动圆盘的做法整理，逐步搭建的流程没有经过运行验证。
+
+## 没有按预期运行时
+
+| 现象                          | 先检查                                                                                                         |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| 地面没有导航                  | Nav Mesh Bounds Volume 是否覆盖地面；地图是否覆盖了导航系统配置；导航数据 Actor 是否为 `StellaNavigationData`  |
+| AI 不动，`AI MoveTo` 立即失败 | AI 是否由 `StarryAIController` 控制；AI 脚下与目标能否投影到导航；是否在服务器上发起                           |
+| 平台上没有导航                | 导航表面的 `Base Component` 是否指向实际碰撞；`Mesh Assets` 是否有与当前代理匹配的资产；资产预览里是否有可走面 |
+| 地面导航里残留平台的旧位置    | 平台碰撞的 `Can Ever Affect Navigation` 是否已关闭，关闭后要重新构建地面导航                                   |
+| AI 从地面走不上平台           | 地面和平台之间是否有 NavLink；平台运动到入口时两边是否真的能走通                                               |
+
+更完整的排查见[调试与排查](/read/stellanavigation-debugging)。
+
+## 接下来
+
+- 多块碰撞的平台、资产编辑器里的手工连接与区域：[移动平台](/read/stellanavigation-platforms)。
+- 把地面与平台连起来，或在入口执行乘梯、跳跃：[导航连接](/read/stellanavigation-links)。
+- 让 AI 走向“平台上的某个位置”，而不是一个世界坐标：[请求移动](/read/stellanavigation-movement#指向平台上的位置)。
+
+代码位置：插件 `Plugins/AI/StellaNavigation/Source`，`StellaNavigation/Public/Sections/StellaNavigationSurfaceComponent.h`（导航表面）、`StellaNavigationEditor/Private/StellaNavigationEditorTools.cpp`（右键烘焙菜单）；项目导航配置在 `Config/DefaultEngine.ini`；示例蓝图在 `/Game/Samples/Navigation`。

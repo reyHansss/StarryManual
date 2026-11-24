@@ -1,0 +1,87 @@
+---
+title: StellaNavigation · 数据更新与扩展接口
+description: 导航层的 Up 方向；障碍、平台与连接的变化怎样在后台批量更新并发布；普通关卡与 World Partition 的流送、世界原点迁移；以及成组增删连接、独立有向图等 C++ 扩展接口。
+section: [运行时变化]
+order: 107
+---
+
+导航数据在运行中会不断变化：障碍移动、平台登记与卸载、连接启停、地面 Tile 流入流出。这一篇说明这些变化怎样被处理和发布，以及几个面向 C++ 的扩展接口。普通的玩法接入通常不需要改这里的设置。
+
+## 导航层的 Up 方向
+
+导航数据的 **Stella Navigation → Navigation Up** 定义整个导航层的世界 Up，默认 `(0, 0, 1)`；项目设置的 **Stella Navigation** 页有同名的默认值，修改后重启编辑器生效。这个值要在运行前确定，搜索范围、世界查询和障碍轮廓都按它计算；角色跟随路径时使用 Mover 实际的 Up。
+
+它是地面导航的坐标约定：不会改变 Recast 体素化的方向，也不会开启三维体积导航。在 Up 不是 Z 轴的世界里行走，还需要按玩法配置 Mover 的重力、碰撞朝向和几何。
+
+## 异步数据更新
+
+导航数据的 **Stella Navigation → Processing** 中有两个开关：
+
+| 开关                               | 默认 | 含义                                                                            |
+| ---------------------------------- | ---- | ------------------------------------------------------------------------------- |
+| `Async Navigation Data Processing` | 开启 | 游戏与 PIE 世界中，几何、障碍、连接的变化在后台批量处理；编辑器世界始终同步处理 |
+| `Automatic Async Stepping`         | 开启 | 每帧不阻塞地提交已经完成的批次，并开始下一批                                    |
+
+- **处理期间读旧数据**：同步查询、调试绘制和路径跟随在新批次提交前继续读取旧的几何；平台的位姿仍然实时更新。路径在新数据提交之后才收到失效通知。
+- **需要同帧生效时**：关闭 `Async Navigation Data Processing`，改动在当帧完成。
+- **失败不覆盖**：一批处理失败时，保留原来的导航和连接费用，相同的失败输入不会被自动反复处理，有新的输入后恢复。
+- **处理期间可以继续登记**：注册或注销表面、更新连接都会排进下一批；新登记的表面在批次提交之前不能被查询。
+
+需要自己控制批次时（C++），关闭 `Automatic Async Stepping`，在游戏线程调用 `StartAsyncProcessingRun` 开始一批，用 `IsAsyncProcessingRunComplete` 查询，完成后调用 `CommitAsyncProcessingRun` 提交。`CompleteAsyncProcessingRun` 会等待并提交，用于必须同步的关闭时机，平时不需要每帧调用。
+
+## 关卡流送与 World Partition
+
+- **普通关卡**：沿用 UE 原生的导航数据生成与流送流程。
+- **World Partition**：在导航数据上开启 `Is World Partitioned`，用 UE 原生的 World Partition Navigation Data Builder 构建。导航表面和 NavLink 像普通的空间 Actor 一样归入单元，不需要手动挂接导航数据块，也不需要另建一份流送列表。
+- **连接跟随流送**：NavLink 按两端表面的持久身份绑定。一端所在的平台流出时，这条连接暂时不可用；同一平台流入后自动恢复。连接不会让平台一直保持加载。
+- **地面自动通道**：World Partition 地图的地面自动通道保存在原生导航数据块中，随 Tile 装卸，见[自动遍历通道](/read/stellanavigation-traversal#结果保存在哪里)。
+
+<Note title="World Partition 导航数据块的已知问题">
+
+在 StarryUE 中已经复现：相邻的导航数据块包含同一坐标的 Tile 时，后加载的一块会替换这个 Tile，先卸载的一块又会把它取走，导致仍在加载的区块丢失边界处的导航。这是 UE 原生数据块装卸的问题，目前作为待修复项保留。
+
+</Note>
+
+## 世界原点迁移
+
+使用当前世界的 `UWorld::SetNewWorldOrigin`，不要自己偏移导航数据、导航表面或路径：
+
+- **世界目标**（没有指定 `Relative Surface` 的请求）随原点一起换算；**相对目标**仍保存同一个局部位置。
+- **已有路径**的点按所属实例的最新参考系显示，平台的局部路径、障碍切割和连接都不需要重新烘焙。
+- **程序化写入 NavLink 端点**时（C++），用 Link 组件的 `GetEndpointFrame` 在世界与端点参考系之间转换；原点迁移后，不能再把局部端点直接当成世界坐标。
+
+## 成组增删连接（C++）
+
+需要随场景变化成组创建、替换或移除完整跨度连接时，使用导航数据的动态连接集合。它和 NavLink、自动通道共用同一套连接与搜索，不需要再写一种链接组件：
+
+```cpp
+FStellaNavigationUserEdgeSetup Setup;
+// 两端各一条世界坐标的端线，最后一个参数是沿 Up 查找可走面的查询半跨度。
+Setup.SetFromLineSegments(A0World, A1World, B0World, B1World, FVector::UpVector * 100.0);
+
+const FStellaNavigationDynamicUserEdgeSetId Set = NavData->CreateDynamicUserEdgeSet();
+FString Error;
+if (!NavData->AddDynamicUserEdgeSetups(Set, {Setup}, Error))
+{
+	NavData->RemoveDynamicUserEdgeSet(Set);
+	// 在调用方自己的错误处理中报告 Error。
+}
+
+// 场景变化后，由调用方重新创建新的集合并删除旧集合。
+NavData->RemoveDynamicUserEdgeSet(Set);
+```
+
+- **只在游戏线程修改**。命名集合可以分多批添加，移除后这个编号不能再用；移除会使实际经过这些连接的路径失效。
+- **默认集合**：`AddToDefaultDynamicUserEdgeSet` 追加到编号 0 的默认集合，它不能整体删除，连接在任一端的平台卸载时清理，适合与平台共存的连接。
+- **不随几何自动更新**：平台的正常运动不影响已创建的连接；平台网格被重新生成后，旧的动态连接被撤下，需要调用方重新创建。
+- **集合编号只属于创建它的导航数据**，不保存到资产或存档。
+
+## 独立有向图（C++）
+
+不依赖导航网格的显式图，例如轨道、预设航线，可以用 `FStellaNavigationDirectedGraphBuilder` 构建 `FStellaNavigationDirectedGraph`，再通过导航数据的 `RegisterGraph` 登记为一个实例，用 `FindGraphPath` 同步搜索、`RequestGraphPathAsync` 异步搜索，用 `UpdateGraphFrame` 更新它的刚体参考系，功能结束时调用 `UnregisterGraph`。
+
+- **单位**：图内节点位置和边费用使用**米**，参考系与 `GetGraphNodePosition` 返回的世界位置使用厘米。
+- **登记后只读**：登记、卸载和更新参考系都在游戏线程进行，图登记后保持不变。
+- **只负责搜索**：图不会生成导航网格，也不会移动角色；普通的平台行走仍然使用导航表面、NavLink 和 MoveTo。
+
+代码位置（插件 `Plugins/AI/StellaNavigation/Source/StellaNavigation/Public`）：`StellaNavigationData.h`（处理开关、动态连接集合、图接口）、`StellaNavigationSettings.h`（项目默认值）、`StellaNavigationWorldSubsystem.h`（世界请求队列）、`Links/StellaNavigationUserEdges.h`（连接输入）、`Graph/StellaNavigationDirectedGraph.h`。

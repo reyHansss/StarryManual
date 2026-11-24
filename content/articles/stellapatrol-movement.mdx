@@ -1,0 +1,108 @@
+---
+title: StellaPatrol · 移动与动作
+description: 巡逻组件的设置、开启与停止接口、提交给 AIController 的移动请求与失败处理；怎样编写移动途中和到点后执行的巡逻动作，以及行为树任务的行为。
+section: [执行]
+order: 113
+---
+
+巡逻组件替 NPC 决定下一个目标点，再把移动交给 AIController。这一篇说明组件的设置与接口、每次移动的请求参数与失败处理，以及怎样编写移动途中和到点后执行的动作。
+
+## 组件设置
+
+在 Pawn 上添加 **Stella Patrol** 组件（`UStellaPatrolComponent`），在 **Patrol** 分类中配置：
+
+| 设置                | 默认值 | 含义                                                                                                      |
+| ------------------- | ------ | --------------------------------------------------------------------------------------------------------- |
+| `Activate At Start` | 关闭   | BeginPlay 时自动开始巡逻；由行为树等决策调度时保持关闭                                                    |
+| `First Zone`        | 空     | 开始巡逻时优先使用的区域；引用关卡中的 Actor，要在关卡实例上设置                                          |
+| `Acceptance Radius` | 25 cm  | 到点的接受半径，判断时不计入代理半径                                                                      |
+| `Nav Filter Class`  | 空     | 移动使用的导航查询过滤器，留空时使用 AIController 的默认过滤器                                            |
+| `Search Params`     | 不限   | 自动选区时的标签、距离与“首次取最近”，见[区域与路线](/read/stellapatrol-zones#第一次选区与没有路线的区域) |
+
+组件只在巡逻开启、且 Pawn 由 AIController 控制时才每帧更新，平时不占用 Tick。
+
+## 开启与停止
+
+| 接口                     | 作用                                                                                                                  |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `Toggle Patrol Movement` | 传 true 开启：清空当前执行，方向重置为正向，从 `First Zone` 开始；传 false 停止：立即取消本组件的移动和正在执行的动作 |
+| `Set Target Zone`        | 巡逻途中立即改去指定区域，清理当前的移动和动作，停留计时从此刻重新开始；传空值时，下一帧按 `Search Params` 重新选区   |
+| `Is Patrol Active`       | 已开启，并且有 Pawn 和 AIController 时返回 true                                                                       |
+
+- **只在权威端生效**：`Toggle Patrol Movement` 与 `Set Target Zone` 只在服务器或单机上执行，客户端调用会被忽略。重复开启或重复停止不会重置状态。
+- **控制器更换**：组件清理当前的移动和动作。新的控制器仍是 AIController 时，从当前区域继续；Pawn 暂时没有 AIController 时，巡逻保持开启但暂停更新，重新被 AIController 控制后继续。暂停期间 `Is Patrol Active` 返回 false。
+- **结束时清理**：组件注销或 Pawn 结束运行时，停止巡逻并取消自己的移动与动作。
+
+### 行为树任务
+
+任务 `StellaPatrolBTTask_ExecutePatrol` 的节点标题显示为 Stella Patrol：
+
+- **进入**：找到 Pawn 上的巡逻组件并开启巡逻，任务保持运行。Pawn 没有巡逻组件、巡逻已经开启，或开启后没有生效时，任务直接失败。
+- **运行中**：巡逻因移动失败等原因停止时，任务失败。
+- **退出**：节点被中止或结束时停止巡逻，取消本次移动。
+
+## 移动请求
+
+每次移动，组件向 AIController 提交一次原生 MoveTo：
+
+- **目标**：第一次走向某个区域时，取区域内离 NPC 最近的采样点；在区域内漫游时，随机取一个采样点。
+- **请求参数**：目标投影到导航网格；不接受部分路径；接受半径为 `Acceptance Radius`，不含代理半径；过滤器为 `Nav Filter Class` 或控制器默认值。
+- **只认自己的请求**：组件保存这次请求的编号，从路径跟随的完成通知中只处理属于自己的结果；停止巡逻时只取消仍是自己的那次请求。
+
+移动的结果：
+
+- **成功**：视为到点，结束移动动作，开始到点动作。
+- **其他结果**：中止、路径失效、被新的移动请求替换等，巡逻都会停止，不在后台重新提交。
+- **提交本身失败**：目标点不在导航上、找不到完整路径，或控制器没有路径跟随组件时，巡逻同样停止。
+
+<Note title="同一时刻只让一个系统驱动移动">
+
+巡逻组件直接调用 AIController 的 MoveTo，不经过 GameplayTask 的移动资源仲裁。行为树的 Move To、StellaUtilityAI 的 Logic 等其他移动会替换巡逻提交的请求，巡逻随即停止。由决策切换时，先停止巡逻再开始别的移动，或者让行为树任务 Stella Patrol 管理巡逻的开始与结束。
+
+</Note>
+
+## 巡逻动作
+
+区域上可以配置两种动作，都在区域的 **Actions** 分类中添加：
+
+| 动作类型                                 | 填写位置             | 什么时候执行                                                                                                                                 |
+| ---------------------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| 移动动作 `UStellaPatrolNavigationAction` | `Navigation Actions` | 每次移动提交成功后全部启动，移动期间每帧更新；成功到点时自动完成并收到 `On Reach Zone`；移动失败、巡逻停止或切换区域时收到 `On Abort Action` |
+| 到点动作 `UStellaPatrolZoneAction`       | `Zone Actions`       | 每次到点后按数组顺序逐个执行，同时只运行一个；动作调用 `Finish Zone Action` 后，下一帧启动下一个；全部完成后才决定下一步去向                 |
+
+两种动作共用这些事件和函数：
+
+| 事件或函数               | 说明                                                 |
+| ------------------------ | ---------------------------------------------------- |
+| `On Execute Action`      | 动作开始，参数为本次的 AIController、Pawn 和目标区域 |
+| `On Tick Action`         | 执行期间每帧调用，参数为经过的秒数                   |
+| `On Abort Action`        | 动作被取消，在这里清理动作自己创建的外部资源         |
+| `On Reach Zone`          | 仅移动动作：成功到达目标区域                         |
+| `Finish Zone Action`     | 仅到点动作：标记当前动作完成                         |
+| `Spawn Actor From Class` | 在执行所属的世界生成 Actor，失败返回空               |
+
+### 动作的实例与清理
+
+- **区域上的条目是模板**：每次执行时为当前 NPC 复制一份，移动动作在提交移动后复制，到点动作每次只复制当前这一项。不要在模板里保存跨次执行的状态。
+- **自动清理的部分**：动作结束或被取消后，组件移除它的 Delay 等延迟节点和定时器。
+- **需要自己清理的部分**：动作生成的 Actor、正在播放的蒙太奇等外部资源，在 `On Abort Action` 中清理。
+
+<Note title="到点动作必须调用 Finish Zone Action">
+
+到点动作不会自己结束。忘记调用 `Finish Zone Action` 时，NPC 会一直停在这个点上，也不会去下一个区域。
+
+</Note>
+
+### 编写一个到点动作
+
+例如让 NPC 每到一个点就站 2 秒（示例 `BP_ExampleWait`）：
+
+1. 新建蓝图类，父类选 `StellaPatrolZoneAction`，命名为 `BP_ExampleWait`。
+2. 实现 `On Execute Action`：接一个 2 秒的 Delay，之后调用 `Finish Zone Action`。
+3. 在区域的 `Zone Actions` 中添加一项，选择 `BP_ExampleWait`。条目可以直接在区域上编辑，不同区域可以配置不同的参数。
+
+预期结果：NPC 每次到点停留 2 秒，再走向下一个点。巡逻被停止时，Delay 随动作一起清除，不会在之后误调用 `Finish Zone Action`。
+
+插件测试内容 `/StellaPatrol/Tests/Actions` 中有几个可以参考写法的示例：到点动作 `BP_WaitTime`、`BP_PlayMontage`、`BP_RotateTowardZoneDirection`，移动动作 `BP_ChangeMovementSpeed`。其中 `BP_ChangeMovementSpeed` 修改的是 CharacterMovement 组件的 `MaxWalkSpeed`，而 Starry 角色使用 Mover 移动。这些示例在项目中永不 Cook，正式内容不要引用。
+
+代码位置（插件 `Plugins/AI/StellaPatrol/Source/StellaPatrol`）：`StellaPatrolComponent`（开启、移动请求、动作调度与清理）、`StellaPatrolAction`（动作基类）、`StellaPatrolBTTask_ExecutePatrol`（行为树任务）。

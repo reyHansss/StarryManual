@@ -37,17 +37,19 @@ Setup 的 `InputHandlers` 直接引用资产里的 Handler 对象。字段标成
 
 ## 现成的处理器
 
-| 需求                               | 处理器                                                                 |
-| ---------------------------------- | ---------------------------------------------------------------------- |
-| 移动、鼠标视角、手柄视角           | `Move`、`Look`、`Look_Gamepad`                                         |
-| 冲刺、步行、横移、瞄准             | `Locomotion`（显示名 Character: Locomotion，`IS_Locomotion` 正在使用） |
-| 跳跃、蹲伏、自动奔跑               | `CharacterJump`、`CharacterCrouch`、`AutoRun`                          |
-| 按技能的动态 InputTag 分派输入     | `AbilityInputTag`                                                      |
-| 按类、标签或输入身份找技能并激活   | `AbilityClass`、`AbilityTag`、`AbilityInput`                           |
-| 中断技能                           | `AbilityInterruption` 与 `InterruptAbilityClass`／`Tag`／`Input`       |
-| 技能目标的确认与取消               | `AbilityTargeting`                                                     |
-| 发送 GameplayEvent、HUD 事件、连招 | `GameplayEvent`、`HUDEvent`、`CombatCombo`、`DefaultHoldCombo`         |
-| 在屏幕上打印调试文字               | `ShowDebugString`                                                      |
+| 需求                               | 处理器                                                                                                                                          |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| 移动、鼠标视角、手柄视角           | `Move`、`Look`、`Look_Gamepad`                                                                                                                  |
+| 冲刺、步行、横移、瞄准             | `Locomotion`（显示名 Character: Locomotion，`IS_Locomotion` 正在使用）                                                                          |
+| 跳跃、蹲伏、自动奔跑               | `CharacterJump`、`CharacterCrouch`、`AutoRun`                                                                                                   |
+| 按技能的动态 InputTag 分派输入     | `AbilityInputTag`                                                                                                                               |
+| 按类、标签或输入身份找技能并激活   | `AbilityClass`、`AbilityTag`、`AbilityInput`                                                                                                    |
+| 中断技能                           | `AbilityInterruption` 与 `InterruptAbilityClass`／`Tag`／`Input`                                                                                |
+| 技能目标的确认与取消               | `AbilityTargeting`                                                                                                                              |
+| 发送 GameplayEvent、HUD 事件、连招 | `GameplayEvent`、`HUDEvent`、`CombatCombo`、`DefaultHoldCombo`                                                                                  |
+| 场景交互的按下、松开与取消         | `Interact`（显示名 Interaction: Press, Release or Cancel，`IS_Interaction` 正在使用），见 [StellaInteraction](/read/stellainteraction-input-ui) |
+| 按住时显示鼠标光标                 | `Cursor`（显示名 Cursor: Hold to Show，`IS_Cursor` 正在使用）                                                                                   |
+| 在屏幕上打印调试文字               | `ShowDebugString`                                                                                                                               |
 
 移动与角色动作经由项目的 Mover 接入。Traversal（翻越）通过角色接口提供，输入层本身不实现攀爬、翻越等动作。
 

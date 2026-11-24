@@ -1,0 +1,87 @@
+---
+title: StellaInteraction · 模块总览
+description: StellaInteraction 处理“走近、对准、按键”的场景交互：服务器登记候选并裁决请求，本地选择焦点并显示提示。本文介绍核心概念、一次交互的往返过程、插件组成，以及它在 Starry 中的接入。
+order: 120
+terms:
+  - term: 交互管理器
+    aliases: [UStellaInteractionManagerComponent, InteractionManager]
+    brief: 挂在玩家 Pawn 上的组件。服务器上维护候选和交互进度，本地拥有者上选择焦点、提交按下与松开；候选与进度只复制给这名玩家自己。
+  - term: 交互目标
+    aliases: [UStellaInteractionTargetComponent, Interaction Target]
+    brief: 挂在可交互物体上的场景组件，它的位置就是交互点。目标保存交互选项，并在服务器上发出开始、按下、取消与完成事件。
+  - term: 交互选项
+    aliases: [FStellaInteractionOption, Options]
+    brief: 目标上的一种交互，用唯一的 Interaction.Type 子标签标识，配置文案、模式与参数。数组中第一个可用的选项是默认项。
+  - term: 交互模式
+    aliases: [EStellaInteractionMethod, Method]
+    brief: 选项达到完成条件的方式，共四种：单次、长按、快速连按、累计按键。
+  - term: 扫描碰撞体
+    aliases: [InteractableScan, Interaction.Component.InteractableScan]
+    brief: 玩家 Pawn 上带 Interaction.Component.InteractableScan 组件标签的形状组件。服务器把与它重叠、带交互目标的 Actor 登记为候选。
+  - term: 候选
+    aliases: [RegisteredTargets, Candidate]
+    brief: 服务器按扫描重叠登记的可交互目标列表，只复制给发起交互的这名玩家。
+  - term: 焦点
+    aliases: [Focus, Focused Target]
+    brief: 本地按聚焦方式从候选中选出的当前目标。按下交互键时，只对焦点提交请求，提示也只显示在焦点上。
+  - term: 交互摘要
+    aliases: [FStellaInteractionSummary]
+    brief: 本地玩家看到的一个选项的汇总，包括焦点状态、交互状态、服务器时间与进度。提示控件直接读取它。
+---
+
+StellaInteraction 管理“走近物体、对准、按键”这一类场景交互，例如开关、拾取、对话和开门。候选由服务器按实际重叠登记，焦点在本地选择；按键请求交给服务器，复核距离、遮挡和目标规则，达到交互模式的完成条件后在权威端执行玩法。具体做什么由目标自己的玩法决定，插件只负责“谁能交互、什么时候算完成”。
+
+## 它解决什么问题
+
+- **服务器裁决**：客户端只能说“我想对这个目标按下”，能不能交互由服务器根据实际重叠、可达距离、遮挡和目标规则判断。
+- **四种输入方式**：单次、长按、快速连按、累计按键共用同一个交互键，进度在服务器计算，再同步给发起者显示。
+- **一个目标多个选项**：同一扇门可以有“打开”和“关闭”，目标按当前状态决定哪个可用。
+- **本地提示**：聚焦时在目标上显示按键图标、文案和进度环，按键图标随当前输入设备切换。
+
+## 核心概念
+
+<Terms />
+
+## 一次交互的往返
+
+<Diagram
+  title="以长按为例：候选、焦点、请求与结算"
+  steps
+  source={
+    'sequenceDiagram\n  participant Target as 交互目标\n  participant Server as 服务器上的管理器\n  participant Owner as 本地玩家的管理器\n  participant UI as 交互提示\n  Server->>Server: 扫描碰撞体与目标重叠，登记候选\n  Server-->>Owner: 候选只复制给这名玩家\n  Owner->>Owner: 按聚焦方式选出焦点\n  Owner->>UI: 焦点变化，显示文案与按键\n  Owner->>Server: 按下：目标与选项\n  Server->>Server: 复核重叠、距离、遮挡与目标资格\n  Server->>Target: OnInteractionStarted、OnInteractionPressed\n  Server-->>Owner: 复制交互进度\n  Owner->>UI: 按服务器时间推进进度环\n  Server->>Target: 按住满时长：执行目标 Actor 的 ExecuteInteraction\n  Server->>Target: 执行成功：OnInteractionCompleted\n  Server-->>Owner: 进度变为已完成\n  Owner->>UI: 播放完成动画'
+  }
+/>
+
+进行中的交互会被服务器取消：提前松开长按、连按进度回落到零、目标走出范围或被遮挡、目标失效、玩家主动取消，或者玩家失去对 Pawn 的控制。取消时目标收到 `OnInteractionCancelled`。
+
+## 插件的组成
+
+插件位于 `Plugins/GameSystems/StellaInteraction`，分为三个运行时模块：
+
+| 模块                        | 内容                                                                                |
+| --------------------------- | ----------------------------------------------------------------------------------- |
+| `StellaInteraction`         | 交互管理器、交互目标、选项类型、目标接口、可交互 Actor 基类、函数库与项目设置       |
+| `StellaInteractionGameplay` | 现成的可开合 Actor 与钥匙解析器，见[现成目标](/read/stellainteraction-openable)     |
+| `StellaInteractionUI`       | 场景提示组件与提示控件，默认控件为 `/StellaInteraction/Blueprints/UI/W_Interaction` |
+
+## 在 Starry 中怎样接入
+
+- **玩家角色**：正式的 `BP_StarryPlayerCharacter` 已经挂有交互管理器 `InteractionManager`，以及作为扫描碰撞体的球形组件 `InteractableScan`（半径 300 cm，碰撞预设 `StellaInteractionSource`）。
+- **输入**：`BP_StarryPlayerController` 的输入配置包含 `IS_Interaction`：键盘 E、手柄左侧面键，通过处理器 `StarryInputHandler_Interact` 转给当前 Pawn 的交互管理器；`IS_Cursor` 提供按住左 Alt 临时显示鼠标光标。见[输入与提示](/read/stellainteraction-input-ui)。
+- **碰撞**：项目定义了对象通道 `StellaInteractionObject` 与检测通道 `StellaInteractionSight`，以及两个碰撞预设：扫描碰撞体用 `StellaInteractionSource`，目标的查询形状用 `StellaInteractionTarget`。遮挡检测使用 `StellaInteractionSight`：这个通道默认忽略，`BlockAll`、`BlockAllDynamic`、`InvisibleWall`、`InvisibleWallDynamic` 四个预设已改为阻挡。
+- **示例地图**：`/Game/Samples/Interaction/L_Interaction` 演示四种模式和三种聚焦方式，见[快速上手](/read/stellainteraction-quickstart)。
+
+**不在本模块**：玩家采集生态资源由生态系统通过专用的 Gameplay 事件处理，不使用这里的交互目标。
+
+## 从哪里开始读
+
+| 你要做的事                                 | 阅读                                                |
+| ------------------------------------------ | --------------------------------------------------- |
+| 试一下现成的交互，再做一个自己的可交互物体 | [快速上手](/read/stellainteraction-quickstart)      |
+| 配置选项与模式，响应开始、完成与取消       | [选项、模式与事件](/read/stellainteraction-options) |
+| 调整哪个目标被选中、多远可以交互           | [候选与聚焦](/read/stellainteraction-focus)         |
+| 改交互键、做自己的提示界面                 | [输入与提示](/read/stellainteraction-input-ui)      |
+| 使用现成的门、箱子等可开合物体             | [现成目标](/read/stellainteraction-openable)        |
+| 没有提示、按键没反应、隔墙也能交互         | [调试与排查](/read/stellainteraction-debugging)     |
+
+代码位置：插件 `Plugins/GameSystems/StellaInteraction/Source`，核心在 `StellaInteraction`（`Components/StellaInteractionManagerComponent`、`Components/StellaInteractionTargetComponent`、`Types/StellaInteractionTypes.h`）；项目输入接入在 `Source/StarryGame/Framework/Input/Handlers/StarryInputHandler_Interact`。

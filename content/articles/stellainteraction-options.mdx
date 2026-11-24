@@ -1,0 +1,89 @@
+---
+title: StellaInteraction · 选项、模式与事件
+description: 交互选项的各个字段与默认选项规则；单次、长按、快速连按、累计按键四种模式的完成与取消条件；目标在服务器上收到的事件，以及用目标接口按玩法状态控制资格、文案与执行结果。
+section: [交互目标]
+order: 122
+---
+
+交互目标上的每个选项描述“一种交互怎样算完成”，目标事件和目标接口描述“完成后做什么、什么时候允许做”。这一篇依次说明选项字段、四种模式、事件顺序和目标接口。
+
+## 选项字段
+
+选中目标上的 **Stella Interaction Target** 组件，在 `Options` 数组中配置：
+
+| 字段                    | 默认值                         | 含义                                                             |
+| ----------------------- | ------------------------------ | ---------------------------------------------------------------- |
+| `Interaction Type`      | `Interaction.Type.Interact`    | 选项标识，只能选 `Interaction.Type` 下的标签，同一目标内不能重复 |
+| `Priority`              | `Interaction.Priority.Primary` | 主选项或次选项，供提示控件挑选要显示的选项                       |
+| `Display Text`          | “交互”                         | 聚焦时显示的操作文案                                             |
+| `Description`           | 空                             | 文案下方的说明，留空时提示折叠第二行                             |
+| `Method`                | 单次                           | 交互模式，见下一节                                               |
+| `Hold Duration`         | 1 秒                           | 长按需要的时长，最小 0.05 秒                                     |
+| `Required Press Count`  | 3                              | 累计按键需要的次数                                               |
+| `Mash Gain Per Press`   | 0.25                           | 快速连按每次按下增加的比例，1 表示整圈                           |
+| `Mash Decay Per Second` | 0.25                           | 快速连按每秒回落的比例                                           |
+| `Enabled`               | 勾选                           | 是否接受新的交互                                                 |
+| `Consume On Completion` | 不勾选                         | 成功后自动禁用这个选项，适合一次性拾取                           |
+
+插件自带的选项类型有 `Collect`、`Close`、`Interact`、`Investigate`、`Lock`、`Open`、`Search`、`Talk`、`Unlock`，都在 `Interaction.Type` 下；需要新类型时，在项目的 Gameplay Tag 中添加 `Interaction.Type` 的子标签。
+
+**默认选项**：交互键没有指定类型时，取数组中第一个对这名玩家可用的选项，所以把最常用的选项放在最前面。参数无效的选项会被视为不可用，例如长按时长不大于 0、所需次数小于 1、连按增量不在 0～1 之间或回落速度不大于 0。
+
+## 四种交互模式
+
+| 模式     | 完成条件                                                                                                    | 额外的取消条件             |
+| -------- | ----------------------------------------------------------------------------------------------------------- | -------------------------- |
+| 单次     | 一次有效按下立即完成                                                                                        | 无                         |
+| 长按     | 按住达到 `Hold Duration`，到时自动完成，不需要松开                                                          | 提前松开                   |
+| 快速连按 | 进度达到 100%：每次按下增加 `Mash Gain Per Press`，从最后一次被接受的按下起每秒回落 `Mash Decay Per Second` | 进度回落到零               |
+| 累计按键 | 按下次数达到 `Required Press Count`；每次都要先松开，中途可以停顿，次数保留                                 | 开始对其他目标或选项的交互 |
+
+所有模式共有的取消条件：目标离开扫描范围、超出交互距离或被遮挡；目标失效或选项被禁用；玩家按了取消键；玩家失去对 Pawn 的控制。
+
+几个细节：
+
+- **进度在服务器计算**：服务器只在按下时记录时刻与进度，发起者的提示按服务器时间推算进度环，回落过程不需要逐帧同步。
+- **防止一次送达多次按下**：快速连按和累计按键中，距同一选项上次被接受的按下不足 0.03 秒的请求会被忽略。
+- **焦点的锁定**：长按和快速连按进行时，焦点保持在正在交互的目标上；累计按键停顿期间可以自由切换焦点，只要原目标仍然可达，次数就保留。
+
+## 目标事件
+
+在目标 Actor 蓝图中选中 **Stella Interaction Target**，从细节面板底部的 **Events** 绑定。下面四个事件只在服务器上触发，参数 `Source` 是发起交互的 Pawn，`Interaction Type` 是本次的选项：
+
+| 事件                       | 什么时候触发                                                    |
+| -------------------------- | --------------------------------------------------------------- |
+| `On Interaction Started`   | 一轮交互通过校验后触发一次，先于第一次 `On Interaction Pressed` |
+| `On Interaction Pressed`   | 服务器每接受一次按下触发一次，包括达到完成条件的最后一次        |
+| `On Interaction Cancelled` | 已经开始的一轮交互没有成功结束                                  |
+| `On Interaction Completed` | 达到完成条件，并且目标的执行成功                                |
+
+例如长按终端：在 `On Interaction Started` 中开始充能特效，在 `On Interaction Completed` 与 `On Interaction Cancelled` 中停止；累计按键的晶体可以在每次 `On Interaction Pressed` 时播放一束火花。
+
+- **回调里可以改变可用性**：事件中禁用选项、销毁目标都可以，服务器在继续推进前会重新校验；校验不通过时这一轮按取消处理。
+- **多人可见的表现由玩法复制**：这些事件只在服务器上运行，其他玩家要看到的动画、特效与状态，由目标自己复制。
+- **目标销毁时不再通知取消**：目标结束运行或世界退出时不会收到 `On Interaction Cancelled`，在目标的 `EndPlay` 中清理。
+
+另有几个只在发起者本地触发的事件，用于描边、音效等表现：`On Target Registered`／`On Target Unregistered`（成为或不再是候选）、`On Focus Applied`／`On Focus Removed`（获得或失去焦点）、`On Internal State Changed`（选项可用性变化）。
+
+## 目标接口
+
+普通物体只用组件的选项和事件就够了。需要按玩法状态判断资格时，让目标 Actor 实现接口 `StellaInteractionTargetInterface`：
+
+| 函数                               | 用途                                                                                      |
+| ---------------------------------- | ----------------------------------------------------------------------------------------- |
+| `Is Available For Interaction`     | 整个目标现在是否可用                                                                      |
+| `Can Handle Interaction`           | 按发起者和选项类型判断资格，例如“只有持有钥匙的玩家能开锁”                                |
+| `Get Display Text For Interaction` | 返回 true 时用输出的文案替换选项文案，例如锁着的门显示“解锁”                              |
+| `Execute Interaction`              | 达到完成条件后在权威端执行玩法；返回 false 表示结算失败，这一轮按取消处理，不触发完成事件 |
+
+- **两个判断会被反复调用**：本地选择焦点和服务器校验都会查询它们，所以不要在里面扣物品、改状态。
+- **扣除与结算放在执行阶段**：消耗物品等玩法操作放在 `Execute Interaction` 中，它只在权威端调用。
+
+**对话 NPC 的写法**：NPC 保留原有的父类，挂上交互目标，选项类型设为 `Interaction.Type.Talk`，在 `On Interaction Completed` 中调用服务器上的对话玩法；对话界面由对话玩法通知发起者的本地玩家打开。需要“任务完成前不能对话”这类条件时，再实现 `Can Handle Interaction`。
+
+## 运行时切换选项
+
+- **启用或禁用**：在权威端调用目标组件的 `Set Interaction Enabled`，传入选项类型与开关。选项随目标复制，客户端的提示会自动刷新。
+- **C++ 类的默认选项**：在构造函数中调用 `SetDefaultOptions`，关卡实例仍然可以在细节面板中修改。现成的可开合 Actor 就是这样提供“打开”和“关闭”两个选项的。
+
+代码位置（插件 `Plugins/GameSystems/StellaInteraction/Source/StellaInteraction`）：`Public/Types/StellaInteractionTypes.h`（选项与模式）、`Components/StellaInteractionTargetComponent`（事件、可用性与执行）、`Components/StellaInteractionManagerComponent`（模式判定与取消）、`Public/Interfaces/StellaInteractionTargetInterface.h`（目标接口）；选项类型标签在 `StellaInteractionTags`。

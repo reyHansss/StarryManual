@@ -1,0 +1,84 @@
+---
+title: StellaNavigation · 调试与排查
+description: 在编辑器与 PIE 中显示导航，读懂网格边与连接的颜色；按现象排查平台没有导航、AI 不走或停在入口、自动通道没有生成等问题；导航测试工程与验收脚本，以及当前的限制。
+section: [调试与排查]
+order: 109
+---
+
+排查导航问题，先把导航显示出来，确认网格和连接在不在、对不对，再按现象检查配置。这一篇说明显示方法与颜色含义、常见现象的检查表、测试工程，以及当前还没有覆盖的范围。
+
+## 显示导航
+
+- **编辑器视口**：按 `P` 切换。
+- **PIE**：游戏视口使用独立的显示开关，在游戏控制台输入 `show navigation`，再输入一次关闭。Simulate 沿用编辑器视口的显示状态。
+- **导航测试工程**的地图另有 `N` 键切换，这个按键属于测试地图的控制器，其他地图没有。
+
+导航面按凸多边形填充，不画内部的三角划分；引擎的 `Draw Triangle Edges` 对 Stella 导航不起作用。
+
+### 网格的颜色
+
+| 显示内容                    | 默认颜色                               | 控制开关              |
+| --------------------------- | -------------------------------------- | --------------------- |
+| 可走面                      | 当前代理的颜色；自定义区域用区域的颜色 | `Draw Filled Polys`   |
+| 边界、障碍的切口            | 红色 `#EB4641`                         | `Draw Nav Mesh Edges` |
+| 同一 Tile 内可通行的共享边  | 蓝色 `#2D5AFF`                         | `Draw Poly Edges`     |
+| 跨 Tile、跨实例实际相接的边 | 金黄色 `#FFC841`                       | `Draw Poly Edges`     |
+
+- **面的颜色**：在项目设置 **Navigation System → Supported Agents → Color** 中修改，显式区域使用 NavArea 的 Draw Color。
+- **边的颜色与粗细**：在项目设置的 **Stella Navigation → NavMesh Display** 中修改；`Boundary Edge Thickness` 控制边界线的屏幕宽度，默认 2 像素，0 表示原生细线。修改后刷新显示即可，不需要重新烘焙。
+- **显示距离**：项目把导航线段和标签的显示距离设为 500 米（`DefaultDrawDistance = 50000`），并开启了 `Draw Poly Edges`。
+
+### 导航连接的显示
+
+连接画成两端的端线、一根细弧线和三角箭头：箭头表示允许的方向，画在一端或两端；弧线只示意两端的对应关系，不代表实际的穿越轨迹。连接受导航数据的 `Draw Nav Links`／`Draw Failed Nav Links` 控制。选中连接所在的 Actor 或组件时，另外显示可以点击的端线、中心和端点手柄。
+
+连接的颜色由 `Display Type` 决定，它只影响显示，不会生成动态连接，也不改变通行许可：
+
+| 显示分类         | 默认颜色       | 用途                                                     |
+| ---------------- | -------------- | -------------------------------------------------------- |
+| 自动识别（默认） | —              | 一端绑定移动表面的连接显示为常驻连接，其余显示为普通连接 |
+| 普通连接         | 蓝色 `#2DA0FF` | 普通跨越，以及自动分析生成的通道                         |
+| 动态更新连接     | 玫红 `#F55A91` | 标注由调用方动态更新的连接                               |
+| 移动表面常驻连接 | 橙色 `#FFA52D` | 平台开走后仍然可以参与规划的连接                         |
+
+颜色在项目设置的 **Stella Navigation → NavLink Display** 中修改。C++ 动态连接集合中的命名集合自动显示为玫红，默认集合显示为橙色。连接的实际有效范围被可走面裁剪；选中连接时仍显示完整的创作端线，方便把越界的端点拖回来。
+
+## 按现象排查
+
+| 现象                             | 检查                                                                                                                         |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| 地面没有导航                     | Nav Mesh Bounds Volume 是否覆盖；导航数据 Actor 是否为 `StellaNavigationData`；地图的 World Settings 是否覆盖了导航系统配置  |
+| 平台没有导航                     | 导航表面的 `Base Component` 是否指向实际碰撞；`Mesh Assets` 中有没有与当前代理匹配的资产；资产预览中是否有可走面             |
+| 资产与当前代理不匹配             | 资产按代理半径与高度匹配，容差 0.1 cm；从关卡右键重新烘焙，生成当前代理的变体                                                |
+| 地面导航里残留平台的旧位置       | 平台碰撞的 `Can Ever Affect Navigation` 是否关闭，关闭后重新构建地面导航                                                     |
+| 角色脚下的地面导航有空洞         | 角色胶囊是否在蓝图或关卡实例上保存了参与导航的覆盖值；正式角色默认关闭，修正后重新构建导航                                   |
+| AI MoveTo 立即失败或报告 Aborted | `Aborted` 也可能是找不到路径；检查控制器与路径跟随组件、AI 脚点与目标能否投影到导航、出生位置是否在导航上                    |
+| AI 从地面走不上平台              | 两边之间有没有连接；平台到位时两边是否真的能走通                                                                             |
+| 连接不参与寻路                   | `Supported Agents`、方向与区域；两端绑定的表面是否已登记；端线是否落在可走面上、宽度是否容纳代理直径；自定义的通行许可       |
+| AI 到连接入口后停住              | 使用了 `StellaNavigationLinkProxy` 或执行代理时，控制已交给业务；完成后调用 `Resume Path Following` 或 `Finish Custom Link`  |
+| 普通连接上 AI 没有跳跃           | 导航不提供动作；跳跃、攀爬由自定义的 SmartLink 或执行代理实现                                                                |
+| 自动通道没有生成                 | 地面是否放置了启用的 Analysis Volume，平台资产是否配置了 `Analysis Ranges`；`Analyzers` 是否为空；烘焙时是否报了配置约束错误 |
+| 目标随平台移动的方式不对         | 世界目标与相对目标是两种请求，见[请求移动](/read/stellanavigation-movement#指向平台上的位置)                                 |
+| 平台运动时角色漂移               | Mover 的移动基座是否为实际站立的组件；业务是否又叠加了一次平台速度                                                           |
+| 局部重建菜单是灰的               | 是否选中了能提供范围的 Actor 或 Volume；关卡中是否有 `StellaNavigationData`                                                  |
+
+## 测试工程与脚本
+
+导航插件的测试插件 StellaNavigationTests 不在正式工程中启用，由脚本复制到 `Saved` 下的隔离工程运行，不编译 Starry 的游戏模块，也不修改正式工程的地图：
+
+| 脚本                                             | 作用                                                                                                       |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `Scripts/OpenStellaNavigationTest.ps1`           | 建立隔离工程、编译并打开测试地图 `/StellaNavigationTests/Sample/Native/L_StellaNavigation`                 |
+| `Scripts/TestStellaNavigationRuntime.ps1`        | 在隔离工程中运行 Standalone 与 Dedicated 的无界面验收，结果写入 `Saved/Automation`                         |
+| `Scripts/TestStellaNavigationWorldPartition.ps1` | 把测试地图转换为 World Partition，构建导航并实际装卸单元，报告写入 `Saved/Automation/StellaWorldPartition` |
+
+测试地图包含往返平移平台、持续旋转平台、周期电梯和三名使用真实 Mover 的 AI，点击 Play 后自动运行：`1` 行走、`2` 站位、`3` 登梯或返回、`4` 取消、`R` 重建角色、`N` 切换导航显示、`F` 自由相机。脚本参数与引擎目录的传法见[开发约定](/read/start-workflow#测试与检查脚本)。性能量测在测试插件的 `StellaNavigation.Performance` 下，量测结果不代表完整游戏帧的预算。
+
+## 当前的限制
+
+- **已验证的范围**：真实 Mover 角色在平台平移和绕竖直轴旋转时的行走；客户端预测与打包后的独立程序还没有按发行配置完成验收。
+- **加速度模式**：路径跟随在加速度模式下的避让绕行与终点收敛还没有完成验收。
+- **World Partition**：导航数据块装卸存在已复现的引擎问题，见[数据更新与扩展接口](/read/stellanavigation-runtime#关卡流送与-world-partition)。
+- **不支持**：三维体积导航；导航与物理世界的自动联动。
+
+代码位置（插件 `Plugins/AI/StellaNavigation/Source/StellaNavigation/Public`）：`Rendering/StellaNavigationRenderingComponent.h`（导航显示）、`Rendering/StellaNavigationLinkVisualization.h`（连接显示分类）、`StellaNavigationSettings.h`（显示颜色）；测试插件 `Plugins/Tests/StellaNavigationTests`，脚本在 `Scripts`。

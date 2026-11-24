@@ -30,6 +30,20 @@ export const articleModules = {
     nodeColor: '#a9d46b',
     overview: 'stellacoordination-overview',
   },
+  stellanavigation: {
+    label: 'StellaNavigation · 导航',
+    shortLabel: 'StellaNavigation',
+    color: '#2f7686',
+    nodeColor: '#5cc8dc',
+    overview: 'stellanavigation-overview',
+  },
+  stellapatrol: {
+    label: 'StellaPatrol · 巡逻',
+    shortLabel: 'StellaPatrol',
+    color: '#3f7a45',
+    nodeColor: '#7fcf86',
+    overview: 'stellapatrol-overview',
+  },
   stelladebug: {
     label: 'StellaDebug · 调试工具',
     shortLabel: 'StellaDebug',
@@ -43,6 +57,13 @@ export const articleModules = {
     color: '#40786a',
     nodeColor: '#73c9ac',
     overview: 'input-overview',
+  },
+  stellainteraction: {
+    label: 'StellaInteraction · 场景交互',
+    shortLabel: 'StellaInteraction',
+    color: '#94508f',
+    nodeColor: '#dc8fd6',
+    overview: 'stellainteraction-overview',
   },
   asyncmessage: {
     label: 'Async Message · 异步消息',

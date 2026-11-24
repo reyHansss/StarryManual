@@ -34,6 +34,8 @@ terms:
     brief: 项目的导航插件，在 UE Recast 导航网格上提供路径、移动平台、NavLink、遍历、切割、避让与异步查询。
   - term: StellaPatrol
     brief: 项目的巡逻插件，提供巡逻区域、连接与选点，移动使用引擎原生的 MoveTo。
+  - term: StellaInteraction
+    brief: 项目的场景交互插件，服务器按碰撞候选与目标规则裁决交互，本地负责聚焦、按键与提示。
 ---
 
 ## 分层
@@ -48,7 +50,7 @@ Starry 从下往上分四层：
 <Diagram
   title="依赖方向：上层使用下层，下层不知道上层"
   source={
-    'flowchart TB\n  Editor(StarryEditor 编辑器扩展与测试)\n  Sample(StarrySample 示例)\n  subgraph Game[StarryGame 主模块]\n    Gameplay(Gameplay 具体玩法)\n    Framework(Framework 可复用框架)\n  end\n  Project(项目插件：StellaUtilityAI · StellaCoordination · StellaNavigation · StellaPatrol · StellaDebug)\n  Third(直接使用的第三方插件：HTN · AsyncMixin · GameSystems 等)\n  Builtin(引擎插件：GAS · Mover · StateTree · Mass · Enhanced Input · CommonUI)\n  Engine(StarryUE 引擎)\n  Editor --> Gameplay\n  Editor --> Sample\n  Gameplay --> Framework\n  Framework --> Project\n  Framework --> Third\n  Framework --> Builtin\n  Sample --> Project\n  Project --> Builtin\n  Third --> Builtin\n  Builtin --> Engine'
+    'flowchart TB\n  Editor(StarryEditor 编辑器扩展与测试)\n  Sample(StarrySample 示例)\n  subgraph Game[StarryGame 主模块]\n    Gameplay(Gameplay 具体玩法)\n    Framework(Framework 可复用框架)\n  end\n  Project(项目插件：StellaUtilityAI · StellaCoordination · StellaNavigation · StellaPatrol · StellaInteraction · StellaDebug)\n  Third(直接使用的第三方插件：HTN · AsyncMixin · GameSystems 等)\n  Builtin(引擎插件：GAS · Mover · StateTree · Mass · Enhanced Input · CommonUI)\n  Engine(StarryUE 引擎)\n  Editor --> Gameplay\n  Editor --> Sample\n  Gameplay --> Framework\n  Framework --> Project\n  Framework --> Third\n  Framework --> Builtin\n  Sample --> Project\n  Project --> Builtin\n  Third --> Builtin\n  Builtin --> Engine'
   }
 />
 
@@ -71,19 +73,20 @@ Starry 从下往上分四层：
 
 ## 功能领域
 
-| 领域           | 负责什么                                           | 手册                                                                                  |
-| -------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| 游戏框架       | 一局游戏的启动与装配、玩家与角色、全局数据与资源   | [游戏框架](/read/framework-overview)                                                  |
-| 输入           | 把设备输入分派给移动、技能与界面                   | [Input](/read/input-overview)                                                         |
-| AI 决策        | NPC 选择做什么、怎样执行                           | [StellaUtilityAI](/read/stellautilityai-overview)                                     |
-| 群体协调       | 多名 AI 按群体决策分工，共享同时行动的名额         | [StellaCoordination](/read/stellacoordination-overview)                               |
-| 调试工具       | 游戏内调试面板、场景绘制、远程查看                 | [StellaDebug](/read/stelladebug-overview)                                             |
-| 消息与异步加载 | 系统之间的解耦通知、按序的异步资源加载             | [Async Message](/read/asyncmessage-overview)、[AsyncMixin](/read/asyncmixin-overview) |
-| 移动与动画     | 角色移动、翻越、动画与布娃娃                       | 待整理                                                                                |
-| 能力与战斗     | 技能、属性、伤害、连招、锁定，以及装备、背包与阵营 | 待整理                                                                                |
-| 导航与巡逻     | 导航网格上的寻路与移动、巡逻路线                   | 待整理                                                                                |
-| 生态           | 大量生物的需求、日程、资源与群体行为               | 待整理                                                                                |
-| 界面与设置     | HUD、界面层级、玩家设置                            | 待整理                                                                                |
+| 领域           | 负责什么                                             | 手册                                                                                             |
+| -------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| 游戏框架       | 一局游戏的启动与装配、玩家与角色、全局数据与资源     | [游戏框架](/read/framework-overview)                                                             |
+| 输入           | 把设备输入分派给移动、技能与界面                     | [Input](/read/input-overview)                                                                    |
+| 场景交互       | 玩家与场景物体的按键交互：候选、聚焦、交互模式与结算 | [StellaInteraction](/read/stellainteraction-overview)                                            |
+| AI 决策        | NPC 选择做什么、怎样执行                             | [StellaUtilityAI](/read/stellautilityai-overview)                                                |
+| 群体协调       | 多名 AI 按群体决策分工，共享同时行动的名额           | [StellaCoordination](/read/stellacoordination-overview)                                          |
+| 调试工具       | 游戏内调试面板、场景绘制、远程查看                   | [StellaDebug](/read/stelladebug-overview)                                                        |
+| 消息与异步加载 | 系统之间的解耦通知、按序的异步资源加载               | [Async Message](/read/asyncmessage-overview)、[AsyncMixin](/read/asyncmixin-overview)            |
+| 移动与动画     | 角色移动、翻越、动画与布娃娃                         | 待整理                                                                                           |
+| 能力与战斗     | 技能、属性、伤害、连招、锁定，以及装备、背包与阵营   | 待整理                                                                                           |
+| 导航与巡逻     | 导航网格上的寻路与移动、移动平台、巡逻路线           | [StellaNavigation](/read/stellanavigation-overview)、[StellaPatrol](/read/stellapatrol-overview) |
+| 生态           | 大量生物的需求、日程、资源与群体行为                 | 待整理                                                                                           |
+| 界面与设置     | HUD、界面层级、玩家设置                              | 待整理                                                                                           |
 
 ## 插件
 
@@ -93,6 +96,7 @@ Starry 从下往上分四层：
 - **StellaCoordination**：群体协调；
 - **StellaNavigation**：导航；
 - **StellaPatrol**：巡逻；
+- **StellaInteraction**：场景交互；
 - **StellaDebug**：调试工具。
 
 另有两个默认禁用的测试插件 StellaUtilityAITests 与 StellaNavigationTests，正式工程不会加载它们。

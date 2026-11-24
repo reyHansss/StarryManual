@@ -1,0 +1,68 @@
+---
+title: StellaInteraction · 现成目标
+description: 插件自带的可交互 Actor 基类，以及带“打开／关闭”两个选项、可上锁、可自动关闭的可开合 Actor：怎样派生门或箱子、表现写在哪里、钥匙怎样接入背包。
+section: [现成目标]
+order: 125
+terms:
+  - term: 可开合 Actor
+    aliases: [AStellaInteractionOpenableActor, Openable Actor]
+    brief: 插件自带的门、箱子类目标，提供“打开”和“关闭”两个选项，复制开合与上锁状态；开合的动画、碰撞与特效由派生蓝图实现。
+  - term: 钥匙解析器
+    aliases: [UStellaInteractionKeyResolver, Key Resolver Class]
+    brief: 可开合 Actor 解锁时调用的策略类，在权威端按钥匙查询检查并消耗钥匙。项目目前没有提供实现。
+---
+
+大多数可交互物体只需要在普通 Actor 上挂交互目标组件。插件另外提供了几个现成的基类：通用的可交互 Actor，以及门、箱子这类可开合物体。这一篇说明它们提供了什么、哪些部分需要自己实现。
+
+## 可交互 Actor 基类
+
+| 类                                     | 内容                                                                                 |
+| -------------------------------------- | ------------------------------------------------------------------------------------ |
+| `AStellaInteractionActor`              | 根组件与交互目标组件，开启复制，实现目标接口；执行成功时记录 `Last Event Instigator` |
+| `AStellaInteractionActor_StaticMesh`   | 在上面的基础上加一个静态网格，交互目标挂在网格下面                                   |
+| `AStellaInteractionActor_SkeletalMesh` | 同上，网格换成骨骼网格                                                               |
+
+在蓝图中只能派生后两个。它们不自带查询形状，需要自己让某个碰撞体使用 `StellaInteractionTarget` 预设并开启 Generate Overlap Events。
+
+**交互示例地图的做法**：示例目标直接把网格本身设为 `StellaInteractionTarget` 预设并开启重叠事件，同时让网格阻挡 Visibility 与遮挡检测通道。这样网格同时充当查询形状，能被摄像机射线与鼠标光标选中，遮挡检测命中它自己时也算可见。
+
+## 可开合 Actor
+
+`AStellaInteractionOpenableActor` 派生自静态网格版本，在 `StellaInteractionGameplay` 模块中。它是抽象类，使用时派生一个蓝图，例如门 `BP_ExampleDoor`（示例）。
+
+**它已经提供的**：
+
+- **两个选项**：`Interaction.Type.Open`（“打开”）与 `Interaction.Type.Close`（“关闭”），都是单次模式。关着时只有“打开”可用，开着时只有“关闭”可用；还可以覆写 `Can Open After Closed`、`Can Close After Open` 禁止重新打开或关上。
+- **状态复制**：开合与上锁状态在服务器修改并复制；中途加入的玩家直接看到最终状态。
+- **自动关闭**：在类默认值中开启自动关闭并设置时长（默认 10 秒），打开后到时自动关上。
+- **上锁**：勾选 `Starts Locked` 并填写 `Key Item Query`，门在开始运行时上锁；上锁时“打开”的提示文案变为 `Unlock Display Text`（默认“解锁”）。
+
+**需要自己实现的表现**：
+
+| 事件                       | 什么时候调用                                                                                          |
+| -------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `Apply Open State`         | 打开时在各端调用，参数 `Snap To Final State` 为 true 时直接设为最终状态（专用服务器、中途加入的玩家） |
+| `Apply Closed State`       | 关闭时，规则同上                                                                                      |
+| `Apply Locked State`       | 变为上锁时                                                                                            |
+| `Apply Unlocked State`     | 变为解锁时                                                                                            |
+| `Get Timeline`             | 提供开合动画用的 Timeline，默认取 Actor 上找到的第一个 Timeline 组件                                  |
+| `Handle Timeline Finished` | 上述 Timeline 播放结束                                                                                |
+
+门的转动、碰撞开关、音效都写在这些事件里。`Open`、`Close` 只在权威端执行；派生蓝图也可以在自己的逻辑中直接调用它们，例如由机关触发开门，此时 `Open` 需要传入有效的触发者。
+
+## 钥匙与解锁
+
+上锁的门在执行“打开”时尝试解锁：
+
+1. 读取类默认值中的 `Key Resolver Class`，调用它的 `Try Unlock With Key`，参数是发起者的 Controller、这扇门和 `Key Item Query`。
+2. 返回 true 时解锁并打开；返回 false 时这一轮交互按取消处理，门保持上锁。
+
+钥匙解析器是 `UStellaInteractionKeyResolver` 的派生类，可以在蓝图中实现，负责在发起者的背包中查找并消耗钥匙。
+
+<Note title="项目还没有钥匙解析器的实现">
+
+Starry 目前没有提供钥匙解析器。没有配置 `Key Resolver Class` 时，上锁的门无法通过交互打开；可以在权威端调用 `Force Unlock` 直接解锁，或调用 `Set Key Item Query` 重新设置钥匙条件。
+
+</Note>
+
+代码位置：插件 `Plugins/GameSystems/StellaInteraction/Source`，`StellaInteraction/Public/GameFramework/StellaInteractionActor.h`（基类）、`StellaInteractionGameplay/Public/GameFramework/Interactables/StellaInteractionOpenableActor.h`（可开合 Actor）、`StellaInteractionGameplay/Public/GameFramework/StellaInteractionKeyResolver.h`（钥匙解析器）；交互示例的目标在 `Source/StarrySample/Interaction/StarrySampleInteractionTarget`。

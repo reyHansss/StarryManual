@@ -1,0 +1,106 @@
+---
+title: StellaNavigation · 导航连接
+description: 用 Stella NavLink 连接地面与平台、平台与平台：两种放置方式的区别，在视口中编辑两端端线，各参数的含义与启停规则；在入口执行乘梯、跳跃等自定义动作，以及资产内连接使用的共享执行代理。
+section: [导航连接]
+order: 103
+---
+
+地面与平台、平台与平台是彼此独立的导航实例，要用连接把它们接起来，路径才能跨过去。Stella NavLink 的两端都是线段，可以分别绑在不同的平台上，各自随平台运动；连接的身份、方向、区域和启停沿用 UE 原生的 NavLink。
+
+## 两种放置方式
+
+| 放置方式                                            | 适合                                       | AI 到达入口后                                                 |
+| --------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------- |
+| 在已有 Actor 上添加 **Stella Navigation Link** 组件 | 可以直接走过去的连接，例如平台停靠时的缝隙 | 继续向出口行走                                                |
+| 放置 **StellaNavigationLinkProxy** 的派生蓝图       | 入口需要自定义动作：乘梯、跳跃、开门       | 进入自定义穿越，等业务完成后调用 `Resume Path Following` 交还 |
+
+`StellaNavigationLinkProxy` 继承 UE 原生的 NavLinkProxy，只把其中唯一的 SmartLink 组件换成 Stella 类型；`Receive Smart Link Reached`、`Resume Path Following`、`Set Smart Link Enabled` 等原生接口照常使用。
+
+<Note title="空的 Proxy 也会接管移动">
+
+NavLinkProxy 默认就绑定了 SmartLink 回调，即使派生蓝图里没有实现 `Receive Smart Link Reached`，AI 到达入口后也会停下等待交还。只想让 AI 直接走过去时，用 Link 组件；用了 Proxy，就要在事件中完成动作并交还控制。
+
+</Note>
+
+已有的普通 NavLinkProxy 蓝图不要再额外添加第二个 Link 组件，而是把父类改为 `StellaNavigationLinkProxy`。
+
+## 编辑两端
+
+在 Link 组件或 Proxy 的细节面板中，**Stella Navigation** 分类里集中了连接的全部配置：
+
+- **A 端表面／B 端表面**：选择关卡中的导航表面，或选“固定世界”表示这一端在地面上。切换表面时保持端线当前的世界位置。
+- **A／B 端中心、左端、右端（相对 Actor）**：直接填写端线相对宿主 Actor 的位置；改中心会整体平移这一端的端线。
+
+选中 Link 所属的 Actor 或组件后，也可以在视口中拖动：
+
+- **整条端线**：点击端线上任意位置或中心的大菱形，用 `W` 平移；中心手柄还可以用 `E` 旋转、`R` 缩放跨度。
+- **单个端点**：点击端线两头的小菱形，用 `W` 移动。
+- **移动整个连接**：按 `Esc` 退出手柄编辑，保持 Actor 选中，此时移动、旋转或缩放 Actor，两端的端线一起变化。`F` 聚焦时包含完整的跨度。
+
+**保存的是什么**：每一端保存为所属表面的局部坐标（固定世界的一端保存世界坐标），细节面板中的“相对 Actor”只是编辑视图。运行时两端各自跟随自己的平台，Link 所在的 Actor 不需要附着到平台上，移动它也不会代替平台运动。
+
+**按当前位置绑定**：Proxy 的细节面板有 **绑定端点到导航表面** 按钮。它把两条端线的中点投影到导航上，按命中的实例为每一端选择表面，并保持四个端点的世界位置不变。重复绑定不会重新生成端线。
+
+端线的宽度至少要容纳代理直径。创建时会沿 Up 方向投影端线并按实际可走面拆分，超出可走面的部分不参与通行。
+
+## 参数
+
+| 参数                                        | 含义                                                                                      |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `First Portal`／`Second Portal`             | 两端的端线，各自属于一个表面或固定世界                                                    |
+| `Projection Half Height`                    | 沿各端局部 Z 查找可走面的半高，默认 35 cm；它是查询范围，不是对高度差的限制               |
+| `World Up A`／`World Up B`                  | 各端投影使用的世界 Up，默认世界 Z                                                         |
+| `Force Align`                               | 默认开启，创建时自动把两端调整为相反的绕向；关闭时由输入保证                              |
+| `Link Direction`                            | 原生方向：Both Ways、Left To Right、Right To Left                                         |
+| `Enabled Area Class`／`Disabled Area Class` | 原生的启用与禁用区域，决定通行资格和费用；禁用区域也可以是可走的区域                      |
+| `Supported Agents`                          | 原生的代理筛选                                                                            |
+| `Display Type`                              | 只影响调试显示的颜色分类，见[调试与排查](/read/stellanavigation-debugging#导航连接的显示) |
+
+**费用**：连接的基础费用取创建时两条端线中点之间的距离，平台之后的移动不改变它。穿越费用的倍率、固定进入费和排除规则，通过 NavArea 与查询过滤器配置。
+
+## 启用与禁用
+
+- **原生接口**：`Set Enabled`、`Set Enabled Area`、`Set Disabled Area` 会自动通知导航更新。
+- **自定义许可**：在 C++ 中覆写 `IsLinkPathfindingAllowed` 按查询者决定能否通行时，结果改变后调用导航系统的 `UpdateCustomLink(Link)`。
+- **已有路径**：新状态发布后，剩余路段经过这条连接的路径会失效并重新寻路；已经越过的连接不影响当前路径。
+- **一端的平台被卸载**：这一端暂时不可用，同一个表面重新登记后自动恢复。
+
+## 在入口执行自定义动作
+
+创建以 `StellaNavigationLinkProxy` 为父类的蓝图，在 `Receive Smart Link Reached` 中执行业务，完成后交还控制。只想验证连接的连通性时，最小的写法是：
+
+```text
+Event Receive Smart Link Reached
+    → Resume Path Following（Target = Self，Agent = 事件的 Agent）
+```
+
+这会立即交还移动控制，AI 继续向出口行走，不会被传送到事件的 `Destination`。需要跳过缝隙或乘梯时，先完成对应的动作，再交还；只放一个 Print String 或没有接交还的 Delay，AI 会一直停在入口。
+
+接管期间可以用到的接口：
+
+| 接口                           | 位置                | 用途                                                                    |
+| ------------------------------ | ------------------- | ----------------------------------------------------------------------- |
+| `Resume Path Following`        | Proxy               | 交还控制，继续后面的路径                                                |
+| `Finish Custom Link`           | Stella 蓝图函数库   | 传入 Agent 交还控制，适用于任何自定义连接，包括下文的共享执行代理       |
+| `Request Custom Link Movement` | Stella 路径跟随组件 | 接管期间提交移动速度：方向为世界轴，速度相对脚下实际的支撑面，单位 cm/s |
+| `Has Reached Link Destination` | Stella 路径跟随组件 | 是否进入出口的接受范围，或沿当前路段方向越过了出口；不要求精确停住      |
+
+AI 离入口多近时触发接管，由路径跟随组件的 `User Edge Entered Distance` 决定，默认 50 cm，与普通路点的接受半径无关。接管期间，路径跟随组件不再提交普通导航速度。落地、站上目标平台、动画播放完毕等条件由业务自己判断，满足后再交还。
+
+**示例地图的两个做法**（`/Game/Samples/Navigation`）：
+
+- **电梯** `BP_ElevatorLandingLink`：每层一条，A 端固定世界、B 端绑定轿厢的导航表面。AI 到达后呼梯，电梯开门且方向匹配时放行并保持开门，AI 实际走进或走出轿厢后释放保持并调用 `Resume Path Following`。
+- **平台跳跃** `BP_PlatformJumpLink`：两端各绑定一块运动平台。AI 在入口等待两块平台相对静止的时间窗口，起跳交给 Mover，确认落到目标平台并到达出口后恢复路径。
+
+这两个示例的业务代码在 `StarrySample` 模块，导航核心不驱动平台，也不推算电梯时刻表。
+
+## 共享执行代理
+
+资产内的手工连接和自动分析的通道没有对应的 Actor，入口的自定义动作由**共享执行代理**处理：
+
+- **怎样配置**：在连接或分析器的 `Link Proxy Class` 中选择 UE 原生的 `GeneratedNavLinksProxy`、`BaseGeneratedNavLinksProxy` 或它们的派生类，蓝图派生也可以。
+- **共用一个对象**：同一份导航数据中，相同的代理类共用一个对象。入口回调中取得进入的角色与当前路径的出口；每次穿越的状态应该保存在角色或执行它的行为中，不要存在代理里。
+- **交还控制**：完成后调用 `Finish Custom Link`，传入 Agent。
+- **留空**：只用于规划，角色到达后按普通移动继续走，不会自动跳跃或攀爬。
+
+代码位置（插件 `Plugins/AI/StellaNavigation/Source/StellaNavigation/Public`）：`Links/StellaNavigationLinkComponent.h`（Link 组件）、`Links/StellaNavigationLinkProxy.h`（Proxy）、`Movement/StellaNavigationBlueprintLibrary.h`（`Finish Custom Link`）、`Movement/StellaNavigationPathFollowingComponent.h`（接管期间的移动接口）；示例在 `Source/StarrySample` 与 `/Game/Samples/Navigation`。

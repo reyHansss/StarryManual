@@ -1,0 +1,77 @@
+---
+title: StellaNavigation · 请求移动
+description: 用原生 AI MoveTo 走向世界坐标时目标与路径的含义；用相对目标让 AI 走向平台上的位置，一次提交多个候选目标；移动的完成、取消、失效与路径续接；C++ 异步寻路，以及自定义控制器与 Pawn 的接入要求。
+section: [移动请求]
+order: 105
+---
+
+在 StellaNavigation 中请求移动，仍然使用 UE 原生的 AI MoveTo 和 AIController。业务只需要决定目标是“世界里的一个位置”还是“平台上的一个位置”，起点与终点在哪个平台上由导航内部处理。
+
+## 世界坐标：直接使用 AI MoveTo
+
+蓝图使用 **AI MoveTo**，C++ 使用 `MoveToLocation` 或 `MoveToActor`。需要分清两件事：
+
+- **请求目标**：保留调用时的世界坐标，之后的重新寻路仍然使用它。
+- **生成的路径**：每个路径点保存在它实际所在实例的局部坐标中，终点也一样。
+
+例如请求走到 `X = 1000`，求路时这个位置落在一艘船上；船随后平移 100 cm，已有路径的终点跟着变为 `X = 1100`，而请求仍然是 `X = 1000`。如果之后因为导航变化重新寻路，会重新按 `X = 1000` 投影，那里已经没有导航时可能失败。
+
+**Actor 目标**使用 UE 原生的目标观察与重新寻路；目标在同一个可走面内小幅移动时，直接更新路径终点。
+
+## 指向平台上的位置
+
+想让 AI 走到“船上的某个位置”，而且船怎么动都指向那里，使用**相对目标**：
+
+1. 调用 **Make Relative Goal At World Point**，传入 Controller 和一个世界坐标的点，例如鼠标点击的命中点。节点把它投影到导航上，选出所在的表面，输出相对目标；返回 false 表示投影失败。
+2. 成功后调用 **Move To Goal**，它直接提交原生的移动请求。
+
+也可以自己构造 `Stella Navigation Goal`：`Position` 填局部坐标，`Relative Surface` 填平台的导航表面；`Relative Surface` 留空就是世界目标。导航的局部几何已经吸收了平台的固定缩放，不要再用包含缩放的 Inverse Transform Location 去换算局部坐标。
+
+```cpp
+FStellaNavigationGoal Goal;
+Goal.RelativeSurface = PlatformSurface;
+Goal.Position = FVector(0.0, 0.0, 25.0);
+// 接受半径 10 cm，到达重叠范围时不提前停止。
+UStellaNavigationBlueprintLibrary::MoveToGoal(Controller, Goal, 10.0f, false);
+```
+
+| 函数                                | 用途                                                                                     |
+| ----------------------------------- | ---------------------------------------------------------------------------------------- |
+| `Make Relative Goal At World Point` | 把世界中的点转换为相对目标                                                               |
+| `Move To Goal`                      | 走向一个目标；接受半径默认 5 cm，可以指定查询过滤器                                      |
+| `Move To Goals`                     | 一次提交多个候选目标，走向总费用最低的一个，输出选中的序号；重新寻路时仍在这些候选中选择 |
+| `Find Path To Goals`                | 只查询路径，不移动；输出包装成原生的 Navigation Path                                     |
+
+## 完成、取消与失效
+
+- **完成**：使用 AIController 原生的 MoveCompleted 通知；蓝图 AI MoveTo 从 `On Success`／`On Fail` 读取结果。紧跟在节点后面的执行引脚只表示请求已发出，不表示移动已结束。
+- **取消**：调用 **Stop Movement**。
+- **不要每帧重发**：新的请求会以 `NewRequest` 中止上一个。`Aborted` 也不一定是外部取消，AI MoveTo 在找不到路径时同样报告这个结果。
+- **自动重新寻路**：剩余路段经过的可走面被障碍切开、所在平台被卸载或替换、经过的动态连接被移除，或经过的 NavLink 改变了状态时，路径在导航更新发布后失效，交给原生的重新寻路队列。等待期间 AI 沿上一次的方向继续走；重新寻路失败，或请求关闭了自动重新寻路时，按原生规则中止移动。
+- **SmartLink 接管期间**：重新寻路推迟到离开这条连接之后。
+- **目标不在导航上**：查询的 `Require Navigable End Location` 关闭时，仍可用来寻找可以到达的部分路径；同时不允许部分路径时，请求失败。
+
+**路径续接**：原生 `FAIMoveRequest::SetStartFromPreviousPath(true)`，以及行为树 Move To 节点的同名选项，可以接着当前路径的剩余部分继续规划。正式的 `StarryAIController` 已经支持；平台运动、重新寻路之后，已经走过的部分不会重放。
+
+## 异步寻路（C++）
+
+需要在后台求路时，直接调用实际导航数据的接口：
+
+- **`RequestPathAsync`**：参数为原生的寻路查询；**`RequestPathToGoalsAsync`**：支持世界、相对与多个目标。两者都返回请求编号，完成回调在游戏线程调用。
+- **`CancelPathAsync`**：传入请求编号取消；取消成功后不会再调用回调。
+- **优先级与预算**：两个接口最后的 `Priority` 参数默认为 0。世界子系统每一步最多处理 100 个请求，排队中的请求每一步提升优先级。
+- **结果复核**：结果安装前按当前状态复核，平台被卸载，或开始处理后几何、动态连接、连接许可发生变化时，这次请求直接失败。路径点按安装时平台最新的位置恢复为世界坐标。
+
+使用引擎的 `UNavigationSystemV1::FindPathAsync` 时，地图的导航系统类要是 `StellaNavigationSystem`（Starry 的默认值）或它的派生类，请求会转交同一个队列，保留原生的请求编号、取消和完成回调。这条转交依赖 StarryUE 中对原生导航系统的修改。
+
+## 自定义控制器与 Pawn 的接入
+
+正式的 `StarryAIController` 与 `StarryCharacter` 已经接好。自己写的控制器或 Pawn 要用 StellaNavigation 移动，需要同时完成三件事，只换路径跟随组件是不够的：
+
+1. **控制器的路径跟随组件**：构造时把 `PathFollowingComponent` 默认子对象替换为 `UStellaNavigationPathFollowingComponent`，不要在移动进行中替换。
+2. **控制器的两个覆写**：覆写原生 `MoveTo`，保存投影前的请求目标；覆写 `MergePaths`，对 Stella 路径调用跟随组件的 `PrependCurrentPath`，其余情况调用父类，这样才支持路径续接。
+3. **Pawn 的移动组件**：Mover Pawn 创建 `UStellaNavigationNavMoverComponent`，在输入生产阶段消费导航意图；`GetMovementBaseObject` 要返回 Mover 实际的支撑对象，不能用最近的导航面代替。
+
+插件在 `Movement/Sample` 中提供了可以直接参考的 `AStellaNavigationAIController` 与 `AStellaNavigationSamplePawn`，已有的控制器不必继承它们。
+
+代码位置（插件 `Plugins/AI/StellaNavigation/Source/StellaNavigation/Public`）：`Movement/StellaNavigationBlueprintLibrary.h`（相对目标与多目标）、`StellaNavigationTypes.h`（`FStellaNavigationGoal`）、`StellaNavigationData.h`（异步寻路）、`Movement/StellaNavigationPathFollowingComponent.h`、`Movement/StellaNavigationNavMoverComponent.h`、`Movement/Sample`；项目接入在 `Source/StarryGame/Framework/AI/StarryAIController`。

@@ -1,0 +1,74 @@
+---
+title: StellaNavigation · 动态障碍与避让
+description: 用导航障碍组件让运动中的物体实时切开或标记导航网格：轮廓从哪里来、裁剪与区域标记、精度与启停；以及路径跟随组件的局部避让入口。
+section: [运行时变化]
+order: 106
+terms:
+  - term: 导航障碍
+    aliases: [UStellaNavigationObstacleComponent, Stella Navigation Obstacle]
+    brief: 挂在障碍物上的组件。按碰撞或点集生成水平轮廓，实时切掉或标记它覆盖的导航面；障碍移走、禁用或注销后，原来的导航自动恢复。
+  - term: 局部避让
+    aliases: [Local Avoidance, Steering]
+    brief: 路径跟随组件在选择每帧速度时，避开附近的其他角色和导航边界；它只调整速度，不改变路径。
+---
+
+场景里会动的物体，例如来回推移的挡墙、开动的车辆，可以用导航障碍实时切开它覆盖的导航面，AI 的路径会绕开它；障碍移走后导航自动恢复，不需要重新烘焙。角色之间的互相避让则由路径跟随组件的局部避让处理。
+
+## 动态障碍
+
+在障碍物 Actor 上添加 **Stella Navigation Obstacle**（`UStellaNavigationObstacleComponent`）：
+
+1. **`Shape Component`**：指向障碍的碰撞组件；留空时使用 Actor 的根组件。
+2. **轮廓来源**：`Local Points` 留空时，自动读取这个组件的实际碰撞，盒、凸包、球、胶囊各自成组，复杂碰撞的三角形单独成组。也可以手动填写局部坐标的点集（厘米）。
+3. **`Area Class`**：留空或选 `NavArea_Null` 时，切掉覆盖的导航面；选其他区域时，保留几何，把覆盖的部分改成这个区域，通行资格和费用随之改变。
+4. **运行**：障碍移动时，导航按新位置重新切割；移走、禁用或注销后，原来的面和区域恢复。
+
+示例地图左前区的 `BP_DynamicNavigationObstacle` 就是这样配置的：`Shape Component` 指向挡墙的 `Platform`，挡墙来回移动，AI 沿实时切割后的可走区域绕行。
+
+| 设置                                    | 默认值 | 含义                                                                                               |
+| --------------------------------------- | ------ | -------------------------------------------------------------------------------------------------- |
+| `Obstacle Enabled`                      | 开启   | 是否参与导航；运行时用 `Set Obstacle Enabled` 切换，关闭后恢复原来的导航，重新开启时按当前位置生成 |
+| `Area Priority`                         | 0      | 多个区域重叠时，数值高的优先；相等时取导航数据中较小的区域编号；裁剪始终优先                       |
+| `Apply Erosion Radius`                  | 开启   | 按代理半径向外扩张轮廓，与烘焙出的边界保持一致                                                     |
+| `Extra Expansion`                       | 0      | 额外扩张的距离                                                                                     |
+| `Lazy Recompute Displacement Threshold` | 10 cm  | 相对移动累计超过这个距离才重新计算轮廓                                                             |
+| `Detail Level`                          | Full   | 轮廓精度，见下文                                                                                   |
+
+**轮廓精度**（`Detail Level`）：
+
+- **Full**：每个凸子集分别投影。两个分开的箱子之间的通道会保留。
+- **Convex Hull**：把全部点合成一个凸包，箱子之间的空间也会被覆盖。
+- **Obb**：使用整个点集的局部包围盒。
+- **Invalid**：停止生成，恢复原来的导航。
+
+**手动点集**：在 `Silhouette Sizes` 中，每个正数表示一组连续的点构成一个凸子集，总和要等于点数；留空时全部点作为一个凸包。运行时可以调用 `Set Local Points` 替换，输入无效时返回 false，保留原来的数据。
+
+几点规则：
+
+- **碰撞关闭就停止**：形状组件设为 NoCollision 时停止生成轮廓并恢复导航，手动点集也一样。
+- **不能切自己**：障碍的形状组件不能同时是被切割平台的导航表面基座。
+- **区域类要已登记**：`Area Class` 必须是登记到导航数据中的非抽象区域类，否则这个轮廓停止并给出警告。
+- **编辑器里可以预览**：不进入 PIE 时，移动障碍或修改属性，导航显示也会更新（视口关闭实时刷新时不会持续更新）；不需要重新烘焙局部导航资产。想把固定的区域永久烘焙进平台，用资产的 `Manual Modifiers`。
+
+**直接提交局部盒子**：不想挂组件时，可以调用导航表面的 `Rebuild With Obstacles`，传入平台局部坐标（厘米）的盒子数组；传空数组撤销这次提交的全部盒子。它同样只切割受影响的面，不重新生成整个平台。
+
+切割只处理与障碍重叠的面；经过这些面的路径会失效并重新寻路，穿过切口的连接按剩余的可走范围收窄，障碍撤走后恢复，不需要重新分析。大量障碍同时移动时，可以在导航数据的 **Stella Navigation → Cutting** 中用 `Max Cut Faces Per Step` 限制每步处理的面数，默认 -1 表示全部处理。
+
+## 局部避让
+
+路径跟随组件在选择每帧速度时，会避开附近的其他角色和导航边界。配置在 Stella 路径跟随组件的 **Stella Navigation** 分类：
+
+| 设置                           | 默认值  | 含义                                                 |
+| ------------------------------ | ------- | ---------------------------------------------------- |
+| `Enable Local Avoidance`       | 开启    | 是否启用局部避让                                     |
+| `Neighbor Distance`            | 2400 cm | 水平方向收集邻居的范围（半宽）                       |
+| `Maximum Avoidance Characters` | 15      | 参与计算的最近邻居数量上限                           |
+| `Steering Properties`          | —       | 沿墙、速度迟滞、各类惩罚、分担权重与优先级等求解参数 |
+
+<Note title="避让仍在调整">
+
+局部避让的求解方式与参数后续可能调整，这里只列出配置入口。目前加速度模式下的避让绕行与终点收敛还没有完成验收。
+
+</Note>
+
+代码位置（插件 `Plugins/AI/StellaNavigation/Source/StellaNavigation/Public`）：`Obstacles/StellaNavigationObstacleComponent.h`（导航障碍）、`Obstacles/StellaNavigationPointCloudSilhouetteGenerator.h`（轮廓生成）、`Sections/StellaNavigationSurfaceComponent.h`（`Rebuild With Obstacles`）、`Movement/StellaNavigationPathFollowingComponent.h` 与 `Movement/StellaNavigationAvoidance.h`（局部避让）。

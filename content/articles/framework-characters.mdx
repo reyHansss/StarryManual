@@ -56,14 +56,14 @@ order: 12
 
 ## Controller、PlayerState 与 GameState
 
-| 类                           | 父类                      | 关键内容                                                                           |
-| ---------------------------- | ------------------------- | ---------------------------------------------------------------------------------- |
-| `AStarryPlayerController`    | `ACommonPlayerController` | InputManager、相机管理器、把输入交给能力系统，以及客户端出生能力的补偿激活         |
-| `AStarryAIController`        | `AAIController`           | 使用 StellaNavigation 的路径跟随组件；按 AISetup 装配感知、Brain、黑板与 Objective |
-| `AStarryPlayerBotController` | `AModularAIController`    | 带 PlayerState 的机器人玩家；处理重生，撤销控制时清除 ASC 的 Avatar                |
-| `AStarryPlayerState`         | `AModularPlayerState`     | 持久的 ASC 与属性集、阵营组件、复制的 CharacterData                                |
-| `AStarryGameState`           | `AModularGameStateBase`   | Experience 管理器、阵营关系、全局 ASC                                              |
-| `UStarryLocalPlayer`         | `UCommonLocalPlayer`      | 本机与共享设置、音频输出设备切换                                                   |
+| 类                           | 父类                      | 关键内容                                                                                                              |
+| ---------------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `AStarryPlayerController`    | `ACommonPlayerController` | InputManager、相机管理器、把输入交给能力系统，以及客户端出生能力的补偿激活                                            |
+| `AStarryAIController`        | `AAIController`           | 使用 [StellaNavigation](/read/stellanavigation-overview) 的路径跟随组件；按 AISetup 装配感知、Brain、黑板与 Objective |
+| `AStarryPlayerBotController` | `AModularAIController`    | 带 PlayerState 的机器人玩家；处理重生，撤销控制时清除 ASC 的 Avatar                                                   |
+| `AStarryPlayerState`         | `AModularPlayerState`     | 持久的 ASC 与属性集、阵营组件、复制的 CharacterData                                                                   |
+| `AStarryGameState`           | `AModularGameStateBase`   | Experience 管理器、阵营关系、全局 ASC                                                                                 |
+| `UStarryLocalPlayer`         | `UCommonLocalPlayer`      | 本机与共享设置、音频输出设备切换                                                                                      |
 
 ## 角色上的两个关键组件
 

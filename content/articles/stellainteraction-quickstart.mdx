@@ -1,0 +1,87 @@
+---
+title: StellaInteraction · 快速上手
+description: 先在交互示例地图中试一遍四种交互模式和三种聚焦方式，再从零做一个按 E 开关的灯：添加交互目标、查询形状与场景提示，并在完成事件中执行玩法。
+order: 121
+---
+
+这一篇分两部分：先运行交互示例地图，看看四种模式和三种聚焦方式的效果；再从零做一个按 E 开关的灯。下面的 `BP_ExampleLamp` 是示例名称，需要你自己创建。
+
+## 第一部分：运行示例地图
+
+打开 `/Game/Samples/Interaction/L_Interaction`，运行 PIE。地图使用正式的玩家角色和输入配置，四个角落各有一个交互站，靠近时目标上方出现提示：
+
+| 站点       | 操作与预期                                                                     |
+| ---------- | ------------------------------------------------------------------------------ |
+| 蓝色开关   | 单次：按一次 E，播放一束火花                                                   |
+| 琥珀色终端 | 长按：按住 E 两秒，期间持续出粒子；提前松开会取消                              |
+| 绿色面板   | 快速连按：每按一次进度环增加 27%，每秒回落 35 个百分点；填满完成，回落到零取消 |
+| 珊瑚色晶体 | 累计按键：按三次 E，中途可以停顿，已按的次数保留                               |
+
+交互完成后会短暂点亮绿色的完成块，之后可以再次开始。
+
+**比较三种聚焦方式**：站到地图中央的黄色标记上，面朝 B：
+
+- 按 `1`（近距聚焦）：选中 A，近距聚焦综合朝向与距离打分；
+- 按 `2`（摄像机射线）：用准星对准 B，选中 B；
+- 按 `3`（鼠标光标）：用光标指向 C，选中 C。
+
+左上角显示当前的聚焦方式和目标。`1／2／3` 是示例控制器提供的切换键，正式游戏中没有。按住左 `Alt` 可以临时显示鼠标光标，松开恢复，它不改变聚焦方式。
+
+## 第二部分：做一个按 E 开关的灯
+
+### 第一步：创建目标
+
+1. 新建 Actor 蓝图 `BP_ExampleLamp`，在 Class Defaults 中勾选 **Replicates**。联机时，交互目标的选项随 Actor 复制。
+2. 添加一个 Static Mesh 作为灯座，再添加一个 Point Light。
+3. 添加组件 **Stella Interaction Target**（`UStellaInteractionTargetComponent`），挂在灯座下面，移到你希望的交互点，例如灯座正面。距离与遮挡都按这个点计算。
+4. 添加一个 Box Collision 包住灯座，作为查询形状：碰撞预设选 `StellaInteractionTarget`，勾选 **Generate Overlap Events**。
+
+### 第二步：配置选项
+
+选中 Stella Interaction Target，在 `Options` 中已经有一个默认选项：类型 `Interaction.Type.Interact`、主选项、模式“单次”。把 `Display Text` 改成“开灯”，其他保持默认。
+
+### 第三步：添加场景提示
+
+添加组件 **Stella Interaction Widget**，把 `Widget Class` 设为 `/StellaInteraction/Blueprints/UI/W_Interaction`，放在灯的上方。组件默认使用屏幕空间，只有这盏灯成为焦点时才显示。
+
+### 第四步：执行玩法
+
+1. 选中 Stella Interaction Target，在细节面板底部的 **Events** 中点击 `On Interaction Completed` 旁的 **+**。
+2. 在事件里切换 Point Light 的可见性。
+
+这个事件只在服务器上触发。单机测试时直接切换即可；联机时用一个带 RepNotify 的复制变量保存“开／关”，在通知函数里改灯光，客户端才能看到变化。
+
+### 第五步：运行
+
+把 `BP_ExampleLamp` 放到出生点附近，运行 PIE，预期看到：
+
+1. 走到离交互点约 2 米以内，灯上方出现提示：键盘时显示 E 的按键图标和“开灯”，换手柄后图标自动切换。
+2. 按一次 E，灯被切换，提示播放完成动画。
+3. 走远或者绕到墙后，提示消失，按键不再有反应。
+
+<Note title="能交互的距离由两层条件决定">
+
+扫描碰撞体（玩家身上半径 300 cm 的球）先决定哪些物体成为候选；真正能交互还要求玩家到交互点的距离不超过 `Line Of Sight Distance`（默认 200 cm），中间没有遮挡。所以提示大约在 2 米内出现，而不是 3 米。
+
+</Note>
+
+第二部分按插件源码与交互示例目标的做法整理，逐步搭建的流程没有经过运行验证。
+
+## 常见的下一步
+
+- **一次性拾取**：在选项上勾选 `Consume On Completion`，成功后自动禁用这个选项，提示随之消失。
+- **长按、连按或按次数**：把 `Method` 改成对应模式，并设置时长或次数，见[选项、模式与事件](/read/stellainteraction-options#四种交互模式)。
+- **对话 NPC**：在 NPC 上挂交互目标，选项类型用 `Interaction.Type.Talk`，在 `On Interaction Completed` 中通知对话玩法，见[选项、模式与事件](/read/stellainteraction-options#目标接口)。
+- **门、箱子**：直接派生现成的可开合 Actor，见[现成目标](/read/stellainteraction-openable)。
+
+## 没有按预期运行时
+
+| 现象                  | 先检查                                                                                                                     |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| 靠近了也没有提示      | 查询形状的碰撞预设是否为 `StellaInteractionTarget` 并开启了 Generate Overlap Events；是否加了提示组件并设置了 Widget Class |
+| 有提示，按 E 没有反应 | 目标的 Actor 是否勾选了 Replicates（联机时）；选项是否被禁用；事件是否绑在 `On Interaction Completed` 上                   |
+| 隔着墙也能交互        | 墙的碰撞预设是否阻挡 `StellaInteractionSight` 通道                                                                         |
+
+更多现象见[调试与排查](/read/stellainteraction-debugging)。
+
+代码位置：插件 `Plugins/GameSystems/StellaInteraction/Source`，`StellaInteraction/Public/Components/StellaInteractionTargetComponent.h`（目标与事件）、`StellaInteractionUI/Public/Components/StellaInteractionWidgetComponent.h`（场景提示）；碰撞通道与预设在项目 `Config/DefaultEngine.ini`。

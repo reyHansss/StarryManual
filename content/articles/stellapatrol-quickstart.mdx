@@ -1,0 +1,72 @@
+---
+title: StellaPatrol · 快速上手
+description: 摆两个圆形巡逻区域并连成路线，让一名 AI 在两者之间往返，在每个区域内漫游几秒；再换成由服务器代码或行为树启动巡逻。
+order: 111
+---
+
+这一篇在一块空地上摆两个圆形区域 A、B，并从 A 连到 B，让一名 AI 在两者之间往返巡逻，在每个区域里漫游约 5 秒。下面的 `BP_ExampleGuard` 是示例名称，需要你自己准备。
+
+**开始之前**：
+
+- 地图要有可用的导航，AI 能在上面走动。新地图怎样配置导航，见 [StellaNavigation 快速上手](/read/stellanavigation-quickstart)。
+- 准备一名由 AIController 控制、能沿导航移动的 AI，下文称 `BP_ExampleGuard`。Starry 的正式角色使用 `StarryAIController` 时，路径跟随已经接好。
+
+## 第一步：摆放两个区域
+
+1. 打开 **Place Actors** 面板，找到 **StellaPatrol** 分类，把两个 **Stella Patrol Ring** 拖到地面上，记作 A 和 B，彼此相隔十几米。
+2. 预期结果：每个区域在地面上显示一组采样点标记。圆形区域默认半径 350 cm，点距 150 cm，可以在 **Settings** 中修改 `Radius` 和 `Distance Between Points`。
+
+采样点只在编辑器里显示，打包后的游戏不会创建这些标记。
+
+## 第二步：从 A 连到 B
+
+1. 选中 A，在 **Links → Next Patrol Zone** 中添加一项，选择 B。
+2. 预期结果：A 与 B 之间出现一串方向箭头，有导航时沿导航路径排列；B 的 `Previous Patrol Zone` 自动出现 A。
+3. 把 A、B 的 `Next Zone Wait Time` 都设为 5 秒。默认值 0 表示到点后立刻前往下一个区域，不在区域里漫游。
+
+## 第三步：给 AI 挂巡逻组件
+
+1. 打开 `BP_ExampleGuard`，添加组件 **Stella Patrol**（`UStellaPatrolComponent`）。
+2. 把 `BP_ExampleGuard` 放进关卡，选中关卡中的这个实例，在它的 Stella Patrol 组件上设置：
+   - `First Zone` 选 A；
+   - 勾选 `Activate At Start`。
+
+`First Zone` 引用的是关卡里的 Actor，所以要在关卡实例上设置，蓝图类的默认值里选不到。
+
+## 第四步：运行
+
+运行 PIE，预期看到：
+
+1. AI 先走到 A 内离自己最近的采样点。
+2. 之后在 A 的采样点之间随机走动。5 秒停留时间从选中 A 时开始计算，包括走过去的时间。
+3. 停留时间到了以后，下一次到点时转向 B，走到 B 内离自己最近的采样点，同样漫游。
+4. B 没有正向连接，是路线的末端：停留结束后沿反向连接回到 A；A 是起点，再去 B，如此往返。
+
+以上预期按插件源码与自动化测试整理：测试覆盖了折返与实际路径跟随，按这些步骤在编辑器中搭建的流程没有经过运行验证。
+
+## 改成由代码或行为树启动
+
+自启动适合一直巡逻的 NPC。需要由决策决定什么时候巡逻时，保持 `Activate At Start` 关闭，改用下面任一方式：
+
+- **蓝图或 C++**：在服务器上调用组件的 `Toggle Patrol Movement`，传 true 开启、false 停止。它只在权威端生效，客户端调用会被忽略。
+- **行为树**：添加任务 `StellaPatrolBTTask_ExecutePatrol`（节点标题显示为 Stella Patrol）。任务进入时开启巡逻并保持运行；巡逻因移动失败而停止时任务失败；节点被中止或结束时停止巡逻。巡逻已经开启时（例如勾选了 `Activate At Start`），这个任务会直接失败，两种方式不要同时使用。
+
+开启时组件总是从 `First Zone` 开始；没有设置时，按组件的 `Search Params` 查询附近的区域，见[区域与路线](/read/stellapatrol-zones#第一次选区与没有路线的区域)。
+
+## 没有按预期运行时
+
+| 现象                     | 先检查                                                                                                 |
+| ------------------------ | ------------------------------------------------------------------------------------------------------ |
+| AI 完全不动              | 巡逻是否已开启；是否在单机或服务器上运行；AI 是否由 AIController 控制                                  |
+| 走到第一个点前就停了     | 目标点能否在导航上走到：移动不接受部分路径；是否有行为树等其他系统给同一个 AIController 提交了新的移动 |
+| 一直在 A 里打转，不去 B  | 停留时间是否过长；B 的 `Weight` 是否为 0；B 是否生成了采样点                                           |
+| 没按连接走，去了别的区域 | 当前区域没有可用的连接时，会从所有已登记的区域中挑选；检查连接方向、目标区域的权重与采样点             |
+
+更完整的排查路线见[调试与排查](/read/stellapatrol-debugging)。
+
+## 接下来
+
+- 换用矩形、闭合样条区域，设计岔路、环线与区域权重：[区域与路线](/read/stellapatrol-zones)。
+- 让 AI 到点后等待、播放动作，或在途中改变速度：[移动与动作](/read/stellapatrol-movement#巡逻动作)。
+
+代码位置（插件 `Plugins/AI/StellaPatrol/Source/StellaPatrol`）：`StellaPatrolComponent`（开启、选区与移动）、`StellaPatrolRing`（圆形区域）、`StellaPatrolBTTask_ExecutePatrol`（行为树任务）；放置分类在 `Source/StellaPatrolEditor/Private/StellaPatrolEditor.cpp`。

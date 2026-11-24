@@ -1,0 +1,58 @@
+---
+title: StellaInteraction · 调试与排查
+description: 按“候选 → 焦点 → 提示 → 请求 → 结算”的顺序定位交互问题；常见现象的检查表，联机下的注意事项，以及项目自动化测试覆盖的场景。
+section: [调试与排查]
+order: 129
+---
+
+一次交互要依次经过候选、焦点、提示、请求和结算五个环节，问题通常出在最先断开的那一环。这一篇给出逐环检查的方法、常见现象的检查表和联机时的注意事项。
+
+## 逐环检查
+
+| 环节 | 怎样确认                                                                                                    |
+| ---- | ----------------------------------------------------------------------------------------------------------- |
+| 候选 | 在目标组件的本地事件 `On Target Registered` 中打印；没有触发说明扫描碰撞体与查询形状没有重叠                |
+| 焦点 | 在 `On Focus Applied` 中打印，或在本地读取交互管理器的 `Get Focused Target`                                 |
+| 提示 | 焦点存在但没有提示：检查提示组件的 `Widget Class`，以及选项是否被禁用                                       |
+| 请求 | 在服务器事件 `On Interaction Started` 中打印；没有触发说明服务器的校验没通过，或按键没有到达交互管理器      |
+| 结算 | `On Interaction Completed` 没有触发：检查模式的完成条件，以及目标接口的 `Execute Interaction` 是否返回 true |
+
+查看碰撞可以在游戏中输入控制台命令 `show collision`。交互示例地图的左上角会显示当前的聚焦方式和目标，这是示例控制器的功能，正式游戏没有。
+
+## 常见现象
+
+| 现象                               | 检查                                                                                                                                                                                                                         |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 靠近了也没有任何反应               | 玩家 Pawn 是否有交互管理器，以及带 `Interaction.Component.InteractableScan` 组件标签、预设为 `StellaInteractionSource` 的形状；目标是否有 `StellaInteractionTarget` 预设的查询形状；两边是否都开启了 Generate Overlap Events |
+| 有候选但选不中                     | 距离是否超过 `Line Of Sight Distance`（默认 200 cm，按 Pawn 中心到交互点计算）；交互点是否被遮挡；选项是否都被禁用或被目标接口拒绝                                                                                           |
+| 摄像机射线或鼠标光标模式选不中     | 目标的网格是否能被 Visibility 射线命中；查询形状的预设忽略 Visibility                                                                                                                                                        |
+| 隔着墙也能交互                     | 墙的碰撞是否阻挡 `StellaInteractionSight`：这个通道默认忽略，只有 `BlockAll` 等四个预设改为阻挡                                                                                                                              |
+| 交互点在墙后，明明看得见却说被遮挡 | 交互点是否埋进了别的物体；遮挡射线从胶囊中心射向交互点，只有命中目标自己的 Actor 才算可见                                                                                                                                    |
+| 有提示，按键没反应                 | 输入配置中是否有 `StarryInputHandler_Interact`；处理器的 `Interaction Type` 是否与选项匹配；是否误勾了 `Cancel Interaction`                                                                                                  |
+| 长按总被取消                       | 是否在时长内松开；角色是否在按住期间走出了距离或被遮挡；按键映射上是否加了 Hold 等触发器，导致 `Canceled` 被当作松开                                                                                                         |
+| 连按很快归零                       | `Mash Decay Per Second` 是否过大，或 `Mash Gain Per Press` 过小；同一选项相隔不足 0.03 秒的按下会被忽略                                                                                                                      |
+| 完成事件触发了，但玩法没反应       | 事件只在服务器上触发；客户端需要看到的变化要由目标复制                                                                                                                                                                       |
+| 提示文案不对                       | 目标实现的 `Get Display Text For Interaction` 是否返回了覆盖文案；提示控件的 `Interaction Summary Query` 是否筛掉了想显示的选项                                                                                              |
+| 上锁的门打不开                     | 是否配置了 `Key Resolver Class`；项目目前没有现成的钥匙解析器，见[现成目标](/read/stellainteraction-openable#钥匙与解锁)                                                                                                     |
+
+## 联机时的注意事项
+
+- **复制**：玩家 Pawn 与目标 Actor 都要复制。交互目标的选项随 Actor 复制，候选与进度只复制给发起者。
+- **事件在服务器**：`On Interaction Started` 等四个事件只在服务器上运行；其他玩家看到的表现由目标自己复制，例如用 RepNotify 变量或多播事件。
+- **提示只在本地**：提示控件与按键图标只在本地玩家的客户端创建，专用服务器不创建控件。
+- **进度显示**：客户端的进度环按服务器时间推算，网络延迟只影响显示的起点，完成与否以服务器为准。
+
+## 自动化测试
+
+项目测试 `Starry.Interaction.Execution` 分别在 Standalone、Listen 与 Dedicated 下运行，覆盖：
+
+- 单次、长按、快速连按、累计按键的事件顺序、完成与取消；
+- 一次性选项完成后禁用，按下回调中禁用选项会取消这一轮交互；
+- 目标离开扫描范围或超出交互距离时取消，玩家失去 Pawn 时目标收到取消；
+- 请求经过真实的远端连接到达权威端；
+- 摄像机射线与鼠标光标从重叠候选中选中目标；
+- 默认提示 `W_Interaction` 显示文案、进度环随时间增长与回落，失去焦点后隐藏。
+
+运行方式见[运行自动化测试](/read/start-workflow#运行自动化测试)。
+
+代码位置：交互管理器 `Plugins/GameSystems/StellaInteraction/Source/StellaInteraction/Private/Components/StellaInteractionManagerComponent.cpp`（候选、可达判断与模式判定）；项目测试 `Source/StarryEditor/Tests/StellaInteractionTests.cpp`；交互示例的控制器与 HUD 在 `Source/StarrySample/Interaction`。

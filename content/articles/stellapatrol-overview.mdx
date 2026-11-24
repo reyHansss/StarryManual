@@ -1,0 +1,77 @@
+---
+title: StellaPatrol · 模块总览
+description: StellaPatrol 让 NPC 在关卡里摆放的巡逻区域之间按路线往返，并在区域内漫游。本文介绍区域、连接、巡逻组件与动作几个概念，一次巡逻怎样运行，以及它在 Starry 中的接入现状。
+order: 110
+terms:
+  - term: 巡逻区域
+    aliases: [AStellaPatrolZone, Patrol Zone]
+    brief: 摆放在关卡里的巡逻目标，有点、圆形、矩形和闭合样条四种。它保存采样点、连接、权重、标签与动作模板，被所有 NPC 共用，不保存某个 NPC 的执行状态。
+  - term: 采样点
+    aliases: [PatrolPoints, Distance Between Points]
+    brief: 区域在编辑时按固定间隔生成的候选目标点，以区域 Actor 的局部坐标保存。NPC 每次移动的目标都是其中一个点。
+  - term: 区域连接
+    aliases: [Next Patrol Zone, Previous Patrol Zone]
+    brief: 区域之间的有向连接。正向连接在区域上填写，反向连接由编辑器自动维护；NPC 按正向连接前进，走到末端后沿反向连接折返。
+  - term: 巡逻组件
+    aliases: [UStellaPatrolComponent, Stella Patrol 组件]
+    brief: 挂在 NPC Pawn 上的组件，持有这名 NPC 的前进方向、当前区域、移动请求与动作实例，只在服务器或单机上运行。
+  - term: 区域索引
+    aliases: [UStellaPatrolSubsystem]
+    brief: 每个游戏世界一份的区域登记表，按标签、距离和权重查询可用的区域。区域开始运行时自动登记，结束时注销。
+  - term: 巡逻动作
+    aliases: [UStellaPatrolAction, Navigation Actions, Zone Actions]
+    brief: 配置在区域上的动作模板，分为移动途中执行的移动动作和到点后依次执行的到点动作。每次执行时为当前 NPC 复制一份。
+---
+
+StellaPatrol 是项目的巡逻插件。在关卡里摆放巡逻区域，用连接把区域串成路线；NPC 挂上巡逻组件后，就会沿路线在区域之间移动，在区域内的采样点之间漫游，并在每个落脚点执行区域配置的动作。移动直接使用 AIController 的原生 MoveTo，在 Starry 中由 StellaNavigation 负责寻路。
+
+## 它能做什么
+
+- **按路线巡逻**：区域连成路线，岔路按目标区域的权重随机选择，走到末端后折返；首尾相接的连接形成环线。
+- **在区域内漫游**：在一个区域停留期间，NPC 在区域的采样点之间随机走动，停留时间到了才去下一个区域。
+- **没有路线时就近挑选**：区域没有可用的连接时，按标签、距离和权重从已登记的区域中挑一个。
+- **途中与到点的动作**：移动途中可以同时执行动作，例如改变移动速度；每次到点后依次执行动作，例如等待、播放蒙太奇。这几个例子都是插件测试内容里的示例蓝图。
+
+## 核心概念
+
+<Terms />
+
+## 一次巡逻怎样运行
+
+<Diagram
+  title="巡逻组件的循环"
+  source={
+    'flowchart TD\n  Start(开启巡逻) --> Pick(选定区域：First Zone，或查询区域索引)\n  Pick --> Closest(走向区域内离自己最近的采样点)\n  Closest --> Arrive(到达后依次执行到点动作)\n  Arrive --> Wait{停留时间到了吗}\n  Wait -->|没到| Roam(在本区域随机选一个采样点走过去)\n  Roam --> Arrive\n  Wait -->|到了| Next(按连接选下一个区域；没有可用连接时查询区域索引)\n  Next --> Closest'
+  }
+/>
+
+几条贯穿全程的规则：
+
+- **一次只有一个移动请求**：组件记住自己提交的请求，停止或切换时只取消属于自己的那一个，不会误停其他系统后来提交的移动。
+- **移动失败就停下**：路径找不到、移动被中止，或其他系统给同一个 AIController 提交了新移动，巡逻随之停止，不在后台反复抢回移动。
+- **找不到区域就等待**：开启时一个可选区域都没有，组件保持开启，之后每帧重新查询，等区域出现。
+- **只在权威端运行**：开启、停止和切换区域都只在服务器或单机上生效。
+
+## 在 Starry 中的接入
+
+- **插件已启用，但不会自动巡逻**：Starry 只启用了插件，不会给角色自动添加巡逻组件，也不会自动启动巡逻。需要巡逻的 Pawn 自己挂组件，见[快速上手](/read/stellapatrol-quickstart)。
+- **怎样启动**：组件自启动（`Activate At Start`）、在服务器上调用 `Toggle Patrol Movement`，或者在行为树中使用任务 Stella Patrol，见[移动与动作](/read/stellapatrol-movement#开启与停止)。StellaUtilityAI、StateTree 和 HTN 目前没有巡逻专用的节点，这些后端可以直接调用组件的蓝图接口。
+- **示例内容不进包**：示例动作蓝图放在插件的 `/StellaPatrol/Tests`，项目配置为永不 Cook，正式内容不要引用它们。
+- **可以独立复用**：插件不依赖 Starry、StellaUtilityAI 或 GAS，复制到其他工程时需要在那边手动启用。
+
+<Note title="导航示例里的“巡逻 AI”不是 StellaPatrol">
+
+导航示例地图中的 `BP_NavigationPatrolAgent` 只是每隔 0.5 秒调用一次 `MoveToActor`，在两个目标之间往返，没有使用本插件。想看 StellaPatrol 的效果，按[快速上手](/read/stellapatrol-quickstart)自己摆放区域。
+
+</Note>
+
+## 从哪里开始读
+
+| 你要做的事                                   | 阅读                                       |
+| -------------------------------------------- | ------------------------------------------ |
+| 第一次让一名 AI 巡逻起来                     | [快速上手](/read/stellapatrol-quickstart)  |
+| 选择区域形状、连成路线、控制停留与选区       | [区域与路线](/read/stellapatrol-zones)     |
+| 控制开始与停止、移动参数，编写途中与到点动作 | [移动与动作](/read/stellapatrol-movement)  |
+| AI 不动、走一下就停、路线不对                | [调试与排查](/read/stellapatrol-debugging) |
+
+代码位置：插件 `Plugins/AI/StellaPatrol`，运行时在 `Source/StellaPatrol`（`StellaPatrolComponent`、`StellaPatrolZone` 及四种区域、`StellaPatrolSubsystem`、`StellaPatrolAction`、`StellaPatrolBTTask_ExecutePatrol`），编辑器放置分类与自动化测试在 `Source/StellaPatrolEditor`。

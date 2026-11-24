@@ -1,0 +1,94 @@
+---
+title: StellaNavigation · 模块总览
+description: StellaNavigation 让 AI 在固定地面和移动平台上寻路、跨平台行走，并用完整跨度的连接与自动分析的通道把各处连起来。本文介绍它解决的问题、核心概念、整体结构，以及它怎样接入 Starry。
+order: 100
+terms:
+  - term: StellaNavigationData
+    aliases: [AStellaNavigationData, Stella NavData]
+    brief: 每种导航代理一份的导航数据，统一管理固定地面、移动平台、连接与路径查询。Starry 的项目代理默认使用它。
+  - term: 导航实例
+    aliases: [Section, Section 0]
+    brief: 导航数据中的一块独立网格和它的刚体参考系。固定地面是编号 0 的实例，每个登记的平台表面各是一个实例。
+  - term: 导航表面
+    aliases: [UStellaNavigationSurfaceComponent, Stella Navigation Surface]
+    brief: 挂在移动平台 Actor 上的组件，指定平台的碰撞来源和局部导航资产，把平台登记成一个导航实例，并逐帧同步它的位姿与速度。
+  - term: 局部导航资产
+    aliases: [ANM, ANM_, UStellaNavigationMeshAsset]
+    brief: 平台在自身坐标系下烘焙出的导航网格，同时保存代理规格、碰撞来源、手工配置与烘焙出的连接。几何相同的平台可以共用一份。
+  - term: Stella NavLink
+    aliases: [UStellaNavigationLinkComponent, StellaNavigationLinkProxy, UserEdge, 用户边]
+    brief: 连接两个导航实例（或同一实例两处）的完整跨度连接。两端各有一条端线，分别随所属的平台或固定世界运动；启停、区域与穿越回调沿用 UE 原生 NavLink。
+  - term: 端线
+    aliases: [Portal, First Portal, Second Portal]
+    brief: 连接一端的可通行线段。宽度至少要容纳代理直径，路径可以从线段上的任意位置进出。
+  - term: 遍历分析
+    aliases: [Traversal Analysis, Analyzer, 分析器]
+    brief: 烘焙平台或构建地面导航时，按代理尺寸自动寻找跳跃、攀上、翻越、下穿、下落与阳台翻越的通道，结果保存为连接；动作本身由玩法执行。
+  - term: 相对目标
+    aliases: [FStellaNavigationGoal, Relative Surface]
+    brief: 以某个导航表面的局部坐标表示的移动目标。平台移动后重新寻路，仍然指向平台上的同一位置。
+---
+
+StellaNavigation 是项目的导航插件。它在 UE 原生 Recast 导航网格之上，让 AI 能在移动平台上寻路和行走，用完整跨度的连接把地面与平台、平台与平台连起来，并自动分析跳跃、攀爬等通道。请求移动、取消与完成通知仍然沿用 UE 原生的 AI MoveTo 与路径跟随，业务代码不需要知道目标在哪个平台上。
+
+## 它解决什么问题
+
+- **移动平台上的导航**：船、电梯、转台上的导航随平台平移和旋转，运行时不重建网格；AI 站在平台上时，移动速度相对脚下的平台计算。
+- **跨平台的一次寻路**：一条路径可以依次经过地面、多个平台以及它们之间的连接。
+- **完整跨度的连接**：连接两端是线段而不是点，路径可以从线段上任意位置穿过；两端可以分别绑在不同的平台上。
+- **自动通道**：按代理尺寸自动找出可以跳跃、攀上、翻越、下穿、下落、阳台翻越的位置，并生成连接。
+- **运行时的变化**：运动中的障碍实时切开导航网格，连接可以成组增删；受影响的路径自动重新寻路。
+
+**不做的事**：不提供飞行等三维体积导航；不驱动平台、门或电梯的运动；跳跃、攀爬、乘梯等动作的执行由玩法实现，导航只负责规划和在连接入口交出控制。
+
+## 核心概念
+
+<Terms />
+
+## 整体结构
+
+<Diagram
+  title="一种代理的导航数据，以及一次移动的流向"
+  source={
+    'flowchart LR\n  subgraph NavData[StellaNavigationData：每种代理一份]\n    Ground(实例 0：固定地面，UE Recast 构建)\n    P1(平台实例：导航表面 + 局部导航资产)\n    P2(平台实例)\n  end\n  Ground <-->|NavLink 或自动通道| P1\n  P1 <-->|NavLink| P2\n  Request(AI MoveTo 或 Move To Goal) --> Path(路径：每段保存在所属实例的局部坐标)\n  NavData --> Path\n  Path --> Follower(Stella 路径跟随组件)\n  Follower --> Mover(Stella NavMover 与 Mover 角色)'
+  }
+/>
+
+- **地面**：仍由 UE 原生 Recast 体素化生成，是编号 0 的实例，构建方式与普通 UE 项目相同。
+- **平台**：在编辑器里烘焙成局部导航资产，运行时由导航表面登记为独立的实例。平台平移、旋转只更新它的参考系，不重建网格。
+- **连接**：关卡中放置的 NavLink、资产内的手工连接、自动分析出的通道，统一成完整跨度连接参与寻路。
+- **路径**：每个路径点保存在所属实例的局部坐标里，平台移动时已有路径随之移动。
+- **跟随**：路径跟随组件按角色当前位置实时计算前进方向，输出相对脚下实际支撑面的速度，由 Stella NavMover 交给 Mover。
+
+## 在 Starry 中怎样接入
+
+**项目配置**（`Config/DefaultEngine.ini`）：
+
+- **导航系统**：项目默认导航系统类为 `StellaNavigationSystem`。
+- **代理**：唯一的代理 `StarryCharacter` 使用 `StellaNavigationData`，半径 35 cm、高度 175 cm、步高 30 cm，支持蹲伏。代理尺寸不会修改角色胶囊，体型不同的角色需要另配代理。
+- **Recast 生成参数**：Tile 边长 1216 cm；分辨率 Low 的体素为 38 × 10 cm，Default 与 High 为 19 × 10 cm。StellaNavigationData 继承这些设置，平台烘焙读取 Default 分辨率。
+
+**正式角色**：
+
+- **AI 控制器**：`StarryAIController` 使用 Stella 的路径跟随组件，并覆写了 MoveTo 与路径合并，保留投影前的请求目标，支持原生的路径续接。
+- **角色**：`StarryCharacter` 默认创建 Stella NavMover（项目子类 `UStarryAINavMoverComponent`）。角色的胶囊与网格默认关闭 `Can Ever Affect Navigation`，避免编辑器烘焙时在角色脚下挖出空洞。
+
+**示例与测试**：
+
+- **示例地图** `/Game/Samples/Navigation/L_Navigation`：三层电梯、双平台会合跳跃、动态障碍、移动旋转圆盘四个区域，见[快速上手](/read/stellanavigation-quickstart)。
+- **独立测试工程**：导航插件另有不进正式工程的测试插件，由脚本复制到隔离工程中编译运行，见[调试与排查](/read/stellanavigation-debugging#测试工程与脚本)。
+
+## 从哪里开始读
+
+| 你要做的事                                     | 阅读                                                 |
+| ---------------------------------------------- | ---------------------------------------------------- |
+| 看效果，或让一名 AI 在新地图和平台上走起来     | [快速上手](/read/stellanavigation-quickstart)        |
+| 给船、电梯、转台配置导航                       | [移动平台](/read/stellanavigation-platforms)         |
+| 手工连接两处导航，或让 AI 在入口执行自定义动作 | [导航连接](/read/stellanavigation-links)             |
+| 自动生成跳跃、攀上、翻越等通道                 | [自动遍历通道](/read/stellanavigation-traversal)     |
+| 请求移动、指向平台上的位置、异步查询           | [请求移动](/read/stellanavigation-movement)          |
+| 运动的障碍物、角色之间的避让                   | [动态障碍与避让](/read/stellanavigation-obstacles)   |
+| 异步数据更新、关卡流送和 C++ 扩展接口          | [数据更新与扩展接口](/read/stellanavigation-runtime) |
+| 显示导航、排查 AI 不走或停在入口               | [调试与排查](/read/stellanavigation-debugging)       |
+
+代码位置：插件 `Plugins/AI/StellaNavigation`，运行时在 `Source/StellaNavigation`（`StellaNavigationData`、`Sections/StellaNavigationSurfaceComponent`、`Links`、`Movement`、`Traversal`、`Obstacles`），编辑器工具在 `Source/StellaNavigationEditor`；项目接入在 `Source/StarryGame/Framework/AI/StarryAIController` 与 `Framework/Character/StarryCharacter`。

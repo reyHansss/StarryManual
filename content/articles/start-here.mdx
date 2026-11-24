@@ -27,7 +27,7 @@ Starry 是一个 Unreal Engine 游戏项目，运行在自维护的源码引擎 
 
 | 范围      | 已有能力                                                                                                        |
 | --------- | --------------------------------------------------------------------------------------------------------------- |
-| 框架      | 四类角色（玩家、AI、NPC、怪物）、移动、能力与战斗、输入、装备、背包、阵营、相机、设置与界面                     |
+| 框架      | 四类角色（玩家、AI、NPC、怪物）、移动、能力与战斗、输入、场景交互、装备、背包、阵营、相机、设置与界面           |
 | 玩法      | 生态运行框架、怪物伤害与伤口、怪物状态、任务、前端流程                                                          |
 | AI 与导航 | StellaUtilityAI 组合决策及 BT／StateTree／HTN 后端、StellaCoordination 群体协调、StellaNavigation、StellaPatrol |
 | 工具      | StellaDebug 调试面板与远程查看、模块化编译工具 Starry UE Build                                                  |
@@ -54,7 +54,10 @@ Starry 只能用 StarryUE 编译，原因见[环境搭建](/read/start-setup)。
 | 一局游戏怎样启动、角色怎样组成 | [游戏框架](/read/framework-overview)                                                  |
 | 配置 AI 决策                   | [StellaUtilityAI](/read/stellautilityai-overview)                                     |
 | 让一群 AI 分工协作             | [StellaCoordination](/read/stellacoordination-overview)                               |
+| 让 AI 寻路、在移动平台上行走   | [StellaNavigation](/read/stellanavigation-overview)                                   |
+| 让 NPC 沿路线巡逻              | [StellaPatrol](/read/stellapatrol-overview)                                           |
 | 新增玩家操作                   | [Input](/read/input-overview)                                                         |
+| 做可以按键交互的场景物体       | [StellaInteraction](/read/stellainteraction-overview)                                 |
 | 运行时观察与调试               | [StellaDebug](/read/stelladebug-overview)                                             |
 | 系统之间发通知、异步加载资源   | [Async Message](/read/asyncmessage-overview)、[AsyncMixin](/read/asyncmixin-overview) |
 | 遇到不认识的名词               | 页眉的“术语”，或按 `Ctrl K` 搜索                                                      |
@@ -67,7 +70,7 @@ Starry 只能用 StarryUE 编译，原因见[环境搭建](/read/start-setup)。
 - **交互演示**：带“交互演示”标签的卡片可以直接操作，计算规则与项目源码一致。
 - **关系图谱**：根据文章之间的链接生成，表示“可以一起读”，不表示代码依赖。
 
-目前已经写成专题的模块有游戏框架、StellaUtilityAI、StellaCoordination、StellaDebug、Input、Async Message 与 AsyncMixin，其余系统会陆续补齐。
+目前已经写成专题的模块有游戏框架、StellaUtilityAI、StellaCoordination、StellaNavigation、StellaPatrol、StellaDebug、Input、StellaInteraction、Async Message 与 AsyncMixin，其余系统会陆续补齐。
 
 文中的约定：
 

@@ -1,0 +1,77 @@
+---
+title: StellaInteraction · 输入与提示
+description: 交互键怎样经过 Starry 的输入处理器交给交互管理器，怎样为某个选项或取消单独配键；场景提示组件与提示控件怎样显示文案、按键图标和进度，以及怎样做自己的提示界面。
+section: [输入与提示]
+order: 124
+---
+
+按键与提示都只在本地：输入处理器把按下和松开交给当前 Pawn 的交互管理器，提示控件读取管理器的交互摘要来显示文案、按键图标和进度。这一篇说明两者的配置，以及怎样替换成自己的提示界面。
+
+## 交互键
+
+正式的 `BP_StarryPlayerController` 已经加载输入配置 `IS_Interaction`：
+
+| 资产              | 内容                                                         |
+| ----------------- | ------------------------------------------------------------ |
+| `IA_Interaction`  | 布尔型 Input Action                                          |
+| `IMC_Interaction` | 键盘 E、手柄左侧面键                                         |
+| `IS_Interaction`  | 把 `IA_Interaction` 交给处理器 `StarryInputHandler_Interact` |
+
+这些资产在 `/Game/Blueprints/Input`。处理器 `StarryInputHandler_Interact` 在编辑器中显示为 **Interaction: Press, Release or Cancel**：
+
+- **事件**：在 `Started` 时按下，在 `Completed` 与 `Canceled` 时松开。按键映射使用普通按键即可，不要加 Hold 等触发器：长按时长由服务器按选项计算。
+- **`Interaction Type`**：留空时使用焦点目标的默认选项；指定后，这个键只触发该类型的选项。
+- **`Cancel Interaction`**：勾选后，这个键用来取消当前的交互。
+- **不参与输入缓存**：处理器关闭了 `bCanBeBuffered`，交互输入不会被[通道输入缓存](/read/input-buffer)延后。
+- **松开要匹配**：只有按下时使用的那个 Input Action 松开，才算松开。
+
+例如给对话单独配一个键（示例）：新建 Input Action `IA_ExampleTalk`，映射到 F，在输入配置中交给一个 `StarryInputHandler_Interact`，把它的 `Interaction Type` 设为 `Interaction.Type.Talk`。这样 E 仍然触发默认选项，F 只触发对话。Input Setup 的创建与映射见[配置与生命周期](/read/input-binding)，玩家改键见[改键与玩家设置](/read/input-settings)。
+
+## 按键图标怎样确定
+
+提示上显示哪个键，按下面的顺序决定：
+
+1. **找动作**：Starry 的 InputManager 为交互管理器提供查找函数：优先找 `Interaction Type` 与选项相同的交互处理器所在的 Input Action，找不到时用 `Interaction Type` 留空的那个。取消用的处理器不参与。
+2. **找按键**：查询映射到这个动作的按键，取第一个与当前输入设备一致的：键鼠、手柄或触屏。
+3. **显示**：Common Input 的平台设置中有这个键的图标时显示图标，否则显示按键名称。切换输入设备时自动刷新。
+
+所以，玩家改键之后提示会显示新的按键；同时配置了 E 与 F 两个交互键时，对话选项显示 F。
+
+## 场景提示组件
+
+在目标 Actor 上添加 **Stella Interaction Widget**（`UStellaInteractionWidgetComponent`，基于引擎的 Widget Component），`Widget Class` 选 `/StellaInteraction/Blueprints/UI/W_Interaction` 或自己的提示控件：
+
+- **绑定时机**：这个目标成为本地玩家的候选时，组件把提示控件绑定到该玩家的交互管理器和这个目标；不再是候选时解除绑定。提示只在目标成为焦点时显示。
+- **默认屏幕空间**：组件默认使用屏幕空间，提示始终正对屏幕。改为世界空间时，可以在类默认值中开启 `Rotate To Player Camera`，让提示转向玩家相机，`Lock Pitch For Rotation` 保留俯仰，`Rotation Interp Speed` 控制转动速度（默认 10）。
+- **专用服务器不创建控件**。
+- **需要知道所属 Actor 的控件**：实现接口 `StellaInteractionActorAwareInterface`，绑定时会收到 `Set Interaction Actor`。
+
+## 提示控件
+
+默认的 `W_Interaction` 显示键帽、标题、可选的说明和进度环。做自己的提示时，新建 Widget Blueprint，父类选 `StellaInteractionPromptWidget`，按名称放置需要的控件，全部是可选绑定：
+
+| 控件名称            | 类型      | 显示内容                                     |
+| ------------------- | --------- | -------------------------------------------- |
+| `Prompt`            | TextBlock | 选项文案；目标接口返回覆盖文案时显示覆盖文案 |
+| `PromptDescription` | TextBlock | 选项的说明，为空时折叠                       |
+| `InputGlyph`        | Image     | 当前设备的按键图标                           |
+| `InputKey`          | TextBlock | 没有图标时显示按键名称                       |
+| `ProgressRing`      | Image     | 长按与快速连按的进度                         |
+| `CountRing`         | Image     | 累计按键的进度                               |
+
+两个进度环使用带 `Percent` 标量参数的 UI 材质，取值 0～1；插件自带 `MI_StellaInteractionProgressRing` 和 `MI_StellaInteractionCountRing`。
+
+**动画与事件**：按名称绑定的五个可选动画 `Presented`、`Dismissed`、`Started`、`Completed`、`Cancelled`，分别在提示出现、消失、交互开始、完成和取消时播放；对应的蓝图事件 `Notify Interaction Presented` 等同时触发，可以在里面加音效。
+
+**类默认值中的设置**：
+
+| 设置                                       | 默认值             | 作用                                                                                               |
+| ------------------------------------------ | ------------------ | -------------------------------------------------------------------------------------------------- |
+| `Interaction Summary Query`                | 空                 | 用 Gameplay Tag 查询选项类型与优先级，只显示匹配的选项；留空时优先显示正在进行的选项，其次是主选项 |
+| `Visibility When Available`／`Unavailable` | 不可点击可见／折叠 | 有无可显示选项时控件的可见性                                                                       |
+| `Restore State After Dismissed Animation`  | 关闭               | 消失动画结束后是否恢复动画改过的属性                                                               |
+| `Restore State After Completed Animation`  | 开启               | 完成动画结束后是否恢复动画改过的属性                                                               |
+
+**不挂在目标上使用**：提示控件也可以放在 HUD 中，调用 `Set Interaction Source` 传入本地玩家的交互管理器；目标参数留空时，控件跟随管理器当前的焦点。
+
+代码位置：插件 `Plugins/GameSystems/StellaInteraction/Source/StellaInteractionUI`（`Components/StellaInteractionWidgetComponent`、`UI/Widgets/StellaInteractionPromptWidget`）；项目输入接入在 `Source/StarryGame/Framework/Input/Handlers/StarryInputHandler_Interact` 与 `Framework/Input/StarryInputManagerComponent`（`FindInteractionInputAction`）。

@@ -1,0 +1,74 @@
+---
+title: StellaInteraction · 候选与聚焦
+description: 扫描碰撞体怎样产生候选，一个目标要满足哪些条件才算可达；近距聚焦、摄像机射线、鼠标光标三种聚焦方式的选择规则与参数，以及在运行中切换聚焦方式。
+section: [候选与聚焦]
+order: 123
+---
+
+玩家周围往往同时有好几个可交互物体。StellaInteraction 分两步决定按键对谁生效：服务器先按碰撞重叠登记候选，本地再按聚焦方式从候选中选出焦点。这一篇说明两步各自的规则，以及“可达”的完整条件。
+
+## 候选怎样产生
+
+1. **找到扫描碰撞体**：交互管理器开始运行时，查找 Pawn 上带组件标签 `Interaction.Component.InteractableScan` 的形状组件。正式玩家角色使用一个半径 300 cm 的球，碰撞预设 `StellaInteractionSource`。
+2. **服务器监听重叠**：与扫描碰撞体重叠、并且挂有交互目标组件的 Actor 被登记为候选；不再重叠或目标结束运行时移出。出生时已经重叠的目标，在下一帧补登记。
+3. **只复制给自己**：候选列表只复制给这名玩家，其他玩家看不到。
+
+目标一侧需要一个查询形状：碰撞预设 `StellaInteractionTarget`，并开启 Generate Overlap Events。两个预设都属于对象通道 `StellaInteractionObject`，彼此产生重叠，忽略其他通道，不影响物理和视线。
+
+<Note title="一个 Actor 只有一个交互点">
+
+管理器取 Actor 上找到的第一个交互目标组件。同一个 Actor 需要多种交互时，在这个组件上配置多个选项；需要多个独立的交互点时，拆成多个 Actor。
+
+</Note>
+
+## 可达的条件
+
+选择焦点、按下时的服务器校验以及交互进行中的每一帧，都检查同一组条件：
+
+1. **在候选中**：目标在候选列表里，组件已注册，Actor 有效且没有在销毁。
+2. **距离**：Pawn 的位置到交互点（交互目标组件的位置）不超过 `Line Of Sight Distance`，默认 200 cm。
+3. **仍然重叠**：在服务器上，扫描碰撞体仍与目标 Actor 重叠。
+4. **没有遮挡**：从 Pawn 的胶囊中心到交互点，沿 `Line Of Sight Channel` 发射线；没有命中，或者命中的是目标自己的 Actor，就算可见。
+5. **有可用的选项**：至少一个选项启用、参数有效，并且目标接口允许，见[目标接口](/read/stellainteraction-options#目标接口)。
+
+距离与遮挡通道的项目默认值在项目设置的 **Stella Interaction** 页：`Line Of Sight Distance` 为 200 cm，`Line Of Sight Channel` 在 Starry 中配置为 `StellaInteractionSight`。每个交互管理器创建时复制这两个值，也可以在管理器的 **Interaction | Focus** 分类中按 Pawn 单独调整。
+
+## 三种聚焦方式
+
+交互管理器的 `Search Mode` 决定怎样从可达的候选中选焦点：
+
+| 聚焦方式         | 规则                                                                                                                        | 适合         |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| 近距聚焦（默认） | 按 Pawn 的朝向和距离给每个候选打分，取最高分                                                                                | 第三人称动作 |
+| 摄像机射线       | 从相机位置沿相机朝向发多重射线，长度为相机到角色的距离加上 `Line Of Sight Distance`；取第一个可达的命中目标，遇到阻挡就停止 | 准星瞄准     |
+| 鼠标光标         | 从光标位置反投影发射线；命中可达目标后，还要求沿遮挡通道的射线首先命中同一个 Actor                                          | 光标点选     |
+
+**近距聚焦的打分**：
+
+- 朝向分：Pawn 正前方与指向交互点方向的点积超过 `Min Dot For Bias`（默认 0.2）时，按超出部分折算为 0～1，否则为 0；
+- 距离分：1 ÷（1 + 距离厘米数）；
+- 总分 = 朝向分 × `Dot Weight`（默认 10）+ 距离分 × `Distance Weight`（默认 1000）。
+
+**射线使用的通道**：摄像机射线使用 `Camera Trace Channel`（默认 Visibility），鼠标光标固定使用 Visibility。查询形状的 `StellaInteractionTarget` 预设忽略 Visibility，所以使用这两种方式时，目标的网格要能被 Visibility 射线命中。
+
+**防止焦点闪烁**：当前焦点仍然可达时，新的最佳目标要等距上次切换满 `Min Switch Interval`（默认 0.2 秒）才会接替。
+
+## 焦点与进行中的交互
+
+- **长按与快速连按**：进行时焦点锁定在正在交互的目标上，不随朝向变化。
+- **累计按键**：停顿期间焦点可以自由切换。对另一个目标按下时，原来的次数清空。
+- **焦点只在本地**：服务器不知道焦点是谁，只校验客户端请求的那个目标是否可达。
+
+## 运行中切换与查询
+
+| 接口                                   | 说明                                                             |
+| -------------------------------------- | ---------------------------------------------------------------- |
+| `Set Search Mode`／`Get Search Mode`   | 在本地切换聚焦方式，下一次选择时生效；进行中的交互仍由原目标结算 |
+| `Get Focused Target`                   | 当前焦点，本地使用                                               |
+| `Get Interaction Summaries For Target` | 某个候选目标在本地的选项摘要，提示控件就是读取它                 |
+| `Get Interaction Manager Component`    | 函数库：从 Pawn 或控制它的 Controller 找到交互管理器             |
+| `Get Interaction Target Component`     | 函数库：找到 Actor 上的交互目标组件                              |
+
+交互示例地图可以在同一个站位比较三种聚焦方式，见[快速上手](/read/stellainteraction-quickstart#第一部分运行示例地图)。
+
+代码位置（插件 `Plugins/GameSystems/StellaInteraction/Source/StellaInteraction`）：`Components/StellaInteractionManagerComponent`（候选、可达判断与三种聚焦）、`StellaInteractionSettings`（距离与遮挡通道默认值）、`StellaInteractionFunctionLibrary`；碰撞通道与预设在项目 `Config/DefaultEngine.ini`。
